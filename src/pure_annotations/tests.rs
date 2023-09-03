@@ -86,9 +86,7 @@ fn run_test(input: &str, expected: &str) {
             println!(">>>>> Orig <<<<<\n{}", input);
             println!(">>>>> Code <<<<<\n{}", actual_src);
             panic!(
-                r#"assertion failed: `(left == right)`
-    {}"#,
-                ::testing::diff(&actual_src, &expected_src),
+                r#"assertion failed: `(left == right)`"#,
             );
         }
 

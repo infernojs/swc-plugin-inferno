@@ -15,6 +15,7 @@ mod jsx;
 mod pure_annotations;
 mod refresh;
 mod vnode_types;
+mod atoms;
 
 ///
 /// `top_level_mark` should be [Mark] passed to

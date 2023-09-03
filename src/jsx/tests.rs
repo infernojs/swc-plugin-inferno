@@ -15,7 +15,7 @@ use swc_ecma_transforms_compat::{
 use swc_ecma_transforms_module::common_js::common_js;
 use swc_ecma_transforms_testing::{parse_options, test, test_fixture, FixtureTestConfig, Tester};
 use swc_ecma_visit::FoldWith;
-use testing::NormalizedOutput;
+// use testing::NormalizedOutput;
 
 use super::*;
 use crate::{inferno, pure_annotations};
@@ -704,7 +704,7 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    should_transform_doubleckick_to_native_html_event,
+    should_transform_double_click_to_native_html_event,
     r#"
     <div onDoubleClick={foobar}></div>
     "#,

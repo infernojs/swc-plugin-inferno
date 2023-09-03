@@ -1,326 +1,162 @@
-CREATEVNODE
-CREATECOMPONENTVNODE
-CREATEFRAGMENT
-NORMALIZEPROPS
-INFERNO
-INFERNO
-CLASSNAME
-HTMLFOR
-ONDOUBLECLICK
-ONDBLCLICK
-REF
+use once_cell::sync::Lazy;
+use swc_atoms::{JsWord};
 
-CHILDFLAG
-HASVNODECHILDREN
-FLAGS
-HASTEXTCHILDREN
-HASNONKEYEDCHILDREN
-HASKEYEDCHILDREN
-HASTEXTCHILDREN
-RECREATE
-
-
-CHILDREN
-HATCH
-HATCHPATH
-MESH
-MESHGRADIENT
-MESHPATCH
-MESHROW
-SOLIDCOLOR
-ACCENTHEIGHT
-ALIGNMENTBASELINE
-ARABICFORM
-BASELINESHIFT
-CAPHEIGHT
-CLIPRULE
-COLORINTERPOLATION
-COLORINTERPOLATIONFILTERS
-COLORPROFILE
-COLORRENDERING
-DOMINANTBASELINE
-ENABLEBACKGROUND
-FILLOPACITY
-FILLRULE
-FLOODCOLOR
-FLOODOPACITY
-FONTFAMILY
-FONTSIZE
-FONTSIZEADJUST
-FONTSTRETCH
-FONTSTYLE
-FONTVARIANT
-FONTWEIGHT
-GLYPHNAME
-GLYPHORIENTATIONHORIZONTAL
-GLYPHORIENTATIONVERTICAL
-HORIZADVX
-HORIZORIGINX
-IMAGERENDERING
-LETTERSPACING
-LIGHTINGCOLOR
-MARKEREND
-MARKERMID
-MARKERSTART
-OVERLINEPOSITION
-OVERLINETHICKNESS
-PAINTORDER
-PANOSE1
-POINTEREVENTS
-RENDERINGINTENT
-SHAPERENDERING
-STOPCOLOR
-STOPOPACITY
-STRIKETHROUGHPOSITION
-STRIKETHROUGHTHICKNESS
-STROKEDASHARRAY
-STROKEDASHOFFSET
-STROKELINECAP
-STROKELINEJOIN
-STROKEMITERLIMIT
-STROKEOPACITY
-STROKEWIDTH
-TEXTDECORATION
-TEXTRENDERING
-UNDERLINEPOSITION
-UNDERLINETHICKNESS
-UNICODEBIDI
-UNICODERANGE
-UNITSPEREM
-VALPHABETIC
-VHANGING
-VIDEOGRAPHIC
-VMATHEMATICAL
-VECTOREFFECT
-VERTADVY
-VERTORIGINX
-VERTORIGINY
-WORDSPACING
-WRITINGMODE
-XHEIGHT
-XLINKACTUATE
-XLINKARCROLE
-XLINKHREF
-XLINKROLE
-XLINKSHOW
-XLINKTITLE
-XLINKTYPE
-XMLBASE
-XMLNSXLINK
-XMLLANG
-XMLSPACE
-
-ACCENT_HEIGHT
-ALIGNMENT_BASELINE
-ARABIC_FORM
-BASELINE_SHIFT
-CAP_HEIGHT
-CLIP_RULE
-COLOR_INTERPOLATION
-COLOR_INTERPOLATION_FILTERS
-COLOR_RENDERING
-DOMINANT_BASELINE
-ENABLE_BACKGROUND
-FILL_RULE
-FLOOD_COLOR
-FLOOD_OPACITY
-FONT_FAMILY
-GLYPH_NAME
-GLYPH_ORIENTATION_HORIZONTAL
-GLYPH_ORIENTATION_VERTICAL
-HORIZ_ADV_X
-HORIZ_ORIGIN_X
-LIGHTING_COLOR
-MARKER_END
-MARKER_MID
-MARKER_START
-OVERLINE_POSITION
-OVERLINE_THICKNESS
-RENDERING_INTENT
-SHAPE_RENDERING
-STOP_COLOR
-STOP_OPACITY
-STRIKETHROUGH_POSITION
-STRIKETHROUGH_THICKNESS
-STROKE_DASHOFFSET
-STROKE_LINECAP
-STROKE_LINEJOIN
-STROKE_MITERLIMIT
-STROKE_WIDTH
-UNDERLINE_POSITION
-UNDERLINE_THICKNESS
-UNICODE_RANGE
-UNITS_PER_EM
-V_ALPHABETIC
-V_HANGING
-V_IDEOGRAPHIC
-V_MATHEMATICAL
-VECTOR_EFFECT
-VERT_ADV_Y
-VERT_ORIGIN_X
-VERT_ORIGIN_Y
-X_HEIGHT
-XML_BASE
-FRAGMENT
-
-createVNode
-createComponentVNode
-createFragment
-normalizeProps
-Inferno
-inferno
-className
-htmlFor
-onDoubleClick
-onDblClick
-ref
-$ChildFlag
-$HasVNodeChildren
-$Flags
-$HasTextChildren
-$HasNonKeyedChildren
-$HasKeyedChildren
-$HasTextChildren
-$ReCreate
-children
-hatch
-hatchpath
-mesh
-meshgradient
-meshpatch
-meshrow
-solidcolor
-accentHeight
-alignmentBaseline
-arabicForm
-baselineShift
-capHeight
-clipRule
-colorInterpolation
-colorInterpolationFilters
-colorProfile
-colorRendering
-dominantBaseline
-enableBackground
-fillOpacity
-fillRule
-floodColor
-floodOpacity
-fontFamily
-fontSize
-fontSizeAdjust
-fontStretch
-fontStyle
-fontVariant
-fontWeight
-glyphName
-glyphOrientationHorizontal
-glyphOrientationVertical
-horizAdvX
-horizOriginX
-imageRendering
-letterSpacing
-lightingColor
-markerEnd
-markerMid
-markerStart
-overlinePosition
-overlineThickness
-paintOrder
-panose1
-pointerEvents
-renderingIntent
-shapeRendering
-stopColor
-stopOpacity
-strikethroughPosition
-strikethroughThickness
-strokeDasharray
-strokeDashoffset
-strokeLinecap
-strokeLinejoin
-strokeMiterlimit
-strokeOpacity
-strokeWidth
-textDecoration
-textRendering
-underlinePosition
-underlineThickness
-unicodeBidi
-unicodeRange
-unitsPerEm
-vAlphabetic
-vHanging
-vIdeographic
-vMathematical
-vectorEffect
-vertAdvY
-vertOriginX
-vertOriginY
-wordSpacing
-writingMode
-xHeight
-xlinkActuate
-xlinkArcrole
-xlinkHref
-xlinkRole
-xlinkShow
-xlinkTitle
-xlinkType
-xmlBase
-xmlnsXlink
-xmlLang
-xmlSpace
-accent-height
-alignment-baseline
-arabic-form
-baseline-shift
-cap-height
-clip-rule
-color-interpolation
-color-interpolation-filters
-color-rendering
-dominant-baseline
-enable-background
-fill-rule
-flood-color
-flood-opacity
-font-family
-glyph-name
-glyph-orientation-horizontal
-glyph-orientation-vertical
-horiz-adv-x
-horiz-origin-x
-lighting-color
-marker-end
-marker-mid
-marker-start
-overline-position
-overline-thickness
-rendering-intent
-shape-rendering
-stop-color
-stop-opacity
-strikethrough-position
-strikethrough-thickness
-stroke-dashoffset
-stroke-linecap
-stroke-linejoin
-stroke-miterlimit
-stroke-width
-underline-position
-underline-thickness
-unicode-range
-units-per-em
-v-alphabetic
-v-hanging
-v-ideographic
-v-mathematical
-vector-effect
-vert-adv-y
-vert-origin-x
-vert-origin-y
-x-height
-xml:base
-
-Fragment
+pub const ATOM_CREATE_VNODE: Lazy<JsWord> = Lazy::new(|| "createVNode".into());
+pub const ATOM_CREATE_COMPONENT_VNODE: Lazy<JsWord> = Lazy::new(|| "createComponentVNode".into());
+pub const ATOM_CREATE_FRAGMENT: Lazy<JsWord> = Lazy::new(|| "createFragment".into());
+pub const ATOM_NORMALIZE_PROPS: Lazy<JsWord> = Lazy::new(|| "normalizeProps".into());
+pub const ATOM_INFERNO_CAPS: Lazy<JsWord> = Lazy::new(|| "Inferno".into());
+pub const ATOM_INFERNO: Lazy<JsWord> = Lazy::new(|| "inferno".into());
+pub const ATOM_CLASSNAME: Lazy<JsWord> = Lazy::new(|| "className".into());
+pub const ATOM_HTML_FOR: Lazy<JsWord> = Lazy::new(|| "htmlFor".into());
+pub const ATOM_ON_DOUBLE_CLICK: Lazy<JsWord> = Lazy::new(|| "onDoubleClick".into());
+pub const ATOM_ON_DBL_CLICK: Lazy<JsWord> = Lazy::new(|| "onDblClick".into());
+pub const ATOM_REF: Lazy<JsWord> = Lazy::new(|| "ref".into());
+pub const ATOM_CHILD_FLAG: Lazy<JsWord> = Lazy::new(|| "$ChildFlag".into());
+pub const ATOM_HAS_VNODE_CHILDREN: Lazy<JsWord> = Lazy::new(|| "$HasVNodeChildren".into());
+pub const ATOM_FLAGS: Lazy<JsWord> = Lazy::new(|| "$Flags".into());
+pub const ATOM_HAS_TEXT_CHILDREN: Lazy<JsWord> = Lazy::new(|| "$HasTextChildren".into());
+pub const ATOM_HAS_NON_KEYED_CHILDREN: Lazy<JsWord> = Lazy::new(|| "$HasNonKeyedChildren".into());
+pub const ATOM_HAS_KEYED_CHILDREN: Lazy<JsWord> = Lazy::new(|| "$HasKeyedChildren".into());
+pub const ATOM_RECREATE: Lazy<JsWord> = Lazy::new(|| "$ReCreate".into());
+pub const ATOM_CHILDREN: Lazy<JsWord> = Lazy::new(|| "children".into());
+pub const ATOM_HATCH: Lazy<JsWord> = Lazy::new(|| "hatch".into());
+pub const ATOM_HATCH_PATH: Lazy<JsWord> = Lazy::new(|| "hatchpath".into());
+pub const ATOM_MESH: Lazy<JsWord> = Lazy::new(|| "mesh".into());
+pub const ATOM_MESH_GRADIENT: Lazy<JsWord> = Lazy::new(|| "meshgradient".into());
+pub const ATOM_MESH_PATCH: Lazy<JsWord> = Lazy::new(|| "meshpatch".into());
+pub const ATOM_MESH_ROW: Lazy<JsWord> = Lazy::new(|| "meshrow".into());
+pub const ATOM_SOLID_COLOR: Lazy<JsWord> = Lazy::new(|| "solidcolor".into());
+pub const ATOM_ACCENTHEIGHT: Lazy<JsWord> = Lazy::new(|| "accentHeight".into());
+pub const ATOM_ALIGNMENTBASELINE: Lazy<JsWord> = Lazy::new(|| "alignmentBaseline".into());
+pub const ATOM_ARABICFORM: Lazy<JsWord> = Lazy::new(|| "arabicForm".into());
+pub const ATOM_BASELINESHIFT: Lazy<JsWord> = Lazy::new(|| "baselineShift".into());
+pub const ATOM_CAPHEIGHT: Lazy<JsWord> = Lazy::new(|| "capHeight".into());
+pub const ATOM_CLIPRULE: Lazy<JsWord> = Lazy::new(|| "clipRule".into());
+pub const ATOM_COLORINTERPOLATION: Lazy<JsWord> = Lazy::new(|| "colorInterpolation".into());
+pub const ATOM_COLORINTERPOLATIONFILTERS: Lazy<JsWord> = Lazy::new(|| "colorInterpolationFilters".into());
+pub const ATOM_COLORPROFILE: Lazy<JsWord> = Lazy::new(|| "colorProfile".into());
+pub const ATOM_COLORRENDERING: Lazy<JsWord> = Lazy::new(|| "colorRendering".into());
+pub const ATOM_DOMINANTBASELINE: Lazy<JsWord> = Lazy::new(|| "dominantBaseline".into());
+pub const ATOM_ENABLEBACKGROUND: Lazy<JsWord> = Lazy::new(|| "enableBackground".into());
+pub const ATOM_FILLOPACITY: Lazy<JsWord> = Lazy::new(|| "fillOpacity".into());
+pub const ATOM_FILLRULE: Lazy<JsWord> = Lazy::new(|| "fillRule".into());
+pub const ATOM_FLOODCOLOR: Lazy<JsWord> = Lazy::new(|| "floodColor".into());
+pub const ATOM_FLOODOPACITY: Lazy<JsWord> = Lazy::new(|| "floodOpacity".into());
+pub const ATOM_FONTFAMILY: Lazy<JsWord> = Lazy::new(|| "fontFamily".into());
+pub const ATOM_FONTSIZE: Lazy<JsWord> = Lazy::new(|| "fontSize".into());
+pub const ATOM_FONTSIZEADJUST: Lazy<JsWord> = Lazy::new(|| "fontSizeAdjust".into());
+pub const ATOM_FONTSTRETCH: Lazy<JsWord> = Lazy::new(|| "fontStretch".into());
+pub const ATOM_FONTSTYLE: Lazy<JsWord> = Lazy::new(|| "fontStyle".into());
+pub const ATOM_FONTVARIANT: Lazy<JsWord> = Lazy::new(|| "fontVariant".into());
+pub const ATOM_FONTWEIGHT: Lazy<JsWord> = Lazy::new(|| "fontWeight".into());
+pub const ATOM_GLYPHNAME: Lazy<JsWord> = Lazy::new(|| "glyphName".into());
+pub const ATOM_GLYPHORIENTATIONHORIZONTAL: Lazy<JsWord> = Lazy::new(|| "glyphOrientationHorizontal".into());
+pub const ATOM_GLYPHORIENTATIONVERTICAL: Lazy<JsWord> = Lazy::new(|| "glyphOrientationVertical".into());
+pub const ATOM_HORIZADVX: Lazy<JsWord> = Lazy::new(|| "horizAdvX".into());
+pub const ATOM_HORIZORIGINX: Lazy<JsWord> = Lazy::new(|| "horizOriginX".into());
+pub const ATOM_IMAGERENDERING: Lazy<JsWord> = Lazy::new(|| "imageRendering".into());
+pub const ATOM_LETTERSPACING: Lazy<JsWord> = Lazy::new(|| "letterSpacing".into());
+pub const ATOM_LIGHTINGCOLOR: Lazy<JsWord> = Lazy::new(|| "lightingColor".into());
+pub const ATOM_MARKEREND: Lazy<JsWord> = Lazy::new(|| "markerEnd".into());
+pub const ATOM_MARKERMID: Lazy<JsWord> = Lazy::new(|| "markerMid".into());
+pub const ATOM_MARKERSTART: Lazy<JsWord> = Lazy::new(|| "markerStart".into());
+pub const ATOM_OVERLINEPOSITION: Lazy<JsWord> = Lazy::new(|| "overlinePosition".into());
+pub const ATOM_OVERLINETHICKNESS: Lazy<JsWord> = Lazy::new(|| "overlineThickness".into());
+pub const ATOM_PAINTORDER: Lazy<JsWord> = Lazy::new(|| "paintOrder".into());
+pub const ATOM_PANOSE1: Lazy<JsWord> = Lazy::new(|| "panose1".into());
+pub const ATOM_POINTEREVENTS: Lazy<JsWord> = Lazy::new(|| "pointerEvents".into());
+pub const ATOM_RENDERINGINTENT: Lazy<JsWord> = Lazy::new(|| "renderingIntent".into());
+pub const ATOM_SHAPERENDERING: Lazy<JsWord> = Lazy::new(|| "shapeRendering".into());
+pub const ATOM_STOPCOLOR: Lazy<JsWord> = Lazy::new(|| "stopColor".into());
+pub const ATOM_STOPOPACITY: Lazy<JsWord> = Lazy::new(|| "stopOpacity".into());
+pub const ATOM_STRIKETHROUGHPOSITION: Lazy<JsWord> = Lazy::new(|| "strikethroughPosition".into());
+pub const ATOM_STRIKETHROUGHTHICKNESS: Lazy<JsWord> = Lazy::new(|| "strikethroughThickness".into());
+pub const ATOM_STROKEDASHARRAY: Lazy<JsWord> = Lazy::new(|| "strokeDasharray".into());
+pub const ATOM_STROKEDASHOFFSET: Lazy<JsWord> = Lazy::new(|| "strokeDashoffset".into());
+pub const ATOM_STROKELINECAP: Lazy<JsWord> = Lazy::new(|| "strokeLinecap".into());
+pub const ATOM_STROKELINEJOIN: Lazy<JsWord> = Lazy::new(|| "strokeLinejoin".into());
+pub const ATOM_STROKEMITERLIMIT: Lazy<JsWord> = Lazy::new(|| "strokeMiterlimit".into());
+pub const ATOM_STROKEOPACITY: Lazy<JsWord> = Lazy::new(|| "strokeOpacity".into());
+pub const ATOM_STROKEWIDTH: Lazy<JsWord> = Lazy::new(|| "strokeWidth".into());
+pub const ATOM_TEXTDECORATION: Lazy<JsWord> = Lazy::new(|| "textDecoration".into());
+pub const ATOM_TEXTRENDERING: Lazy<JsWord> = Lazy::new(|| "textRendering".into());
+pub const ATOM_UNDERLINEPOSITION: Lazy<JsWord> = Lazy::new(|| "underlinePosition".into());
+pub const ATOM_UNDERLINETHICKNESS: Lazy<JsWord> = Lazy::new(|| "underlineThickness".into());
+pub const ATOM_UNICODEBIDI: Lazy<JsWord> = Lazy::new(|| "unicodeBidi".into());
+pub const ATOM_UNICODERANGE: Lazy<JsWord> = Lazy::new(|| "unicodeRange".into());
+pub const ATOM_UNITSPEREM: Lazy<JsWord> = Lazy::new(|| "unitsPerEm".into());
+pub const ATOM_VALPHABETIC: Lazy<JsWord> = Lazy::new(|| "vAlphabetic".into());
+pub const ATOM_VHANGING: Lazy<JsWord> = Lazy::new(|| "vHanging".into());
+pub const ATOM_VIDEOGRAPHIC: Lazy<JsWord> = Lazy::new(|| "vIdeographic".into());
+pub const ATOM_VMATHEMATICAL: Lazy<JsWord> = Lazy::new(|| "vMathematical".into());
+pub const ATOM_VECTOREFFECT: Lazy<JsWord> = Lazy::new(|| "vectorEffect".into());
+pub const ATOM_VERTADVY: Lazy<JsWord> = Lazy::new(|| "vertAdvY".into());
+pub const ATOM_VERTORIGINX: Lazy<JsWord> = Lazy::new(|| "vertOriginX".into());
+pub const ATOM_VERTORIGINY: Lazy<JsWord> = Lazy::new(|| "vertOriginY".into());
+pub const ATOM_WORDSPACING: Lazy<JsWord> = Lazy::new(|| "wordSpacing".into());
+pub const ATOM_WRITINGMODE: Lazy<JsWord> = Lazy::new(|| "writingMode".into());
+pub const ATOM_XHEIGHT: Lazy<JsWord> = Lazy::new(|| "xHeight".into());
+pub const ATOM_XLINKACTUATE: Lazy<JsWord> = Lazy::new(|| "xlinkActuate".into());
+pub const ATOM_XLINKARCROLE: Lazy<JsWord> = Lazy::new(|| "xlinkArcrole".into());
+pub const ATOM_XLINKHREF: Lazy<JsWord> = Lazy::new(|| "xlinkHref".into());
+pub const ATOM_XLINKROLE: Lazy<JsWord> = Lazy::new(|| "xlinkRole".into());
+pub const ATOM_XLINKSHOW: Lazy<JsWord> = Lazy::new(|| "xlinkShow".into());
+pub const ATOM_XLINKTITLE: Lazy<JsWord> = Lazy::new(|| "xlinkTitle".into());
+pub const ATOM_XLINKTYPE: Lazy<JsWord> = Lazy::new(|| "xlinkType".into());
+pub const ATOM_XMLBASE: Lazy<JsWord> = Lazy::new(|| "xmlBase".into());
+pub const ATOM_XMLNSXLINK: Lazy<JsWord> = Lazy::new(|| "xmlnsXlink".into());
+pub const ATOM_XMLLANG: Lazy<JsWord> = Lazy::new(|| "xmlLang".into());
+pub const ATOM_XMLSPACE: Lazy<JsWord> = Lazy::new(|| "xmlSpace".into());
+pub const ATOM_ACCENT_HEIGHT: Lazy<JsWord> = Lazy::new(|| "accent-height".into());
+pub const ATOM_ALIGNMENT_BASELINE: Lazy<JsWord> = Lazy::new(|| "alignment-baseline".into());
+pub const ATOM_ARABIC_FORM: Lazy<JsWord> = Lazy::new(|| "arabic-form".into());
+pub const ATOM_BASELINE_SHIFT: Lazy<JsWord> = Lazy::new(|| "baseline-shift".into());
+pub const ATOM_CAP_HEIGHT: Lazy<JsWord> = Lazy::new(|| "cap-height".into());
+pub const ATOM_CLIP_RULE: Lazy<JsWord> = Lazy::new(|| "clip-rule".into());
+pub const ATOM_COLOR_INTERPOLATION: Lazy<JsWord> = Lazy::new(|| "color-interpolation".into());
+pub const ATOM_COLOR_INTERPOLATION_FILTERS: Lazy<JsWord> = Lazy::new(|| "color-interpolation-filters".into());
+pub const ATOM_COLOR_RENDERING: Lazy<JsWord> = Lazy::new(|| "color-rendering".into());
+pub const ATOM_DOMINANT_BASELINE: Lazy<JsWord> = Lazy::new(|| "dominant-baseline".into());
+pub const ATOM_ENABLE_BACKGROUND: Lazy<JsWord> = Lazy::new(|| "enable-background".into());
+pub const ATOM_FILL_RULE: Lazy<JsWord> = Lazy::new(|| "fill-rule".into());
+pub const ATOM_FLOOD_COLOR: Lazy<JsWord> = Lazy::new(|| "flood-color".into());
+pub const ATOM_FLOOD_OPACITY: Lazy<JsWord> = Lazy::new(|| "flood-opacity".into());
+pub const ATOM_FONT_FAMILY: Lazy<JsWord> = Lazy::new(|| "font-family".into());
+pub const ATOM_GLYPH_NAME: Lazy<JsWord> = Lazy::new(|| "glyph-name".into());
+pub const ATOM_GLYPH_ORIENTATION_HORIZONTAL: Lazy<JsWord> = Lazy::new(|| "glyph-orientation-horizontal".into());
+pub const ATOM_GLYPH_ORIENTATION_VERTICAL: Lazy<JsWord> = Lazy::new(|| "glyph-orientation-vertical".into());
+pub const ATOM_HORIZ_ADV_X: Lazy<JsWord> = Lazy::new(|| "horiz-adv-x".into());
+pub const ATOM_HORIZ_ORIGIN_X: Lazy<JsWord> = Lazy::new(|| "horiz-origin-x".into());
+pub const ATOM_LIGHTING_COLOR: Lazy<JsWord> = Lazy::new(|| "lighting-color".into());
+pub const ATOM_MARKER_END: Lazy<JsWord> = Lazy::new(|| "marker-end".into());
+pub const ATOM_MARKER_MID: Lazy<JsWord> = Lazy::new(|| "marker-mid".into());
+pub const ATOM_MARKER_START: Lazy<JsWord> = Lazy::new(|| "marker-start".into());
+pub const ATOM_OVERLINE_POSITION: Lazy<JsWord> = Lazy::new(|| "overline-position".into());
+pub const ATOM_OVERLINE_THICKNESS: Lazy<JsWord> = Lazy::new(|| "overline-thickness".into());
+pub const ATOM_RENDERING_INTENT: Lazy<JsWord> = Lazy::new(|| "rendering-intent".into());
+pub const ATOM_SHAPE_RENDERING: Lazy<JsWord> = Lazy::new(|| "shape-rendering".into());
+pub const ATOM_STOP_COLOR: Lazy<JsWord> = Lazy::new(|| "stop-color".into());
+pub const ATOM_STOP_OPACITY: Lazy<JsWord> = Lazy::new(|| "stop-opacity".into());
+pub const ATOM_STRIKETHROUGH_POSITION: Lazy<JsWord> = Lazy::new(|| "strikethrough-position".into());
+pub const ATOM_STRIKETHROUGH_THICKNESS: Lazy<JsWord> = Lazy::new(|| "strikethrough-thickness".into());
+pub const ATOM_STROKE_DASHOFFSET: Lazy<JsWord> = Lazy::new(|| "stroke-dashoffset".into());
+pub const ATOM_STROKE_LINECAP: Lazy<JsWord> = Lazy::new(|| "stroke-linecap".into());
+pub const ATOM_STROKE_LINEJOIN: Lazy<JsWord> = Lazy::new(|| "stroke-linejoin".into());
+pub const ATOM_STROKE_MITERLIMIT: Lazy<JsWord> = Lazy::new(|| "stroke-miterlimit".into());
+pub const ATOM_STROKE_WIDTH: Lazy<JsWord> = Lazy::new(|| "stroke-width".into());
+pub const ATOM_UNDERLINE_POSITION: Lazy<JsWord> = Lazy::new(|| "underline-position".into());
+pub const ATOM_UNDERLINE_THICKNESS: Lazy<JsWord> = Lazy::new(|| "underline-thickness".into());
+pub const ATOM_UNICODE_RANGE: Lazy<JsWord> = Lazy::new(|| "unicode-range".into());
+pub const ATOM_UNITS_PER_EM: Lazy<JsWord> = Lazy::new(|| "units-per-em".into());
+pub const ATOM_V_ALPHABETIC: Lazy<JsWord> = Lazy::new(|| "v-alphabetic".into());
+pub const ATOM_V_HANGING: Lazy<JsWord> = Lazy::new(|| "v-hanging".into());
+pub const ATOM_V_IDEOGRAPHIC: Lazy<JsWord> = Lazy::new(|| "v-ideographic".into());
+pub const ATOM_V_MATHEMATICAL: Lazy<JsWord> = Lazy::new(|| "v-mathematical".into());
+pub const ATOM_VECTOR_EFFECT: Lazy<JsWord> = Lazy::new(|| "vector-effect".into());
+pub const ATOM_VERT_ADV_Y: Lazy<JsWord> = Lazy::new(|| "vert-adv-y".into());
+pub const ATOM_VERT_ORIGIN_X: Lazy<JsWord> = Lazy::new(|| "vert-origin-x".into());
+pub const ATOM_VERT_ORIGIN_Y: Lazy<JsWord> = Lazy::new(|| "vert-origin-y".into());
+pub const ATOM_X_HEIGHT: Lazy<JsWord> = Lazy::new(|| "x-height".into());
+pub const ATOM_XML_BASE: Lazy<JsWord> = Lazy::new(|| "xml:base".into());
+pub const ATOM_FRAGMENT: Lazy<JsWord> = Lazy::new(|| "Fragment".into());
