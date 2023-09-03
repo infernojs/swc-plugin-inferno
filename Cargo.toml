@@ -26,7 +26,6 @@ once_cell = "1.18.0"
 rayon     = { version = "1.7.0", optional = true }
 serde     = { version = "1.0.188", features = ["derive"], optional = true }
 sha-1     = "=0.10.0"
-wasm-bindgen = "0.2.87"
 
 swc_core = { version = "0.82.1", features = [
     "ecma_plugin_transform",

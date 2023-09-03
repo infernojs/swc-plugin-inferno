@@ -1,12 +1,17 @@
 {
   "name": "swc-plugin-inferno",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Inferno JSX plugin for SWC `@swc/core`",
   "main": "swc_plugin_inferno.wasm",
+  "files": [
+    "package.json",
+    "swc_plugin_inferno.wasm",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "build": "wasm-pack build --target nodejs ",
-    "publish": "wasm-pack publish",
-    "prepack": "cp ./target/wasm32-wasi/release/swc_plugin_loadable_components.wasm ."
+    "build": "cargo wasi build --release ",
+    "prepack": "cp ./target/wasm32-wasi/release/swc_plugin_inferno.wasm ."
   },
   "homepage": "https://github.com/infernojs/swc-plugin-inferno",
   "repository": {
