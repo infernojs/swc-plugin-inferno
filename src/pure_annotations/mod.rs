@@ -1,0 +1,140 @@
+use swc_atoms::{js_word, JsWord};
+use swc_common::{collections::AHashMap, comments::Comments};
+use swc_ecma_ast::*;
+use swc_ecma_visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
+
+#[cfg(test)]
+mod tests;
+
+/// This pass adds a /*#__PURE__#/ annotation to calls to known pure top-level
+/// Inferno methods, so that terser and other minifiers can safely remove them
+/// during dead code elimination.
+pub fn pure_annotations<C>(comments: Option<C>) -> impl Fold + VisitMut
+where
+    C: Comments,
+{
+    as_folder(PureAnnotations {
+        imports: Default::default(),
+        comments,
+    })
+}
+
+struct PureAnnotations<C>
+where
+    C: Comments,
+{
+    imports: AHashMap<Id, (JsWord, JsWord)>,
+    comments: Option<C>,
+}
+
+impl<C> VisitMut for PureAnnotations<C>
+where
+    C: Comments,
+{
+    noop_visit_mut_type!();
+
+    fn visit_mut_module(&mut self, module: &mut Module) {
+        // Pass 1: collect imports
+        for item in &module.body {
+            if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = item {
+                let src_str = &*import.src.value;
+                if src_str != "inferno" {
+                    continue;
+                }
+
+                for specifier in &import.specifiers {
+                    let src = import.src.value.clone();
+                    match specifier {
+                        ImportSpecifier::Named(named) => {
+                            let imported = match &named.imported {
+                                Some(ModuleExportName::Ident(imported)) => imported.sym.clone(),
+                                Some(ModuleExportName::Str(..)) => named.local.sym.clone(),
+                                None => named.local.sym.clone(),
+                            };
+                            self.imports.insert(named.local.to_id(), (src, imported));
+                        }
+                        ImportSpecifier::Default(default) => {
+                            self.imports
+                                .insert(default.local.to_id(), (src, js_word!("default")));
+                        }
+                        ImportSpecifier::Namespace(ns) => {
+                            self.imports.insert(ns.local.to_id(), (src, "*".into()));
+                        }
+                    }
+                }
+            }
+        }
+
+        if self.imports.is_empty() {
+            return;
+        }
+
+        // Pass 2: add pure annotations.
+        module.visit_mut_children_with(self);
+    }
+
+    fn visit_mut_call_expr(&mut self, call: &mut CallExpr) {
+        let is_inferno_call = match &call.callee {
+            Callee::Expr(expr) => match &**expr {
+                Expr::Ident(ident) => {
+                    if let Some((src, specifier)) = self.imports.get(&ident.to_id()) {
+                        is_pure(src, specifier)
+                    } else {
+                        false
+                    }
+                }
+                Expr::Member(member) => match &*member.obj {
+                    Expr::Ident(ident) => {
+                        if let Some((src, specifier)) = self.imports.get(&ident.to_id()) {
+                            if &**specifier == "default" || &**specifier == "*" {
+                                match &member.prop {
+                                    MemberProp::Ident(ident) => is_pure(src, &ident.sym),
+                                    _ => false,
+                                }
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        };
+
+        if is_inferno_call {
+            if let Some(comments) = &self.comments {
+                comments.add_pure_comment(call.span.lo);
+            }
+        }
+
+        call.visit_mut_children_with(self);
+    }
+}
+
+fn is_pure(src: &JsWord, specifier: &JsWord) -> bool {
+    match &**src {
+        "inferno" => matches!(
+            &**specifier,
+            "createComponentVNode"
+                | "createFragment"
+                | "createPortal"
+                | "createRef"
+                | "createRenderer"
+                | "createTextVNode"
+                | "createVNode"
+                | "forwardRef"
+                | "directClone"
+                | "findDOMFromVNode"
+                | "getFlagsForElementVnode"
+                | "linkEvent"
+                | "normalizeProps"
+                | "createElement"
+                | "createClass"
+        ),
+        _ => false,
+    }
+}
