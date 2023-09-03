@@ -71,7 +71,7 @@ where
 
 #[plugin_transform]
 fn inferno_jsx_plugin(
-    mut program: Program,
+    program: Program,
     _data: TransformPluginProgramMetadata,
 ) -> Program {
     let top_level_mark = Mark::new();
