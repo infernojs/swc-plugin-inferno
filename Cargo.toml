@@ -41,3 +41,4 @@ swc_ecma_codegen            = { version = "0.144.0" }
 swc_ecma_transforms_compat  = { version = "0.158.0" }
 swc_ecma_transforms_module  = { version = "0.175.0" }
 swc_ecma_transforms_testing = { version = "0.135.0" }
+testing                     = { version = "0.34.0" }
