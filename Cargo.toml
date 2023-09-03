@@ -1,12 +1,12 @@
 [package]
 authors       = ["Havunen <sampo.kivisto@live.fi>"]
 description   = "SWC plugin for InfernoJS."
-documentation = "https://rustdoc.swc.rs/swc_ecma_transforms_inferno/"
+documentation = "https://github.com/infernojs/swc-plugin-inferno"
 edition       = "2021"
 include       = ["Cargo.toml", "src/**/*.rs"]
 license       = "MIT"
 name          = "swc_ecma_transforms_inferno"
-repository    = "https://github.com/swc-project/swc.git"
+repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
 version       = "0.0.1"
 
 [lib]
