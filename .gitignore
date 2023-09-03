@@ -7,7 +7,7 @@ node_modules
 *.wasm
 
 .idea/
-
+pkg/
 
 # Generated while testing
 *.tmp.js

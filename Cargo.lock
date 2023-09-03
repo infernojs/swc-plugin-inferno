@@ -79,7 +79,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -155,6 +155,12 @@ checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
 ]
+
+[[package]]
+name = "bumpalo"
+version = "3.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3e2c3daef883ecc1b5d58c15adae93470a91d425f3532ba1695849656af3fc1"
 
 [[package]]
 name = "camino"
@@ -373,7 +379,7 @@ dependencies = [
  "pmutil",
  "proc-macro2",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -488,7 +494,7 @@ dependencies = [
  "pmutil",
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -793,7 +799,7 @@ checksum = "52a40bc70c2c58040d2d8b167ba9a5ff59fc9dab7ad44771cfde3dcfde7a09c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1055,7 +1061,7 @@ checksum = "4eca7ac642d82aa35b60049a6eccb4be6be75e599bd2e9adb5f875a737654af2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1195,7 +1201,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1224,6 +1230,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8b945e45b417b125a8ec51f1b7df2f8df7920367700d1f98aedd21e5735f8b2"
 dependencies = [
  "atty",
+]
+
+[[package]]
+name = "swc-plugin-inferno"
+version = "0.0.1"
+dependencies = [
+ "base64 0.21.3",
+ "dashmap",
+ "indexmap 2.0.0",
+ "once_cell",
+ "rayon",
+ "serde",
+ "sha-1",
+ "swc_atoms",
+ "swc_common",
+ "swc_config",
+ "swc_ecma_ast",
+ "swc_ecma_codegen",
+ "swc_ecma_parser",
+ "swc_ecma_transforms_base",
+ "swc_ecma_transforms_compat",
+ "swc_ecma_transforms_macros",
+ "swc_ecma_transforms_module",
+ "swc_ecma_transforms_testing",
+ "swc_ecma_utils",
+ "swc_ecma_visit",
+ "testing",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1306,7 +1340,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1354,7 +1388,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1471,33 +1505,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "swc_ecma_transforms_inferno"
-version = "0.0.1"
-dependencies = [
- "base64 0.21.3",
- "dashmap",
- "indexmap 2.0.0",
- "once_cell",
- "rayon",
- "serde",
- "sha-1",
- "swc_atoms",
- "swc_common",
- "swc_config",
- "swc_ecma_ast",
- "swc_ecma_codegen",
- "swc_ecma_parser",
- "swc_ecma_transforms_base",
- "swc_ecma_transforms_compat",
- "swc_ecma_transforms_macros",
- "swc_ecma_transforms_module",
- "swc_ecma_transforms_testing",
- "swc_ecma_utils",
- "swc_ecma_visit",
- "testing",
-]
-
-[[package]]
 name = "swc_ecma_transforms_macros"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1507,7 +1514,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1604,7 +1611,7 @@ dependencies = [
  "pmutil",
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1629,7 +1636,7 @@ dependencies = [
  "pmutil",
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1640,7 +1647,7 @@ checksum = "ff9719b6085dd2824fd61938a881937be14b08f95e2d27c64c825a9f65e052ba"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1664,7 +1671,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "swc_macros_common",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1680,9 +1687,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.30"
+version = "2.0.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ddc1f908d32ec46858c2d3b3daa00cc35bf4b6841ce4355c7bb3eedf2283a68"
+checksum = "718fa2415bcb8d8bd775917a1bf12a7931b6dfa890753378538118181e0cb398"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1755,7 +1762,7 @@ dependencies = [
  "quote",
  "regex",
  "relative-path",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1786,7 +1793,7 @@ checksum = "49922ecae66cc8a249b77e68d1d0623c1b2c514f0060c27cdc68bd62a1219d35"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1834,7 +1841,7 @@ checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.30",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -1971,6 +1978,60 @@ name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
+
+[[package]]
+name = "wasm-bindgen"
+version = "0.2.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7706a72ab36d8cb1f80ffbf0e071533974a60d0a308d01a5d0375bf60499a342"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen-macro",
+]
+
+[[package]]
+name = "wasm-bindgen-backend"
+version = "0.2.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ef2b6d3c510e9625e5fe6f509ab07d66a760f0885d858736483c32ed7809abd"
+dependencies = [
+ "bumpalo",
+ "log",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.31",
+ "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-macro"
+version = "0.2.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dee495e55982a3bd48105a7b947fd2a9b4a8ae3010041b9e0faab3f9cd028f1d"
+dependencies = [
+ "quote",
+ "wasm-bindgen-macro-support",
+]
+
+[[package]]
+name = "wasm-bindgen-macro-support"
+version = "0.2.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54681b18a46765f095758388f2d0cf16eb8d4169b639ab575a8f5693af210c7b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.31",
+ "wasm-bindgen-backend",
+ "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-shared"
+version = "0.2.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
 
 [[package]]
 name = "winapi"
