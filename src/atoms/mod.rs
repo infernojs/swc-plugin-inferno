@@ -1,12 +1,6 @@
 use once_cell::sync::Lazy;
 use swc_atoms::{JsWord};
 
-pub const ATOM_CREATE_VNODE: Lazy<JsWord> = Lazy::new(|| "createVNode".into());
-pub const ATOM_CREATE_COMPONENT_VNODE: Lazy<JsWord> = Lazy::new(|| "createComponentVNode".into());
-pub const ATOM_CREATE_FRAGMENT: Lazy<JsWord> = Lazy::new(|| "createFragment".into());
-pub const ATOM_NORMALIZE_PROPS: Lazy<JsWord> = Lazy::new(|| "normalizeProps".into());
-pub const ATOM_INFERNO_CAPS: Lazy<JsWord> = Lazy::new(|| "Inferno".into());
-pub const ATOM_INFERNO: Lazy<JsWord> = Lazy::new(|| "inferno".into());
 pub const ATOM_CLASSNAME: Lazy<JsWord> = Lazy::new(|| "className".into());
 pub const ATOM_HTML_FOR: Lazy<JsWord> = Lazy::new(|| "htmlFor".into());
 pub const ATOM_ON_DOUBLE_CLICK: Lazy<JsWord> = Lazy::new(|| "onDoubleClick".into());

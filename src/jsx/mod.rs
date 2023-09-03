@@ -1,8 +1,6 @@
 #![allow(clippy::redundant_allocation)]
 
 use std::{borrow::Cow, sync::Arc};
-use once_cell::sync::Lazy;
-
 use serde::{Deserialize, Serialize};
 use swc_atoms::{js_word, Atom, JsWord};
 use swc_common::{

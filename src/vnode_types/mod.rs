@@ -120,8 +120,10 @@ pub fn parse_vnode_flag(tag: &JsWord) -> u16 {
 pub fn convert_svg_attrs(prop_ident: Ident) -> PropName {
     let new_name;
 
-    if prop_ident.sym == *atoms::ATOM_ALIGNMENTBASELINE {
-        new_name = atoms::ATOM_ACCENTHEIGHT.clone();
+    if prop_ident.sym == *atoms::ATOM_ACCENTHEIGHT {
+        new_name = atoms::ATOM_ACCENT_HEIGHT.clone();
+    } else if prop_ident.sym == *atoms::ATOM_ALIGNMENTBASELINE {
+        new_name = atoms::ATOM_ALIGNMENT_BASELINE.clone();
     }
     else if prop_ident.sym == js_word!("clipPath") {
         new_name = js_word!("clip-path")
