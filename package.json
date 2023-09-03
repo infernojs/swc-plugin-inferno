@@ -4,7 +4,7 @@
   "description": "Inferno JSX plugin for SWC `@swc/core`",
   "main": "swc_plugin_inferno.wasm",
   "scripts": {
-    "build": "wasm-pack build",
+    "build": "wasm-pack build --target nodejs ",
     "publish": "wasm-pack publish",
     "prepack": "cp ./target/wasm32-wasi/release/swc_plugin_loadable_components.wasm ."
   },

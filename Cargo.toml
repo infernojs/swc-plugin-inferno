@@ -28,6 +28,13 @@ serde     = { version = "1.0.188", features = ["derive"], optional = true }
 sha-1     = "=0.10.0"
 wasm-bindgen = "0.2.87"
 
+swc_core = { version = "0.82.1", features = [
+    "ecma_plugin_transform",
+    "ecma_utils",
+    "ecma_visit",
+    "ecma_ast",
+    "common",
+] }
 swc_atoms                  = { version = "0.5.9" }
 swc_common                 = { version = "0.32.0" }
 swc_config                 = { version = "0.1.7"  }

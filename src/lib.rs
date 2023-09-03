@@ -2,6 +2,15 @@
 #![allow(clippy::arc_with_non_send_sync)]
 
 use swc_common::{chain, comments::Comments, sync::Lrc, Mark, SourceMap};
+use swc_core::{
+    common::Spanned,
+    ecma::{ast::Program, visit::FoldWith},
+    plugin::{
+        plugin_transform,
+        proxies::TransformPluginProgramMetadata,
+    },
+};
+use swc_ecma_ast::SourceMapperExt;
 use swc_ecma_visit::{Fold, VisitMut};
 
 pub use self::{
@@ -58,4 +67,23 @@ where
         ),
         pure_annotations(comments),
     )
+}
+
+#[plugin_transform]
+fn inferno_jsx_plugin(
+    mut program: Program,
+    _data: TransformPluginProgramMetadata,
+) -> Program {
+    let top_level_mark = Mark::new();
+
+    // TODO: Where to get source map
+    let cm = Lrc::new(SourceMap::default());
+
+    program.fold_with(&mut crate::inferno(
+        cm,
+        Some(&_data.comments),
+        Default::default(),
+        top_level_mark,
+        _data.unresolved_mark,
+    ))
 }
