@@ -1,3 +1,4 @@
+<p align="center"><a href="https://infernojs.org/" target="_blank"><img width="500" alt="Inferno" title="Inferno" src="https://raw.githubusercontent.com/infernojs/swc-plugin-inferno/main/swc-plugin-inferno-logo.png"></a></p>
 <p align="center">
   <a href="https://www.npmjs.com/package/swc-plugin-inferno"><img src="https://img.shields.io/npm/dm/swc-plugin-inferno.svg" alt="Downloads"></a>
   <a href="https://www.npmjs.com/package/swc-plugin-inferno"><img src="https://img.shields.io/npm/v/swc-plugin-inferno.svg" alt="Version"></a>
