@@ -61,6 +61,24 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_support_native_xlink_href,
+    r#"
+<svg focusable="false" className={'test'}>
+    <use xlink:href="asd"/>
+</svg>
+"#,
+    r#"
+import { createVNode } from "inferno";
+createVNode(32, "svg", 'test', createVNode(32, "use", null, null, 1, { "xlink:href": "asd" }), 2, { focusable: "false" });
+"#
+);
+
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
     should_not_add_normalize_call_when_all_children_are_known,
     r#"
 <div><FooBar/><div>1</div></div>

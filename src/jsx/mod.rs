@@ -584,15 +584,24 @@ where
                                     value,
                                 }))));
                         }
-                        JSXAttrName::JSXNamespacedName(_) => {
-                            HANDLER.with(|handler| {
-                                handler
-                                    .struct_span_err(
-                                        span,
-                                        "JSX Namespace is disabled"
-                                    )
-                                    .emit()
-                            });
+                        JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name }) => {
+                            let value = match attr.value {
+                                Some(v) => jsx_attr_value_to_expr(v)
+                                    .expect("empty expression container?"),
+                                None => true.into(),
+                            };
+
+                            let str_value = format!("{}:{}", ns.sym, name.sym);
+                            let key = Str {
+                                span,
+                                raw: None,
+                                value: str_value.into(),
+                            };
+                            let key = PropName::Str(key);
+
+                            props_obj.props.push(PropOrSpread::Prop(Box::new(
+                                Prop::KeyValue(KeyValueProp { key, value }),
+                            )));
                         }
                     }
                 }
