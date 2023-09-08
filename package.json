@@ -22,6 +22,12 @@
     "url": "https://github.com/infernojs/swc-plugin-inferno/issues"
   },
   "author": "Sampo Kivistö <havunen>",
-  "keywords": [],
+  "keywords": [
+    "inferno",
+    "jsx",
+    "swc",
+    "plugin",
+    "transformer"
+  ],
   "license": "MIT"
 }
