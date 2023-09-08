@@ -20,6 +20,46 @@ npm i --save-dev swc-plugin-inferno
 
 ## How to use
 
+Add swc-plugin-inferno to `.swcrc` configuration
+
+Enable `jsc.parser.jsx` and set `swc-plugin-inferno` into `jsc.experimental.plugins`
+For rest of the settings see: https://swc.rs/docs/configuration/compilation
+```json
+{
+  "jsc": {
+    "experimental": {
+         "plugins": [
+            ["swc-plugin-inferno", {
+              // Options
+            }]
+        ],
+    }
+  }
+}
+```
+
+To use SWC with webpack install `swc-loader` and it to the webpack configuration
+
+```js
+{
+  mode: 'development',
+  entry: './src/index.js',
+  module: {
+    rules: [
+      {
+        test: /\.(js|jsx)$/,
+        exclude: /(node_modules|bower_components)/,
+        use: {
+          // `.swcrc` can be used to configure swc
+          loader: 'swc-loader',
+        },
+      }
+    ]
+  }
+}
+```
+
+
 ## Examples
 
 ```js
