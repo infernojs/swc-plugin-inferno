@@ -404,6 +404,7 @@ where
         let mut child_flags_override_param = None;
         let mut flags_override_param = None;
         let mut content_editable_props: bool = false;
+        let mut prop_children: Option<Box<Expr>> = None;
 
         for attr in el.opening.attrs {
             match attr {
@@ -551,17 +552,17 @@ where
                             if i.sym.to_ascii_lowercase() == js_word!("contenteditable") {
                                 content_editable_props = true;
                             } else if i.sym == *atoms::ATOM_CHILDREN {
-                                if attr.value.is_some() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "'children' property is not supported in JSX. Use \
-                                                 nesting instead.",
-                                            )
-                                            .emit();
-                                    });
+                                if el.children.len() > 0 {
+                                    // prop children is ignored if there are any nested children
+                                    continue;
                                 }
+
+                                prop_children = match attr.value {
+                                    Some(v) => {
+                                        jsx_attr_value_to_expr(v)
+                                    }
+                                    None => continue,
+                                };
 
                                 continue;
                             }
@@ -767,11 +768,23 @@ where
             }
         }
 
-        // TODO: Remove children from props?
-
         if vnode_kind == VNodeType::Component {
             match children.len() {
-                0 => {}
+                0 => {
+                    match prop_children {
+                        Some(some_prop_children) => {
+                            props_obj
+                                .props
+                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                                    key: PropName::Ident(quote_ident!("children")),
+                                    value: some_prop_children
+                                }))));
+                        },
+                        None => {
+                            // noop
+                        }
+                    }
+                }
                 1 if children[0].as_ref().unwrap().spread.is_none() => {
                     props_obj
                         .props
@@ -790,6 +803,25 @@ where
                                 elems: children.take(),
                             })),
                         }))));
+                }
+            }
+        } else {
+            // Backwards compatibility...
+            // Set prop children as children if no nested children were set
+            if children.len() == 0 {
+                match prop_children {
+                    Some(some_prop_children) => {
+                        children
+                            .push(
+                                Some(ExprOrSpread {
+                                    spread: None,
+                                    expr: some_prop_children
+                                })
+                            )
+                    },
+                    None => {
+                        // noop
+                    }
                 }
             }
         }
