@@ -38,7 +38,7 @@ For rest of the settings see: https://swc.rs/docs/configuration/compilation
 }
 ```
 
-To use SWC with webpack install `swc-loader` and it to the webpack configuration
+To use SWC with Webpack install `swc-loader` and add it to the Webpack configuration
 
 ```js
 {
