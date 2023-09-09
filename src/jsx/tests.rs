@@ -21,6 +21,39 @@ use super::*;
 use crate::{inferno, pure_annotations};
 
 /*
+ * REFs
+ */
+
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_add_functional_component_hooks_to_refs,
+    r#"
+<Child
+key={i}
+onComponentDidAppear={childOnComponentDidAppear}
+onComponentDidMount={childOnComponentDidMount}
+>
+{i}
+</Child>
+"#,
+    r#"
+import { createComponentVNode } from "inferno";
+createComponentVNode(2, Child, {
+  children: i
+}, i, {
+  onComponentDidAppear: childOnComponentDidAppear,
+  onComponentDidMount: childOnComponentDidMount
+});
+"#
+);
+
+
+
+/*
  * Dynamic children
  */
 test!(

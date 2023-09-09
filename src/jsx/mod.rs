@@ -22,6 +22,7 @@ use crate::{
     refresh::options::{deserialize_refresh, RefreshOptions},
 };
 use crate::atoms;
+use crate::VNodeType::Component;
 
 #[cfg(test)]
 mod tests;
@@ -341,14 +342,15 @@ where
                 }
             }
             JSXElementName::JSXNamespacedName(_) => {
-                HANDLER.with(|handler| {
-                    handler
-                        .struct_span_err(
-                            name_span,
-                            "JSX Namespace is disabled"
-                        )
-                        .emit()
-                });
+                // TODO: Program panics if errors are thrown
+                // HANDLER.with(|handler| {
+                //     handler
+                //         .struct_span_err(
+                //             name_span,
+                //             "JSX Namespace is disabled"
+                //         )
+                //         .emit()
+                // });
 
                 return Expr::Invalid(Invalid { span: DUMMY_SP });
             }
@@ -394,6 +396,8 @@ where
 
         let mut key_prop = None;
         let mut ref_prop = None;
+        let mut component_refs: Option<ObjectLit> = None;
+
         let mut class_name_param: Option<Box<Expr>> = None;
         let mut has_text_children: bool = false;
         let mut has_keyed_children: bool = false;
@@ -462,17 +466,19 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                if key_prop.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property 'key' should not be \
-                                                     empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
+                                // TODO: Program panics if errors are thrown
+                                // if key_prop.is_none() {
+                                //     HANDLER.with(|handler| {
+                                //         handler
+                                //             .struct_span_err(
+                                //                 i.span,
+                                //                 "The value of property 'key' should not be \
+                                //                      empty",
+                                //             )
+                                //             .emit();
+                                //     });
+                                // }
+
                                 continue;
                             } else if i.sym == *atoms::ATOM_REF {
                                 ref_prop = attr
@@ -480,17 +486,19 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                if ref_prop.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property 'ref' should not be \
-                                                     empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
+                                // TODO: Program panics if errors are thrown
+                                // if ref_prop.is_none() {
+                                //     HANDLER.with(|handler| {
+                                //         handler
+                                //             .struct_span_err(
+                                //                 i.span,
+                                //                 "The value of property 'ref' should not be \
+                                //                      empty",
+                                //             )
+                                //             .emit();
+                                //     });
+                                // }
+
                                 continue;
                             } else if i.sym == *atoms::ATOM_CHILD_FLAG {
                                 child_flags_override_param = attr
@@ -498,17 +506,19 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                if child_flags_override_param.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property '$ChildFlag' should \
-                                                     not be empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
+                                // TODO: Program panics if errors are thrown
+                                // if child_flags_override_param.is_none() {
+                                //     HANDLER.with(|handler| {
+                                //         handler
+                                //             .struct_span_err(
+                                //                 i.span,
+                                //                 "The value of property '$ChildFlag' should \
+                                //                      not be empty",
+                                //             )
+                                //             .emit();
+                                //     });
+                                // }
+
                                 children_known = true;
                                 continue;
                             } else if i.sym == *atoms::ATOM_HAS_VNODE_CHILDREN {
@@ -520,17 +530,19 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                if flags_override_param.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property '$Flags' should not be \
-                                                     empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
+                                // TODO: Program panics if errors are thrown
+                                // if flags_override_param.is_none() {
+                                //     HANDLER.with(|handler| {
+                                //         handler
+                                //             .struct_span_err(
+                                //                 i.span,
+                                //                 "The value of property '$Flags' should not be \
+                                //                      empty",
+                                //             )
+                                //             .emit();
+                                //     });
+                                // }
+
                                 continue;
                             } else if i.sym == *atoms::ATOM_HAS_TEXT_CHILDREN {
                                 children_known = true;
@@ -565,6 +577,38 @@ where
                                 };
 
                                 continue;
+                            } else {
+                                if vnode_kind == Component && i.sym.as_ref().starts_with("onComponent") {
+                                    match attr.value {
+                                        Some(v) => {
+                                            // if !component_refs.is_some() {
+                                            //     component_refs = Some(ObjectLit {
+                                            //         span: DUMMY_SP,
+                                            //         props: vec![],
+                                            //     });
+                                            // }
+
+                                            if component_refs.is_none() {
+                                                component_refs = Some(ObjectLit {
+                                                    span: DUMMY_SP,
+                                                    props: vec![],
+                                                })
+                                            };
+
+                                            if let Some(some_component_refs) = component_refs.as_mut() {
+                                                some_component_refs
+                                                    .props
+                                                    .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                                                        key: PropName::Ident(i),
+                                                        value: jsx_attr_value_to_expr(v).expect("empty expression container?"),
+                                                    }))));
+                                            }
+                                        }
+                                        None => {},
+                                    };
+
+                                    continue;
+                                }
                             }
 
                             let value = match attr.value {
@@ -860,7 +904,14 @@ where
         };
 
         let create_method_args = if vnode_kind == VNodeType::Component {
-            create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, ref_prop)
+            // Functional component cannot have basic ref so when component refs is set use it
+            // If we can ever detect Functional component from Class component compile time
+            // We could add some validations
+            if let Some(some_refs) = component_refs {
+                create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, Some(some_refs.as_arg()))
+            } else {
+                create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, ref_prop)
+            }
         } else if vnode_kind == VNodeType::Element {
             create_vnode_args(
                 flags_expr,

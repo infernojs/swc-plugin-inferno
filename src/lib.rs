@@ -3,14 +3,12 @@
 
 use swc_common::{chain, comments::Comments, sync::Lrc, Mark, SourceMap};
 use swc_core::{
-    common::Spanned,
     ecma::{ast::Program, visit::FoldWith},
     plugin::{
         plugin_transform,
         proxies::TransformPluginProgramMetadata,
     },
 };
-use swc_ecma_ast::SourceMapperExt;
 use swc_ecma_visit::{Fold, VisitMut};
 
 pub use self::{
@@ -79,7 +77,7 @@ fn inferno_jsx_plugin(
     // TODO: Where to get source map
     let cm = Lrc::new(SourceMap::default());
 
-    program.fold_with(&mut crate::inferno(
+    program.fold_with(&mut inferno(
         cm,
         Some(&_data.comments),
         Default::default(),
