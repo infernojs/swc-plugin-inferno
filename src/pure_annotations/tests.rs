@@ -136,9 +136,8 @@ test!(
   const x = <div />;
   "#,
     r#"
-    import { createVNode } from "inferno";
-    import Inferno from 'inferno';
-  const x = /*#__PURE__*/ createVNode(1, "div");
+import Inferno, { createVNode } from 'inferno';
+const x = /*#__PURE__*/ createVNode(1, "div");
   "#
 );
 
@@ -149,8 +148,7 @@ test!(
   const x = <><div /></>;
   "#,
     r#"
-    import { createVNode, createFragment } from "inferno";
-    import Inferno from 'inferno';
+    import Inferno, { createVNode, createFragment } from 'inferno';
     const x = /*#__PURE__*/ createFragment([
         /*#__PURE__*/ createVNode(1, "div")
     ], 4);

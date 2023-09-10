@@ -96,6 +96,63 @@ fn apply_mark(e: &mut Expr, mark: Mark) {
     }
 }
 
+fn named_import_exists(import_name: &str, import: &ImportDecl) -> bool {
+    for specifier in &import.specifiers {
+        match specifier {
+            ImportSpecifier::Named(named) => {
+                if import_name == named.local.sym.as_ref() {
+                    return true;
+                }
+            }
+            _ => {
+                continue;
+            }
+        }
+    }
+
+    return false;
+}
+
+fn merge_imports(imports: &Vec<&str>, default_import_src: &str, stmts: &mut Vec<ModuleItem>) -> bool {
+    for mut stmt in stmts {
+        if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
+            if &import.src.value == default_import_src {
+                for specifier in &import.specifiers {
+                    match specifier {
+                        ImportSpecifier::Namespace(_) => {
+                            // Do not try to merge with * As FooBar import statements
+                            return false;
+                        }
+                        _ => {}
+                    }
+                }
+
+                for import_to_add in imports {
+                    let import_exists = named_import_exists(
+                        import_to_add,
+                        &import
+                    );
+
+                    if !import_exists {
+                        import.specifiers.push(
+                            ImportSpecifier::Named(ImportNamedSpecifier {
+                                span: DUMMY_SP,
+                                local: quote_ident!(import_to_add.clone()),
+                                imported: None,
+                                is_type_only: false,
+                            })
+                        )
+                    }
+                }
+
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 #[derive(PartialEq)]
 pub enum VNodeType {
     Element = 0,
@@ -164,28 +221,28 @@ where
     fn inject_runtime<T, F>(&mut self, body: &mut Vec<T>, inject: F)
     where
         T: StmtLike,
-        F: Fn(Vec<Ident>, &str, &mut Vec<T>),
+        F: Fn(Vec<&str>, &str, &mut Vec<T>),
     {
-        let mut imports = vec![];
+        let mut import_specifiers = vec![];
 
         if let Some(_local) = self.import_create_vnode.take() {
-            imports.push(quote_ident!("createVNode"))
+            import_specifiers.push("createVNode")
         }
         if let Some(_local) = self.import_create_component.take() {
-            imports.push(quote_ident!("createComponentVNode"))
+            import_specifiers.push("createComponentVNode")
         }
         if let Some(_local) = self.import_create_text_vnode.take() {
-            imports.push(quote_ident!("createTextVNode"))
+            import_specifiers.push("createTextVNode")
         }
         if let Some(_local) = self.import_normalize_props.take() {
-            imports.push(quote_ident!("normalizeProps"))
+            import_specifiers.push("normalizeProps")
         }
         if let Some(_local) = self.import_fragment.take() {
-            imports.push(quote_ident!("createFragment"))
+            import_specifiers.push("createFragment")
         }
 
-        if !imports.is_empty() {
-            inject(imports, &self.import_source, body);
+        if !import_specifiers.is_empty() {
+            inject(import_specifiers, &self.import_source, body);
         }
     }
 
@@ -1245,18 +1302,25 @@ where
     fn visit_mut_module(&mut self, module: &mut Module) {
         module.visit_mut_children_with(self);
 
-        self.inject_runtime(&mut module.body, |imports, src, stmts| {
-            let specifiers = imports
+        self.inject_runtime(&mut module.body, |imports, mut default_import_src, stmts| {
+            // Merge new imports to existing import
+            if merge_imports(&imports, default_import_src, stmts) {
+                return
+            }
+
+            // Existing inferno import was not found, add new
+            let specifiers: Vec<ImportSpecifier> = imports
                 .into_iter()
                 .map(|imported| {
                     ImportSpecifier::Named(ImportNamedSpecifier {
                         span: DUMMY_SP,
-                        local: imported,
+                        local: quote_ident!(imported),
                         imported: None,
                         is_type_only: false,
                     })
                 })
                 .collect();
+
 
             prepend_stmt(
                 stmts,
@@ -1266,7 +1330,7 @@ where
                     src: Str {
                         span: DUMMY_SP,
                         raw: None,
-                        value: src.into(),
+                        value: default_import_src.into(),
                     }
                     .into(),
                     type_only: Default::default(),
@@ -1286,7 +1350,7 @@ where
     }
 }
 
-fn add_require(imports: Vec<Ident>, src: &str, unresolved_mark: Mark) -> Stmt {
+fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
     Stmt::Decl(Decl::Var(Box::new(VarDecl {
         span: DUMMY_SP,
         kind: VarDeclKind::Const,
@@ -1300,7 +1364,7 @@ fn add_require(imports: Vec<Ident>, src: &str, unresolved_mark: Mark) -> Stmt {
                     .map(|imported| {
                         ObjectPatProp::Assign(AssignPatProp {
                             span: DUMMY_SP,
-                            key: imported,
+                            key: quote_ident!(imported),
                             value: None,
                         })
                     })

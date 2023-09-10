@@ -1425,7 +1425,7 @@ dependencies = [
 
 [[package]]
 name = "swc-plugin-inferno"
-version = "0.0.1"
+version = "0.0.6"
 dependencies = [
  "base64 0.21.4",
  "dashmap",

@@ -948,22 +948,20 @@ test!(
 //    `----
 //     "#);
 
-// TODO: Should these imported be combined? Does it matter or does SWC handle
-// it? test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-//         jsx: true,
-//         ..Default::default()
-//     }),
-//     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-//     should_not_fail_if_create_vnode_is_already_imported,
-//     r#"
-//       import {createVNode} from "inferno"; var foo = <div/>;
-//     "#,
-//     r#"
-//         import { createVNode } from "inferno";
-//         import { createVNode as createVNode1 } from "inferno";
-//         var foo = createVNode(1, "div");
-//     "#);
+test!(
+::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+    jsx: true,
+    ..Default::default()
+}),
+|t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+should_not_fail_if_create_vnode_is_already_imported,
+r#"
+  import {createVNode} from "inferno"; var foo = <div/>;
+"#,
+r#"
+    import { createVNode } from "inferno";
+    var foo = createVNode(1, "div");
+"#);
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1375,7 +1373,7 @@ test!(
     r#"
     import { createFragment } from "inferno";
     createFragment(magic, 8, "foo");
-        "#
+    "#
 );
 
 test!(
@@ -1391,77 +1389,85 @@ test!(
     r#"
     import { createFragment } from "inferno";
     createFragment(magic, 4, "foo");
-        "#
+    "#
 );
 
-// TODO: Imports
-// test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-//         jsx: true,
-//         ..Default::default()
-//     }),
-//     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-//     should_add_import_to_createVNodeComponent_but_not_to_create_vnode_if_create_vnode_is_already_declared,
-//     r#"
-//       import {createVNode} from "inferno"; var foo = <FooBar/>;
-//     "#,
-//     r#"
-//     import { createComponentVNode } from "inferno";import { createVNode }
-// from "inferno";var foo = createComponentVNode(2, FooBar);     "#);
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_add_import_to_createVNodeComponent_but_not_to_create_vnode_if_create_vnode_is_already_declared,
+    r#"
+      import {createVNode} from "inferno"; var foo = <FooBar/>;
+    "#,
+    r#"
+    import { createVNode, createComponentVNode } from "inferno";
+    var foo = createComponentVNode(2, FooBar);
+    "#);
 
-// test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-//         jsx: true,
-//         ..Default::default()
-//     }),
-//     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-//     Component_should_prefer_child_element_over_children_props,
-//     r#"
-//     <Com children="ab">test</Com>
-//     "#,
-//     r#"
-//     import { createComponentVNode } from "inferno";
-//     createComponentVNode(2, Com, {children: "test"});
-//     "#);
+    test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    Component_should_prefer_child_element_over_children_props,
+    r#"
+    <Com children="ab">test</Com>
+    "#,
+    r#"
+    import { createComponentVNode } from "inferno";
+    createComponentVNode(2, Com, {children: "test"});
+    "#);
 
-// test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-//         jsx: true,
-//         ..Default::default()
-//     }),
-//     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-//     Component_should_prefer_prop_over_empty_children,
-//     r#"
-//     <Com children="ab"></Com>
-//     "#,
-//     r#"createComponentVNode(2, Com, {"children": "ab"});
-//     "#);
-//
-// test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-//         jsx: true,
-//         ..Default::default()
-//     }),
-//     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-//     Component_should_use_prop_if_no_children_exists,
-//     r#"
-//     <Com children="ab"/>
-//     "#,
-//     r#"createComponentVNode(2, Com, {"children": "ab"});
-//     "#);
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    Component_should_prefer_prop_over_empty_children,
+    r#"
+    <Com children="ab"></Com>
+    "#,
+    r#"
+    import { createComponentVNode } from "inferno";
+    createComponentVNode(2, Com, {children: "ab"});
+    "#);
 
-// test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-//         jsx: true,
-//         ..Default::default()
-//     }),
-//     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-//     should_prefer_xml_children_over_props,
-//     r#"
-//     <foo children={<span>b</span>}></foo>
-//     "#,
-//     r#"createVNode(1, "foo", null, createVNode(1, "span", null, "b", 16), 2);
-//     "#);
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    Component_should_use_prop_if_no_children_exists,
+    r#"
+    <Com children="ab"/>
+    "#,
+    r#"
+    import { createComponentVNode } from "inferno";
+    createComponentVNode(2, Com, {children: "ab"});
+    "#);
+
+// This could be optimized to have HasVNodeChildren set,
+// but I'm not sure if anybody writes code like this
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_prefer_xml_children_over_props,
+    r#"
+    <foo children={<span>b</span>}></foo>
+    "#,
+    r#"
+    import { createVNode } from "inferno";
+    createVNode(1, "foo", null, createVNode(1, "span", null, "b", 16));
+    "#);
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1883,8 +1889,7 @@ class App extends Component {
 }
 "#,
     r#"
-import { createVNode } from "inferno";
-import { Component } from "inferno";
+import { Component, createVNode } from "inferno";
 class App extends Component {
     render() {
         const navbarHeader = createVNode(1, "div", "navbar-header", createVNode(1, "a", "navbar-brand", createVNode(1, "img", null, null, 1, {
