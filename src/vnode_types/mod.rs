@@ -1,6 +1,8 @@
+use swc_core::{
+    ecma::atoms::{js_word, JsWord},
+    ecma::ast::{Ident, PropName, Str},
 
-use swc_atoms::{js_word, JsWord};
-use swc_ecma_ast::{Ident, PropName, Str};
+};
 use crate::atoms;
 
 use crate::inferno_flags::VNodeFlags;

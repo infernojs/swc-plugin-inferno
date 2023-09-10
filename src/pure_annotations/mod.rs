@@ -1,7 +1,9 @@
-use swc_atoms::{js_word, JsWord};
-use swc_common::{collections::AHashMap, comments::Comments};
-use swc_ecma_ast::*;
-use swc_ecma_visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
+use swc_core::common::collections::AHashMap;
+use swc_core::common::comments::Comments;
+use swc_core::ecma::ast::*;
+use swc_core::ecma::atoms::{js_word, JsWord};
+use swc_core::ecma::visit::{as_folder, Fold, noop_visit_mut_type, VisitMut, VisitMutWith};
+
 
 #[cfg(test)]
 mod tests;

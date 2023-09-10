@@ -4,21 +4,23 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-
-use swc_common::{chain, Mark};
+use swc_core::common::chain;
+use swc_core::common::input::StringInput;
+use swc_core::ecma::visit::FoldWith;
+use swc_core::ecma::transforms::base::resolver;
+use swc_core::ecma::transforms::base::fixer::fixer;
+use swc_core::ecma::transforms::base::hygiene::hygiene;
 use swc_ecma_codegen::{Config, Emitter};
-use swc_ecma_parser::{EsConfig, Parser, StringInput};
-use swc_ecma_transforms_base::{fixer::fixer, hygiene, resolver};
+use swc_ecma_parser::{EsConfig, Parser, Syntax};
 use swc_ecma_transforms_compat::{
     es3::property_literals,
 };
 use swc_ecma_transforms_module::common_js::common_js;
 use swc_ecma_transforms_testing::{parse_options, test, test_fixture, FixtureTestConfig, Tester};
-use swc_ecma_visit::FoldWith;
 use testing::NormalizedOutput;
 
 use super::*;
-use crate::{inferno, pure_annotations};
+use crate::{inferno, PluginDiagnosticsEmitter, pure_annotations};
 
 /*
  * REFs
@@ -1531,14 +1533,19 @@ test!(
 
 fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Fold {
     let unresolved_mark = Mark::new();
+    // Create a handler wired with plugin's diagnostic emitter, set it for global context.
+    let handler = swc_core::common::errors::Handler::with_emitter(
+        true,
+        false,
+        Box::new(PluginDiagnosticsEmitter)
+    );
+    let _ = HANDLER.inner.set(handler);
 
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
         jsx(
-            t.cm.clone(),
             Some(t.comments.clone()),
             options,
-            top_level_mark,
             unresolved_mark
         ),
     )
@@ -1569,6 +1576,13 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
+    let handler = swc_core::common::errors::Handler::with_emitter(
+        true,
+        false,
+        Box::new(PluginDiagnosticsEmitter)
+    );
+    let _ = HANDLER.inner.set(handler);
+
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
         inferno(
@@ -1585,6 +1599,13 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
 fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
+
+    let handler = swc_core::common::errors::Handler::with_emitter(
+        true,
+        false,
+        Box::new(PluginDiagnosticsEmitter)
+    );
+    let _ = HANDLER.inner.set(handler);
 
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
@@ -2713,10 +2734,8 @@ test!(
         chain!(
             resolver(unresolved_mark, top_level_mark, false),
             jsx(
-                t.cm.clone(),
                 Some(t.comments.clone()),
                 Default::default(),
-                top_level_mark,
                 unresolved_mark
             )
         )
@@ -2821,7 +2840,7 @@ fn test_script(src: &str, output: &Path, options: Options) {
                 top_level_mark,
                 unresolved_mark,
             ),
-            hygiene::hygiene(),
+            hygiene(),
             fixer(Some(&tester.comments))
         ));
 

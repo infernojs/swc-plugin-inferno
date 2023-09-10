@@ -28,25 +28,23 @@ serde     = { version = "1.0.188", features = ["derive"], optional = true }
 sha-1     = "=0.10.0"
 
 swc_core = { version = "0.82.1", features = [
+    "swc_atoms",
+    "swc_common",
+    "swc_ecma_ast",
+    "swc_ecma_utils",
     "ecma_plugin_transform",
     "ecma_utils",
     "ecma_visit",
     "ecma_ast",
     "common",
 ] }
-swc_atoms                  = { version = "0.5.9" }
-swc_common                 = { version = "0.32.0" }
-swc_config                 = { version = "0.1.7"  }
-swc_ecma_ast               = { version = "0.109.0" }
 swc_ecma_parser            = { version = "0.139.0" }
-swc_ecma_transforms_base   = { version = "0.132.0" }
-swc_ecma_transforms_macros = { version = "0.5.2" }
-swc_ecma_utils             = { version = "0.122.0" }
-swc_ecma_visit             = { version = "0.95.0" }
+swc_config                 = { version = "0.1.7" }
 
 [dev-dependencies]
 swc_ecma_codegen            = { version = "0.144.0" }
 swc_ecma_transforms_compat  = { version = "0.158.0" }
 swc_ecma_transforms_module  = { version = "0.175.0" }
 swc_ecma_transforms_testing = { version = "0.135.0" }
-testing                     = { version = "0.34.0" }
+swc_ecma_transforms         = { version = "0.223.0" }
+testing                     = { version = "0.34.0"  }

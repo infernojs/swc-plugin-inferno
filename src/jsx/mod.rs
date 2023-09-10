@@ -2,20 +2,17 @@
 
 use std::{borrow::Cow, sync::Arc};
 use serde::{Deserialize, Serialize};
-use swc_atoms::{js_word, Atom, JsWord};
-use swc_common::{
-    comments::Comments,
-    errors::HANDLER,
-    iter::IdentifyLast,
-    sync::Lrc,
-    util::take::Take,
-    FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP,
-};
 use swc_config::merge::Merge;
-use swc_ecma_ast::*;
+use swc_core::common::{DUMMY_SP, FileName, Mark, SourceMap, Span, Spanned};
+use swc_core::common::comments::Comments;
+use swc_core::common::iter::IdentifyLast;
+use swc_core::common::util::take::Take;
+use swc_core::ecma::ast::*;
+use swc_core::ecma::atoms::{Atom, js_word, JsWord};
+use swc_core::ecma::utils::{drop_span, ExprFactory, prepend_stmt, quote_ident, StmtLike};
+use swc_core::ecma::visit::{as_folder, Fold, noop_visit_mut_type, VisitMut, VisitMutWith};
+use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
-use swc_ecma_utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
-use swc_ecma_visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
 
 use crate::{
     inferno_flags::{ChildFlags, VNodeFlags},
@@ -67,13 +64,11 @@ pub fn parse_expr_for_jsx(
         &mut vec![],
     )
     .map_err(|e| {
-        if HANDLER.is_set() {
-            HANDLER.with(|h| {
-                e.into_diagnostic(h)
-                    .note("error detected while parsing option for classic jsx transform")
-                    .emit()
-            })
-        }
+        HANDLER.with(|h| {
+            e.into_diagnostic(h)
+                .note("error detected while parsing option for classic jsx transform")
+                .emit()
+        })
     })
     .map(drop_span)
     .map(|mut expr| {
@@ -115,18 +110,14 @@ pub enum VNodeType {
 /// `top_level_mark` should be [Mark] passed to
 /// [swc_ecma_transforms_base::resolver::resolver_with_mark].
 pub fn jsx<C>(
-    cm: Lrc<SourceMap>,
     comments: Option<C>,
     options: Options,
-    top_level_mark: Mark,
     unresolved_mark: Mark,
 ) -> impl Fold + VisitMut
 where
     C: Comments,
 {
     as_folder(Jsx {
-        cm: cm.clone(),
-        top_level_mark,
         unresolved_mark,
         import_source: options
             .import_source
@@ -147,9 +138,6 @@ struct Jsx<C>
 where
     C: Comments,
 {
-    cm: Lrc<SourceMap>,
-
-    top_level_mark: Mark,
     unresolved_mark: Mark,
 
     import_source: JsWord,
@@ -342,15 +330,14 @@ where
                 }
             }
             JSXElementName::JSXNamespacedName(_) => {
-                // TODO: Program panics if errors are thrown
-                // HANDLER.with(|handler| {
-                //     handler
-                //         .struct_span_err(
-                //             name_span,
-                //             "JSX Namespace is disabled"
-                //         )
-                //         .emit()
-                // });
+                HANDLER.with(|handler| {
+                    handler
+                        .struct_span_err(
+                            name_span,
+                            "JSX Namespace is disabled"
+                        )
+                        .emit()
+                });
 
                 return Expr::Invalid(Invalid { span: DUMMY_SP });
             }
@@ -466,18 +453,17 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                // TODO: Program panics if errors are thrown
-                                // if key_prop.is_none() {
-                                //     HANDLER.with(|handler| {
-                                //         handler
-                                //             .struct_span_err(
-                                //                 i.span,
-                                //                 "The value of property 'key' should not be \
-                                //                      empty",
-                                //             )
-                                //             .emit();
-                                //     });
-                                // }
+                                if key_prop.is_none() {
+                                    HANDLER.with(|handler| {
+                                        handler
+                                            .struct_span_err(
+                                                i.span,
+                                                "The value of property 'key' should not be \
+                                                     empty",
+                                            )
+                                            .emit();
+                                    });
+                                }
 
                                 continue;
                             } else if i.sym == *atoms::ATOM_REF {
@@ -486,18 +472,17 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                // TODO: Program panics if errors are thrown
-                                // if ref_prop.is_none() {
-                                //     HANDLER.with(|handler| {
-                                //         handler
-                                //             .struct_span_err(
-                                //                 i.span,
-                                //                 "The value of property 'ref' should not be \
-                                //                      empty",
-                                //             )
-                                //             .emit();
-                                //     });
-                                // }
+                                if ref_prop.is_none() {
+                                    HANDLER.with(|handler| {
+                                        handler
+                                            .struct_span_err(
+                                                i.span,
+                                                "The value of property 'ref' should not be \
+                                                     empty",
+                                            )
+                                            .emit();
+                                    });
+                                }
 
                                 continue;
                             } else if i.sym == *atoms::ATOM_CHILD_FLAG {
@@ -506,18 +491,17 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                // TODO: Program panics if errors are thrown
-                                // if child_flags_override_param.is_none() {
-                                //     HANDLER.with(|handler| {
-                                //         handler
-                                //             .struct_span_err(
-                                //                 i.span,
-                                //                 "The value of property '$ChildFlag' should \
-                                //                      not be empty",
-                                //             )
-                                //             .emit();
-                                //     });
-                                // }
+                                if child_flags_override_param.is_none() {
+                                    HANDLER.with(|handler| {
+                                        handler
+                                            .struct_span_err(
+                                                i.span,
+                                                "The value of property '$ChildFlag' should \
+                                                     not be empty",
+                                            )
+                                            .emit();
+                                    });
+                                }
 
                                 children_known = true;
                                 continue;
@@ -530,18 +514,17 @@ where
                                     .and_then(jsx_attr_value_to_expr)
                                     .map(|expr| expr.as_arg());
 
-                                // TODO: Program panics if errors are thrown
-                                // if flags_override_param.is_none() {
-                                //     HANDLER.with(|handler| {
-                                //         handler
-                                //             .struct_span_err(
-                                //                 i.span,
-                                //                 "The value of property '$Flags' should not be \
-                                //                      empty",
-                                //             )
-                                //             .emit();
-                                //     });
-                                // }
+                                if flags_override_param.is_none() {
+                                    HANDLER.with(|handler| {
+                                        handler
+                                            .struct_span_err(
+                                                i.span,
+                                                "The value of property '$Flags' should not be \
+                                                     empty",
+                                            )
+                                            .emit();
+                                    });
+                                }
 
                                 continue;
                             } else if i.sym == *atoms::ATOM_HAS_TEXT_CHILDREN {

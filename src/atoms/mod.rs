@@ -1,5 +1,7 @@
 use once_cell::sync::Lazy;
-use swc_atoms::{JsWord};
+use swc_core::{
+    ecma::atoms::{JsWord}
+};
 
 pub const ATOM_CLASSNAME: Lazy<JsWord> = Lazy::new(|| "className".into());
 pub const ATOM_HTML_FOR: Lazy<JsWord> = Lazy::new(|| "htmlFor".into());

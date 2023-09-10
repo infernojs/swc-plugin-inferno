@@ -1,7 +1,9 @@
-use swc_common::{collections::AHashSet, Spanned, SyntaxContext, DUMMY_SP};
-use swc_ecma_ast::*;
-use swc_ecma_utils::ExprFactory;
-use swc_ecma_visit::{noop_visit_type, Visit, VisitWith};
+use swc_core::{
+    common::{collections::AHashSet, Spanned, SyntaxContext, DUMMY_SP},
+    ecma::ast::*,
+    ecma::utils::ExprFactory,
+    ecma::visit::{noop_visit_type, Visit, VisitWith}
+};
 
 pub fn is_builtin_hook(name: &Ident) -> bool {
     matches!(
