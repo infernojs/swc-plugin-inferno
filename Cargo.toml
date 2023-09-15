@@ -7,7 +7,7 @@ include       = ["Cargo.toml", "src/**/*.rs"]
 license       = "MIT"
 name          = "swc-plugin-inferno"
 repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
-version       = "0.0.6"
+version       = "0.0.7"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -17,6 +17,18 @@ bench = false
 concurrent = ["rayon"]
 default    = ["serde-impl"]
 serde-impl = ["serde"]
+
+[profile.release]
+# This removes more dead code
+codegen-units = 1
+lto = true
+# Optimize for size
+opt-level = "s"
+# Optimize for performance, this is default so you don't need to specify it
+# opt-level = "z"
+
+# Strip debug symbols
+strip = "symbols"
 
 [dependencies]
 base64    = "0.21.3"
