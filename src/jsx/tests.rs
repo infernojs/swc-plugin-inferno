@@ -1395,7 +1395,7 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    should_add_import_to_createVNodeComponent_but_not_to_create_vnode_if_create_vnode_is_already_declared,
+    should_add_import_to_create_vnode_component_but_not_to_create_vnode_if_create_vnode_is_already_declared,
     r#"
       import {createVNode} from "inferno"; var foo = <FooBar/>;
     "#,
@@ -1410,7 +1410,7 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    Component_should_prefer_child_element_over_children_props,
+    component_should_prefer_child_element_over_children_props,
     r#"
     <Com children="ab">test</Com>
     "#,
@@ -1426,7 +1426,7 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    Component_should_prefer_prop_over_empty_children,
+    component_should_prefer_prop_over_empty_children,
     r#"
     <Com children="ab"></Com>
     "#,
@@ -1442,7 +1442,7 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    Component_should_use_prop_if_no_children_exists,
+    component_should_use_prop_if_no_children_exists,
     r#"
     <Com children="ab"/>
     "#,

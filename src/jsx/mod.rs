@@ -139,7 +139,7 @@ fn merge_imports(
                             .specifiers
                             .push(ImportSpecifier::Named(ImportNamedSpecifier {
                                 span: DUMMY_SP,
-                                local: quote_ident!(import_to_add.clone()),
+                                local: quote_ident!(*import_to_add),
                                 imported: None,
                                 is_type_only: false,
                             }))
