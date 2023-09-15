@@ -1,25 +1,25 @@
 #![allow(clippy::redundant_allocation)]
 
-use std::{borrow::Cow, sync::Arc};
 use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, sync::Arc};
 use swc_config::merge::Merge;
-use swc_core::common::{DUMMY_SP, FileName, Mark, SourceMap, Span, Spanned};
 use swc_core::common::comments::Comments;
 use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
+use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::atoms::{Atom, js_word, JsWord};
-use swc_core::ecma::utils::{drop_span, ExprFactory, prepend_stmt, quote_ident, StmtLike};
-use swc_core::ecma::visit::{as_folder, Fold, noop_visit_mut_type, VisitMut, VisitMutWith};
+use swc_core::ecma::atoms::{js_word, Atom, JsWord};
+use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
+use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
 
+use crate::atoms;
+use crate::VNodeType::Component;
 use crate::{
     inferno_flags::{ChildFlags, VNodeFlags},
     refresh::options::{deserialize_refresh, RefreshOptions},
 };
-use crate::atoms;
-use crate::VNodeType::Component;
 
 #[cfg(test)]
 mod tests;
@@ -113,8 +113,12 @@ fn named_import_exists(import_name: &str, import: &ImportDecl) -> bool {
     return false;
 }
 
-fn merge_imports(imports: &Vec<&str>, default_import_src: &str, stmts: &mut Vec<ModuleItem>) -> bool {
-    for mut stmt in stmts {
+fn merge_imports(
+    imports: &Vec<&str>,
+    default_import_src: &str,
+    stmts: &mut Vec<ModuleItem>,
+) -> bool {
+    for stmt in stmts {
         if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
             if &import.src.value == default_import_src {
                 for specifier in &import.specifiers {
@@ -128,20 +132,17 @@ fn merge_imports(imports: &Vec<&str>, default_import_src: &str, stmts: &mut Vec<
                 }
 
                 for import_to_add in imports {
-                    let import_exists = named_import_exists(
-                        import_to_add,
-                        &import
-                    );
+                    let import_exists = named_import_exists(import_to_add, &import);
 
                     if !import_exists {
-                        import.specifiers.push(
-                            ImportSpecifier::Named(ImportNamedSpecifier {
+                        import
+                            .specifiers
+                            .push(ImportSpecifier::Named(ImportNamedSpecifier {
                                 span: DUMMY_SP,
                                 local: quote_ident!(import_to_add.clone()),
                                 imported: None,
                                 is_type_only: false,
-                            })
-                        )
+                            }))
                     }
                 }
 
@@ -166,11 +167,7 @@ pub enum VNodeType {
 ///
 /// `top_level_mark` should be [Mark] passed to
 /// [swc_ecma_transforms_base::resolver::resolver_with_mark].
-pub fn jsx<C>(
-    comments: Option<C>,
-    options: Options,
-    unresolved_mark: Mark,
-) -> impl Fold + VisitMut
+pub fn jsx<C>(comments: Option<C>, options: Options, unresolved_mark: Mark) -> impl Fold + VisitMut
 where
     C: Comments,
 {
@@ -366,12 +363,14 @@ where
                     mut_flags = VNodeFlags::ComponentUnknown as u16;
                     name_expr = Box::new(Expr::This(ThisExpr { span: name_span }));
                 } else if is_component_vnode(&ident) {
-                    if ident.sym == *atoms::ATOM_FRAGMENT  {
+                    if ident.sym == *atoms::ATOM_FRAGMENT {
                         vnode_kind = VNodeType::Fragment;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Box::new(Expr::Ident(Ident::new(atoms::ATOM_FRAGMENT.clone(), ident.span)));
-                    }
-                    else {
+                        name_expr = Box::new(Expr::Ident(Ident::new(
+                            atoms::ATOM_FRAGMENT.clone(),
+                            ident.span,
+                        )));
+                    } else {
                         vnode_kind = VNodeType::Component;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
                         name_expr = Box::new(Expr::Ident(ident))
@@ -389,10 +388,7 @@ where
             JSXElementName::JSXNamespacedName(_) => {
                 HANDLER.with(|handler| {
                     handler
-                        .struct_span_err(
-                            name_span,
-                            "JSX Namespace is disabled"
-                        )
+                        .struct_span_err(name_span, "JSX Namespace is disabled")
                         .emit()
                 });
 
@@ -490,19 +486,21 @@ where
                                     continue;
                                 }
                             } else if i.sym == *atoms::ATOM_ON_DOUBLE_CLICK {
-                                props_obj.props.push(PropOrSpread::Prop(Box::new(
-                                    Prop::KeyValue(KeyValueProp {
-                                        key: PropName::Ident(Ident::new(
-                                            atoms::ATOM_ON_DBL_CLICK.clone(),
-                                            span,
-                                        )),
-                                        value: match attr.value {
-                                            Some(v) => jsx_attr_value_to_expr(v)
-                                                .expect("empty expression?"),
-                                            None => true.into(),
+                                props_obj
+                                    .props
+                                    .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(
+                                        KeyValueProp {
+                                            key: PropName::Ident(Ident::new(
+                                                atoms::ATOM_ON_DBL_CLICK.clone(),
+                                                span,
+                                            )),
+                                            value: match attr.value {
+                                                Some(v) => jsx_attr_value_to_expr(v)
+                                                    .expect("empty expression?"),
+                                                None => true.into(),
+                                            },
                                         },
-                                    }),
-                                )));
+                                    ))));
                                 continue;
                             } else if i.sym == js_word!("key") {
                                 key_prop = attr
@@ -610,15 +608,15 @@ where
                                 }
 
                                 prop_children = match attr.value {
-                                    Some(v) => {
-                                        jsx_attr_value_to_expr(v)
-                                    }
+                                    Some(v) => jsx_attr_value_to_expr(v),
                                     None => continue,
                                 };
 
                                 continue;
                             } else {
-                                if vnode_kind == Component && i.sym.as_ref().starts_with("onComponent") {
+                                if vnode_kind == Component
+                                    && i.sym.as_ref().starts_with("onComponent")
+                                {
                                     match attr.value {
                                         Some(v) => {
                                             // if !component_refs.is_some() {
@@ -635,16 +633,19 @@ where
                                                 })
                                             };
 
-                                            if let Some(some_component_refs) = component_refs.as_mut() {
-                                                some_component_refs
-                                                    .props
-                                                    .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                                            if let Some(some_component_refs) =
+                                                component_refs.as_mut()
+                                            {
+                                                some_component_refs.props.push(PropOrSpread::Prop(
+                                                    Box::new(Prop::KeyValue(KeyValueProp {
                                                         key: PropName::Ident(i),
-                                                        value: jsx_attr_value_to_expr(v).expect("empty expression container?"),
-                                                    }))));
+                                                        value: jsx_attr_value_to_expr(v)
+                                                            .expect("empty expression container?"),
+                                                    })),
+                                                ));
                                             }
                                         }
-                                        None => {},
+                                        None => {}
                                     };
 
                                     continue;
@@ -671,8 +672,9 @@ where
                         }
                         JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name }) => {
                             let value = match attr.value {
-                                Some(v) => jsx_attr_value_to_expr(v)
-                                    .expect("empty expression container?"),
+                                Some(v) => {
+                                    jsx_attr_value_to_expr(v).expect("empty expression container?")
+                                }
                                 None => true.into(),
                             };
 
@@ -684,9 +686,12 @@ where
                             };
                             let key = PropName::Str(key);
 
-                            props_obj.props.push(PropOrSpread::Prop(Box::new(
-                                Prop::KeyValue(KeyValueProp { key, value }),
-                            )));
+                            props_obj
+                                .props
+                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                                    key,
+                                    value,
+                                }))));
                         }
                     }
                 }
@@ -861,9 +866,9 @@ where
                                 .props
                                 .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
                                     key: PropName::Ident(quote_ident!("children")),
-                                    value: some_prop_children
+                                    value: some_prop_children,
                                 }))));
-                        },
+                        }
                         None => {
                             // noop
                         }
@@ -894,15 +899,10 @@ where
             // Set prop children as children if no nested children were set
             if children.len() == 0 {
                 match prop_children {
-                    Some(some_prop_children) => {
-                        children
-                            .push(
-                                Some(ExprOrSpread {
-                                    spread: None,
-                                    expr: some_prop_children
-                                })
-                            )
-                    },
+                    Some(some_prop_children) => children.push(Some(ExprOrSpread {
+                        spread: None,
+                        expr: some_prop_children,
+                    })),
                     None => {
                         // noop
                     }
@@ -948,7 +948,13 @@ where
             // If we can ever detect Functional component from Class component compile time
             // We could add some validations
             if let Some(some_refs) = component_refs {
-                create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, Some(some_refs.as_arg()))
+                create_component_vnode_args(
+                    flags_expr,
+                    name_expr,
+                    props_obj,
+                    key_prop,
+                    Some(some_refs.as_arg()),
+                )
             } else {
                 create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, ref_prop)
             }
@@ -1302,10 +1308,10 @@ where
     fn visit_mut_module(&mut self, module: &mut Module) {
         module.visit_mut_children_with(self);
 
-        self.inject_runtime(&mut module.body, |imports, mut default_import_src, stmts| {
+        self.inject_runtime(&mut module.body, |imports, default_import_src, stmts| {
             // Merge new imports to existing import
             if merge_imports(&imports, default_import_src, stmts) {
-                return
+                return;
             }
 
             // Existing inferno import was not found, add new
@@ -1320,7 +1326,6 @@ where
                     })
                 })
                 .collect();
-
 
             prepend_stmt(
                 stmts,

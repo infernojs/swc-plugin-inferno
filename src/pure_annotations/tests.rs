@@ -1,8 +1,8 @@
-use swc_core:: {
-    common::{comments::SingleThreadedComments, sync::Lrc, FileName, Mark, SourceMap},
-    ecma::visit::FoldWith
-};
 use swc_core::ecma::transforms::base::resolver;
+use swc_core::{
+    common::{comments::SingleThreadedComments, sync::Lrc, FileName, Mark, SourceMap},
+    ecma::visit::FoldWith,
+};
 use swc_ecma_codegen::{text_writer::JsWriter, Emitter};
 use swc_ecma_parser::{Parser, StringInput};
 use swc_ecma_transforms_testing::Tester;
@@ -87,9 +87,7 @@ fn run_test(input: &str, expected: &str) {
         if actual_src != expected_src {
             println!(">>>>> Orig <<<<<\n{}", input);
             println!(">>>>> Code <<<<<\n{}", actual_src);
-            panic!(
-                r#"assertion failed: `(left == right)`"#,
-            );
+            panic!(r#"assertion failed: `(left == right)`"#,);
         }
 
         Ok(())

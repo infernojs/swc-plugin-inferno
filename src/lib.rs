@@ -3,11 +3,8 @@
 
 use swc_core::{
     common::{chain, comments::Comments, sync::Lrc, Mark, SourceMap},
-    ecma::{ast::Program, visit::FoldWith, visit::VisitMut, visit::Fold},
-    plugin::{
-        plugin_transform,
-        proxies::TransformPluginProgramMetadata,
-    },
+    ecma::{ast::Program, visit::Fold, visit::FoldWith, visit::VisitMut},
+    plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
 };
 
 pub use self::{
@@ -16,12 +13,12 @@ pub use self::{
     refresh::{options::RefreshOptions, refresh},
 };
 
+mod atoms;
 mod inferno_flags;
 mod jsx;
 mod pure_annotations;
 mod refresh;
 mod vnode_types;
-mod atoms;
 
 ///
 /// `top_level_mark` should be [Mark] passed to
@@ -55,20 +52,13 @@ where
             comments.clone(),
             top_level_mark
         ),
-        jsx(
-            comments.clone(),
-            options,
-            unresolved_mark
-        ),
+        jsx(comments.clone(), options, unresolved_mark),
         pure_annotations(comments),
     )
 }
 
 #[plugin_transform]
-fn inferno_jsx_plugin(
-    program: Program,
-    _data: TransformPluginProgramMetadata,
-) -> Program {
+fn inferno_jsx_plugin(program: Program, _data: TransformPluginProgramMetadata) -> Program {
     let top_level_mark = Mark::new();
 
     // TODO: Where to get source map

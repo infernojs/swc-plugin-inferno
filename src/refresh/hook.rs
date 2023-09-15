@@ -1,13 +1,15 @@
-use std::{fmt::Write, mem};
-use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
+use std::{fmt::Write, mem};
 
 use sha1::{Digest, Sha1};
-use swc_core::common::{DUMMY_SP, SourceMap, SourceMapper, Spanned, SyntaxContext};
-use swc_core::ecma::ast::*;
 use swc_core::common::util::take::Take;
-use swc_core::ecma::utils::{ExprFactory, private_ident, quote_ident};
-use swc_core::ecma::visit::{noop_visit_mut_type, noop_visit_type, Visit, VisitMut, VisitMutWith, VisitWith};
+use swc_core::common::{SourceMap, SourceMapper, Spanned, SyntaxContext, DUMMY_SP};
+use swc_core::ecma::ast::*;
+use swc_core::ecma::utils::{private_ident, quote_ident, ExprFactory};
+use swc_core::ecma::visit::{
+    noop_visit_mut_type, noop_visit_type, Visit, VisitMut, VisitMutWith, VisitWith,
+};
 
 use super::util::{is_builtin_hook, make_call_expr, make_call_stmt};
 use crate::RefreshOptions;

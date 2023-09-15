@@ -6,21 +6,19 @@ use std::{
 };
 use swc_core::common::chain;
 use swc_core::common::input::StringInput;
-use swc_core::ecma::visit::FoldWith;
-use swc_core::ecma::transforms::base::resolver;
 use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
+use swc_core::ecma::transforms::base::resolver;
+use swc_core::ecma::visit::FoldWith;
 use swc_ecma_codegen::{Config, Emitter};
 use swc_ecma_parser::{EsConfig, Parser, Syntax};
-use swc_ecma_transforms_compat::{
-    es3::property_literals,
-};
+use swc_ecma_transforms_compat::es3::property_literals;
 use swc_ecma_transforms_module::common_js::common_js;
 use swc_ecma_transforms_testing::{parse_options, test, test_fixture, FixtureTestConfig, Tester};
 use testing::NormalizedOutput;
 
 use super::*;
-use crate::{inferno, PluginDiagnosticsEmitter, pure_annotations};
+use crate::{inferno, pure_annotations, PluginDiagnosticsEmitter};
 
 /*
  * REFs
@@ -52,8 +50,6 @@ createComponentVNode(2, Child, {
 });
 "#
 );
-
-
 
 /*
  * Dynamic children
@@ -949,19 +945,20 @@ test!(
 //     "#);
 
 test!(
-::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
-    jsx: true,
-    ..Default::default()
-}),
-|t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-should_not_fail_if_create_vnode_is_already_imported,
-r#"
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_not_fail_if_create_vnode_is_already_imported,
+    r#"
   import {createVNode} from "inferno"; var foo = <div/>;
 "#,
-r#"
+    r#"
     import { createVNode } from "inferno";
     var foo = createVNode(1, "div");
-"#);
+"#
+);
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1407,7 +1404,7 @@ test!(
     var foo = createComponentVNode(2, FooBar);
     "#);
 
-    test!(
+test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
         ..Default::default()
@@ -1420,7 +1417,8 @@ test!(
     r#"
     import { createComponentVNode } from "inferno";
     createComponentVNode(2, Com, {children: "test"});
-    "#);
+    "#
+);
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1435,7 +1433,8 @@ test!(
     r#"
     import { createComponentVNode } from "inferno";
     createComponentVNode(2, Com, {children: "ab"});
-    "#);
+    "#
+);
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1450,7 +1449,8 @@ test!(
     r#"
     import { createComponentVNode } from "inferno";
     createComponentVNode(2, Com, {children: "ab"});
-    "#);
+    "#
+);
 
 // This could be optimized to have HasVNodeChildren set,
 // but I'm not sure if anybody writes code like this
@@ -1467,7 +1467,8 @@ test!(
     r#"
     import { createVNode } from "inferno";
     createVNode(1, "foo", null, createVNode(1, "span", null, "b", 16));
-    "#);
+    "#
+);
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1543,17 +1544,13 @@ fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Fold {
     let handler = swc_core::common::errors::Handler::with_emitter(
         true,
         false,
-        Box::new(PluginDiagnosticsEmitter)
+        Box::new(PluginDiagnosticsEmitter),
     );
     let _ = HANDLER.inner.set(handler);
 
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
-        jsx(
-            Some(t.comments.clone()),
-            options,
-            unresolved_mark
-        ),
+        jsx(Some(t.comments.clone()), options, unresolved_mark),
     )
 }
 
@@ -1577,7 +1574,6 @@ fn true_by_default() -> bool {
     true
 }
 
-
 fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
@@ -1585,7 +1581,7 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let handler = swc_core::common::errors::Handler::with_emitter(
         true,
         false,
-        Box::new(PluginDiagnosticsEmitter)
+        Box::new(PluginDiagnosticsEmitter),
     );
     let _ = HANDLER.inner.set(handler);
 
@@ -1609,7 +1605,7 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let handler = swc_core::common::errors::Handler::with_emitter(
         true,
         false,
-        Box::new(PluginDiagnosticsEmitter)
+        Box::new(PluginDiagnosticsEmitter),
     );
     let _ = HANDLER.inner.set(handler);
 
@@ -1624,7 +1620,6 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
         )
     )
 }
-
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -1710,7 +1705,6 @@ var x = createVNode(1, "div", null, [
 "#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1750,7 +1744,7 @@ var profile = <div>
   <img src="avatar.png" className="profile" />
   <h3>{[user.firstName, user.lastName].join(" ")}</h3>
 </div>;"#,
-r#"
+    r#"
 import { createVNode, createComponentVNode } from "inferno";
 createComponentVNode(2, Foo);
 var profile = createVNode(1, "div", null, [
@@ -1795,7 +1789,6 @@ var profile = createVNode(1, "div", null, [
 ], 4);"#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1831,7 +1824,6 @@ var profile = createVNode(1, "div", null, [
 ], 4);"#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1844,7 +1836,6 @@ test!(
 var div = createVNode(1, "div", null, "test", 16);"#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1856,7 +1847,6 @@ test!(
     r#"import { createVNode } from "inferno";
 var div = createVNode(1, "div", null, "test", 16);"#
 );
-
 
 test!(
     // This is not worth optimization if Inferno does not have support for static vNodes trees
@@ -1902,7 +1892,6 @@ class App extends Component {
 }"#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1943,7 +1932,6 @@ createComponentVNode(2, Component, {
 "#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1973,7 +1961,6 @@ createVNode(1, "div", null, null, 1, {
 });"#
 );
 
-
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
         jsx: true,
@@ -1987,7 +1974,6 @@ import { createComponentVNode } from "inferno";
 createComponentVNode(2, Namespace.Component);
     "#
 );
-
 
 test!(
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
@@ -2705,7 +2691,7 @@ var _inferno = _interop_require_wildcard(require("inferno"));
 fn jsx_text() {
     assert_eq!(jsx_text_to_str(" ".into()), *" ");
     assert_eq!(jsx_text_to_str("Hello world".into()), *"Hello world");
-//    assert_eq!(jsx_text_to_str(" \n".into()), *" ");
+    //    assert_eq!(jsx_text_to_str(" \n".into()), *" ");
 }
 
 // https://github.com/swc-project/swc/issues/542

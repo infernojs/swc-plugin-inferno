@@ -1,7 +1,5 @@
 use once_cell::sync::Lazy;
-use swc_core::{
-    ecma::atoms::{JsWord}
-};
+use swc_core::ecma::atoms::JsWord;
 
 pub const ATOM_CLASSNAME: Lazy<JsWord> = Lazy::new(|| "className".into());
 pub const ATOM_HTML_FOR: Lazy<JsWord> = Lazy::new(|| "htmlFor".into());
@@ -30,7 +28,8 @@ pub const ATOM_BASELINESHIFT: Lazy<JsWord> = Lazy::new(|| "baselineShift".into()
 pub const ATOM_CAPHEIGHT: Lazy<JsWord> = Lazy::new(|| "capHeight".into());
 pub const ATOM_CLIPRULE: Lazy<JsWord> = Lazy::new(|| "clipRule".into());
 pub const ATOM_COLORINTERPOLATION: Lazy<JsWord> = Lazy::new(|| "colorInterpolation".into());
-pub const ATOM_COLORINTERPOLATIONFILTERS: Lazy<JsWord> = Lazy::new(|| "colorInterpolationFilters".into());
+pub const ATOM_COLORINTERPOLATIONFILTERS: Lazy<JsWord> =
+    Lazy::new(|| "colorInterpolationFilters".into());
 pub const ATOM_COLORPROFILE: Lazy<JsWord> = Lazy::new(|| "colorProfile".into());
 pub const ATOM_COLORRENDERING: Lazy<JsWord> = Lazy::new(|| "colorRendering".into());
 pub const ATOM_DOMINANTBASELINE: Lazy<JsWord> = Lazy::new(|| "dominantBaseline".into());
@@ -47,8 +46,10 @@ pub const ATOM_FONTSTYLE: Lazy<JsWord> = Lazy::new(|| "fontStyle".into());
 pub const ATOM_FONTVARIANT: Lazy<JsWord> = Lazy::new(|| "fontVariant".into());
 pub const ATOM_FONTWEIGHT: Lazy<JsWord> = Lazy::new(|| "fontWeight".into());
 pub const ATOM_GLYPHNAME: Lazy<JsWord> = Lazy::new(|| "glyphName".into());
-pub const ATOM_GLYPHORIENTATIONHORIZONTAL: Lazy<JsWord> = Lazy::new(|| "glyphOrientationHorizontal".into());
-pub const ATOM_GLYPHORIENTATIONVERTICAL: Lazy<JsWord> = Lazy::new(|| "glyphOrientationVertical".into());
+pub const ATOM_GLYPHORIENTATIONHORIZONTAL: Lazy<JsWord> =
+    Lazy::new(|| "glyphOrientationHorizontal".into());
+pub const ATOM_GLYPHORIENTATIONVERTICAL: Lazy<JsWord> =
+    Lazy::new(|| "glyphOrientationVertical".into());
 pub const ATOM_HORIZADVX: Lazy<JsWord> = Lazy::new(|| "horizAdvX".into());
 pub const ATOM_HORIZORIGINX: Lazy<JsWord> = Lazy::new(|| "horizOriginX".into());
 pub const ATOM_IMAGERENDERING: Lazy<JsWord> = Lazy::new(|| "imageRendering".into());
@@ -111,7 +112,8 @@ pub const ATOM_BASELINE_SHIFT: Lazy<JsWord> = Lazy::new(|| "baseline-shift".into
 pub const ATOM_CAP_HEIGHT: Lazy<JsWord> = Lazy::new(|| "cap-height".into());
 pub const ATOM_CLIP_RULE: Lazy<JsWord> = Lazy::new(|| "clip-rule".into());
 pub const ATOM_COLOR_INTERPOLATION: Lazy<JsWord> = Lazy::new(|| "color-interpolation".into());
-pub const ATOM_COLOR_INTERPOLATION_FILTERS: Lazy<JsWord> = Lazy::new(|| "color-interpolation-filters".into());
+pub const ATOM_COLOR_INTERPOLATION_FILTERS: Lazy<JsWord> =
+    Lazy::new(|| "color-interpolation-filters".into());
 pub const ATOM_COLOR_RENDERING: Lazy<JsWord> = Lazy::new(|| "color-rendering".into());
 pub const ATOM_DOMINANT_BASELINE: Lazy<JsWord> = Lazy::new(|| "dominant-baseline".into());
 pub const ATOM_ENABLE_BACKGROUND: Lazy<JsWord> = Lazy::new(|| "enable-background".into());
@@ -120,8 +122,10 @@ pub const ATOM_FLOOD_COLOR: Lazy<JsWord> = Lazy::new(|| "flood-color".into());
 pub const ATOM_FLOOD_OPACITY: Lazy<JsWord> = Lazy::new(|| "flood-opacity".into());
 pub const ATOM_FONT_FAMILY: Lazy<JsWord> = Lazy::new(|| "font-family".into());
 pub const ATOM_GLYPH_NAME: Lazy<JsWord> = Lazy::new(|| "glyph-name".into());
-pub const ATOM_GLYPH_ORIENTATION_HORIZONTAL: Lazy<JsWord> = Lazy::new(|| "glyph-orientation-horizontal".into());
-pub const ATOM_GLYPH_ORIENTATION_VERTICAL: Lazy<JsWord> = Lazy::new(|| "glyph-orientation-vertical".into());
+pub const ATOM_GLYPH_ORIENTATION_HORIZONTAL: Lazy<JsWord> =
+    Lazy::new(|| "glyph-orientation-horizontal".into());
+pub const ATOM_GLYPH_ORIENTATION_VERTICAL: Lazy<JsWord> =
+    Lazy::new(|| "glyph-orientation-vertical".into());
 pub const ATOM_HORIZ_ADV_X: Lazy<JsWord> = Lazy::new(|| "horiz-adv-x".into());
 pub const ATOM_HORIZ_ORIGIN_X: Lazy<JsWord> = Lazy::new(|| "horiz-origin-x".into());
 pub const ATOM_LIGHTING_COLOR: Lazy<JsWord> = Lazy::new(|| "lighting-color".into());
@@ -135,7 +139,8 @@ pub const ATOM_SHAPE_RENDERING: Lazy<JsWord> = Lazy::new(|| "shape-rendering".in
 pub const ATOM_STOP_COLOR: Lazy<JsWord> = Lazy::new(|| "stop-color".into());
 pub const ATOM_STOP_OPACITY: Lazy<JsWord> = Lazy::new(|| "stop-opacity".into());
 pub const ATOM_STRIKETHROUGH_POSITION: Lazy<JsWord> = Lazy::new(|| "strikethrough-position".into());
-pub const ATOM_STRIKETHROUGH_THICKNESS: Lazy<JsWord> = Lazy::new(|| "strikethrough-thickness".into());
+pub const ATOM_STRIKETHROUGH_THICKNESS: Lazy<JsWord> =
+    Lazy::new(|| "strikethrough-thickness".into());
 pub const ATOM_STROKE_DASHOFFSET: Lazy<JsWord> = Lazy::new(|| "stroke-dashoffset".into());
 pub const ATOM_STROKE_LINECAP: Lazy<JsWord> = Lazy::new(|| "stroke-linecap".into());
 pub const ATOM_STROKE_LINEJOIN: Lazy<JsWord> = Lazy::new(|| "stroke-linejoin".into());

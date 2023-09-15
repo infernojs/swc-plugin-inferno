@@ -1,11 +1,11 @@
-use swc_core:: {
+use swc_core::{
     common::{
         collections::AHashSet, comments::Comments, sync::Lrc, util::take::Take, BytePos, Mark,
         SourceMap, SourceMapper, Span, Spanned, SyntaxContext, DUMMY_SP,
     },
     ecma::ast::*,
     ecma::utils::{private_ident, quote_ident, quote_str, ExprFactory},
-    ecma::visit::{as_folder, Fold, Visit, VisitMut, VisitMutWith}
+    ecma::visit::{as_folder, Fold, Visit, VisitMut, VisitMutWith},
 };
 
 use self::{

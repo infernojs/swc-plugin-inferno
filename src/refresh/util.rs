@@ -2,7 +2,7 @@ use swc_core::{
     common::{collections::AHashSet, Spanned, SyntaxContext, DUMMY_SP},
     ecma::ast::*,
     ecma::utils::ExprFactory,
-    ecma::visit::{noop_visit_type, Visit, VisitWith}
+    ecma::visit::{noop_visit_type, Visit, VisitWith},
 };
 
 pub fn is_builtin_hook(name: &Ident) -> bool {

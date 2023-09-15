@@ -1,9 +1,8 @@
-use swc_core::{
-    ecma::atoms::{js_word, JsWord},
-    ecma::ast::{Ident, PropName, Str},
-
-};
 use crate::atoms;
+use swc_core::{
+    ecma::ast::{Ident, PropName, Str},
+    ecma::atoms::{js_word, JsWord},
+};
 
 use crate::inferno_flags::VNodeFlags;
 
@@ -126,248 +125,167 @@ pub fn convert_svg_attrs(prop_ident: Ident) -> PropName {
         new_name = atoms::ATOM_ACCENT_HEIGHT.clone();
     } else if prop_ident.sym == *atoms::ATOM_ALIGNMENTBASELINE {
         new_name = atoms::ATOM_ALIGNMENT_BASELINE.clone();
-    }
-    else if prop_ident.sym == js_word!("clipPath") {
+    } else if prop_ident.sym == js_word!("clipPath") {
         new_name = js_word!("clip-path")
-    }
-    else if prop_ident.sym == *atoms::ATOM_COLORPROFILE {
+    } else if prop_ident.sym == *atoms::ATOM_COLORPROFILE {
         new_name = js_word!("color-profile")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FILLOPACITY {
+    } else if prop_ident.sym == *atoms::ATOM_FILLOPACITY {
         new_name = js_word!("fill-opacity")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTSIZE {
+    } else if prop_ident.sym == *atoms::ATOM_FONTSIZE {
         new_name = js_word!("font-size")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTSIZEADJUST {
+    } else if prop_ident.sym == *atoms::ATOM_FONTSIZEADJUST {
         new_name = js_word!("font-size-adjust")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTSTRETCH {
+    } else if prop_ident.sym == *atoms::ATOM_FONTSTRETCH {
         new_name = js_word!("font-stretch")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTSTYLE {
+    } else if prop_ident.sym == *atoms::ATOM_FONTSTYLE {
         new_name = js_word!("font-style")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTVARIANT {
+    } else if prop_ident.sym == *atoms::ATOM_FONTVARIANT {
         new_name = js_word!("font-variant")
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTWEIGHT {
+    } else if prop_ident.sym == *atoms::ATOM_FONTWEIGHT {
         new_name = js_word!("font-weight")
-    }
-    else if prop_ident.sym == *atoms::ATOM_IMAGERENDERING {
+    } else if prop_ident.sym == *atoms::ATOM_IMAGERENDERING {
         new_name = js_word!("image-rendering")
-    }
-    else if prop_ident.sym == *atoms::ATOM_LETTERSPACING {
+    } else if prop_ident.sym == *atoms::ATOM_LETTERSPACING {
         new_name = js_word!("letter-spacing")
-    }
-    else if prop_ident.sym == *atoms::ATOM_PAINTORDER {
+    } else if prop_ident.sym == *atoms::ATOM_PAINTORDER {
         new_name = js_word!("paint-order")
-    }
-    else if prop_ident.sym == *atoms::ATOM_PANOSE1 {
+    } else if prop_ident.sym == *atoms::ATOM_PANOSE1 {
         new_name = js_word!("panose-1")
-    }
-    else if prop_ident.sym == *atoms::ATOM_POINTEREVENTS {
+    } else if prop_ident.sym == *atoms::ATOM_POINTEREVENTS {
         new_name = js_word!("pointer-events")
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKEDASHARRAY {
+    } else if prop_ident.sym == *atoms::ATOM_STROKEDASHARRAY {
         new_name = js_word!("stroke-dasharray")
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKEOPACITY {
+    } else if prop_ident.sym == *atoms::ATOM_STROKEOPACITY {
         new_name = js_word!("stroke-opacity")
-    }
-    else if prop_ident.sym == *atoms::ATOM_TEXTDECORATION {
+    } else if prop_ident.sym == *atoms::ATOM_TEXTDECORATION {
         new_name = js_word!("text-decoration")
-    }
-    else if prop_ident.sym == *atoms::ATOM_TEXTRENDERING {
+    } else if prop_ident.sym == *atoms::ATOM_TEXTRENDERING {
         new_name = js_word!("text-rendering")
-    }
-    else if prop_ident.sym == *atoms::ATOM_UNICODEBIDI {
+    } else if prop_ident.sym == *atoms::ATOM_UNICODEBIDI {
         new_name = js_word!("unicode-bidi")
-    }
-    else if prop_ident.sym == *atoms::ATOM_WORDSPACING {
+    } else if prop_ident.sym == *atoms::ATOM_WORDSPACING {
         new_name = js_word!("word-spacing")
-    }
-    else if prop_ident.sym == *atoms::ATOM_WRITINGMODE {
+    } else if prop_ident.sym == *atoms::ATOM_WRITINGMODE {
         new_name = js_word!("writing-mode")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKACTUATE {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKACTUATE {
         new_name = js_word!("xlink:actuate")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKARCROLE {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKARCROLE {
         new_name = js_word!("xlink:arcrole")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKHREF {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKHREF {
         new_name = js_word!("xlink:href")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKROLE {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKROLE {
         new_name = js_word!("xlink:role")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKSHOW {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKSHOW {
         new_name = js_word!("xlink:show")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKTITLE {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKTITLE {
         new_name = js_word!("xlink:title")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XLINKTYPE {
+    } else if prop_ident.sym == *atoms::ATOM_XLINKTYPE {
         new_name = js_word!("xlink:type")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XMLNSXLINK {
+    } else if prop_ident.sym == *atoms::ATOM_XMLNSXLINK {
         new_name = js_word!("xmlns:xlink")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XMLLANG {
+    } else if prop_ident.sym == *atoms::ATOM_XMLLANG {
         new_name = js_word!("xml:lang")
-    }
-    else if prop_ident.sym == *atoms::ATOM_XMLSPACE {
+    } else if prop_ident.sym == *atoms::ATOM_XMLSPACE {
         new_name = js_word!("xml:space")
-    }
-    else if prop_ident.sym == *atoms::ATOM_ALIGNMENTBASELINE {
+    } else if prop_ident.sym == *atoms::ATOM_ALIGNMENTBASELINE {
         new_name = atoms::ATOM_ALIGNMENT_BASELINE.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_ARABICFORM {
+    } else if prop_ident.sym == *atoms::ATOM_ARABICFORM {
         new_name = atoms::ATOM_ARABIC_FORM.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_BASELINESHIFT {
+    } else if prop_ident.sym == *atoms::ATOM_BASELINESHIFT {
         new_name = atoms::ATOM_BASELINE_SHIFT.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_CAPHEIGHT {
+    } else if prop_ident.sym == *atoms::ATOM_CAPHEIGHT {
         new_name = atoms::ATOM_CAP_HEIGHT.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_CLIPRULE {
+    } else if prop_ident.sym == *atoms::ATOM_CLIPRULE {
         new_name = atoms::ATOM_CLIP_RULE.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_COLORINTERPOLATION {
+    } else if prop_ident.sym == *atoms::ATOM_COLORINTERPOLATION {
         new_name = atoms::ATOM_COLOR_INTERPOLATION.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_COLORINTERPOLATIONFILTERS {
+    } else if prop_ident.sym == *atoms::ATOM_COLORINTERPOLATIONFILTERS {
         new_name = atoms::ATOM_COLOR_INTERPOLATION_FILTERS.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_COLORRENDERING {
+    } else if prop_ident.sym == *atoms::ATOM_COLORRENDERING {
         new_name = atoms::ATOM_COLOR_RENDERING.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_DOMINANTBASELINE {
+    } else if prop_ident.sym == *atoms::ATOM_DOMINANTBASELINE {
         new_name = atoms::ATOM_DOMINANT_BASELINE.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_ENABLEBACKGROUND {
+    } else if prop_ident.sym == *atoms::ATOM_ENABLEBACKGROUND {
         new_name = atoms::ATOM_ENABLE_BACKGROUND.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_FILLRULE {
+    } else if prop_ident.sym == *atoms::ATOM_FILLRULE {
         new_name = atoms::ATOM_FILL_RULE.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_FLOODCOLOR {
+    } else if prop_ident.sym == *atoms::ATOM_FLOODCOLOR {
         new_name = atoms::ATOM_FLOOD_COLOR.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_FLOODOPACITY {
+    } else if prop_ident.sym == *atoms::ATOM_FLOODOPACITY {
         new_name = atoms::ATOM_FLOOD_OPACITY.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_FONTFAMILY {
+    } else if prop_ident.sym == *atoms::ATOM_FONTFAMILY {
         new_name = atoms::ATOM_FONT_FAMILY.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_GLYPHNAME {
+    } else if prop_ident.sym == *atoms::ATOM_GLYPHNAME {
         new_name = atoms::ATOM_GLYPH_NAME.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_GLYPHORIENTATIONHORIZONTAL {
+    } else if prop_ident.sym == *atoms::ATOM_GLYPHORIENTATIONHORIZONTAL {
         new_name = atoms::ATOM_GLYPH_ORIENTATION_HORIZONTAL.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_GLYPHORIENTATIONVERTICAL {
+    } else if prop_ident.sym == *atoms::ATOM_GLYPHORIENTATIONVERTICAL {
         new_name = atoms::ATOM_GLYPH_ORIENTATION_VERTICAL.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_HORIZADVX {
+    } else if prop_ident.sym == *atoms::ATOM_HORIZADVX {
         new_name = atoms::ATOM_HORIZ_ADV_X.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_HORIZORIGINX {
+    } else if prop_ident.sym == *atoms::ATOM_HORIZORIGINX {
         new_name = atoms::ATOM_HORIZ_ORIGIN_X.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_LIGHTINGCOLOR {
+    } else if prop_ident.sym == *atoms::ATOM_LIGHTINGCOLOR {
         new_name = atoms::ATOM_LIGHTING_COLOR.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_MARKEREND {
+    } else if prop_ident.sym == *atoms::ATOM_MARKEREND {
         new_name = atoms::ATOM_MARKER_END.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_MARKERMID {
+    } else if prop_ident.sym == *atoms::ATOM_MARKERMID {
         new_name = atoms::ATOM_MARKER_MID.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_MARKERSTART {
+    } else if prop_ident.sym == *atoms::ATOM_MARKERSTART {
         new_name = atoms::ATOM_MARKER_START.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_OVERLINEPOSITION {
+    } else if prop_ident.sym == *atoms::ATOM_OVERLINEPOSITION {
         new_name = atoms::ATOM_OVERLINE_POSITION.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_OVERLINETHICKNESS {
+    } else if prop_ident.sym == *atoms::ATOM_OVERLINETHICKNESS {
         new_name = atoms::ATOM_OVERLINE_THICKNESS.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_RENDERINGINTENT {
+    } else if prop_ident.sym == *atoms::ATOM_RENDERINGINTENT {
         new_name = atoms::ATOM_RENDERING_INTENT.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_SHAPERENDERING {
+    } else if prop_ident.sym == *atoms::ATOM_SHAPERENDERING {
         new_name = atoms::ATOM_SHAPE_RENDERING.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STOPCOLOR {
+    } else if prop_ident.sym == *atoms::ATOM_STOPCOLOR {
         new_name = atoms::ATOM_STOP_COLOR.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STOPOPACITY {
+    } else if prop_ident.sym == *atoms::ATOM_STOPOPACITY {
         new_name = atoms::ATOM_STOP_OPACITY.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STRIKETHROUGHPOSITION {
+    } else if prop_ident.sym == *atoms::ATOM_STRIKETHROUGHPOSITION {
         new_name = atoms::ATOM_STRIKETHROUGH_POSITION.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STRIKETHROUGHTHICKNESS {
+    } else if prop_ident.sym == *atoms::ATOM_STRIKETHROUGHTHICKNESS {
         new_name = atoms::ATOM_STRIKETHROUGH_THICKNESS.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_UNDERLINEPOSITION {
+    } else if prop_ident.sym == *atoms::ATOM_UNDERLINEPOSITION {
         new_name = atoms::ATOM_UNDERLINE_POSITION.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_UNDERLINETHICKNESS {
+    } else if prop_ident.sym == *atoms::ATOM_UNDERLINETHICKNESS {
         new_name = atoms::ATOM_UNDERLINE_THICKNESS.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKEDASHOFFSET {
+    } else if prop_ident.sym == *atoms::ATOM_STROKEDASHOFFSET {
         new_name = atoms::ATOM_STROKE_DASHOFFSET.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKELINECAP {
+    } else if prop_ident.sym == *atoms::ATOM_STROKELINECAP {
         new_name = atoms::ATOM_STROKE_LINECAP.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKELINEJOIN {
+    } else if prop_ident.sym == *atoms::ATOM_STROKELINEJOIN {
         new_name = atoms::ATOM_STROKE_LINEJOIN.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKEMITERLIMIT {
+    } else if prop_ident.sym == *atoms::ATOM_STROKEMITERLIMIT {
         new_name = atoms::ATOM_STROKE_MITERLIMIT.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_STROKEWIDTH {
+    } else if prop_ident.sym == *atoms::ATOM_STROKEWIDTH {
         new_name = atoms::ATOM_STROKE_WIDTH.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_UNICODERANGE {
+    } else if prop_ident.sym == *atoms::ATOM_UNICODERANGE {
         new_name = atoms::ATOM_UNICODE_RANGE.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_UNITSPEREM {
+    } else if prop_ident.sym == *atoms::ATOM_UNITSPEREM {
         new_name = atoms::ATOM_UNITS_PER_EM.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VALPHABETIC {
+    } else if prop_ident.sym == *atoms::ATOM_VALPHABETIC {
         new_name = atoms::ATOM_V_ALPHABETIC.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VHANGING {
+    } else if prop_ident.sym == *atoms::ATOM_VHANGING {
         new_name = atoms::ATOM_V_HANGING.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VIDEOGRAPHIC {
+    } else if prop_ident.sym == *atoms::ATOM_VIDEOGRAPHIC {
         new_name = atoms::ATOM_V_IDEOGRAPHIC.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VMATHEMATICAL {
+    } else if prop_ident.sym == *atoms::ATOM_VMATHEMATICAL {
         new_name = atoms::ATOM_V_MATHEMATICAL.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VECTOREFFECT {
+    } else if prop_ident.sym == *atoms::ATOM_VECTOREFFECT {
         new_name = atoms::ATOM_VECTOR_EFFECT.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VERTADVY {
+    } else if prop_ident.sym == *atoms::ATOM_VERTADVY {
         new_name = atoms::ATOM_VERT_ADV_Y.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VERTORIGINX {
+    } else if prop_ident.sym == *atoms::ATOM_VERTORIGINX {
         new_name = atoms::ATOM_VERT_ORIGIN_X.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_VERTORIGINY {
+    } else if prop_ident.sym == *atoms::ATOM_VERTORIGINY {
         new_name = atoms::ATOM_VERT_ORIGIN_Y.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_XHEIGHT {
+    } else if prop_ident.sym == *atoms::ATOM_XHEIGHT {
         new_name = atoms::ATOM_X_HEIGHT.clone()
-    }
-    else if prop_ident.sym == *atoms::ATOM_XMLBASE {
+    } else if prop_ident.sym == *atoms::ATOM_XMLBASE {
         new_name = atoms::ATOM_XML_BASE.clone()
     } else {
         if prop_ident.sym.contains('-') {
