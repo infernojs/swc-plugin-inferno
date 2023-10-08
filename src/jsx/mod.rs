@@ -180,7 +180,7 @@ where
         import_create_vnode: None,
         import_create_component: None,
         import_create_text_vnode: None,
-        import_fragment: None,
+        import_create_fragment: None,
         import_normalize_props: None,
 
         comments,
@@ -199,7 +199,7 @@ where
     import_create_vnode: Option<Ident>,
     import_create_component: Option<Ident>,
     import_create_text_vnode: Option<Ident>,
-    import_fragment: Option<Ident>,
+    import_create_fragment: Option<Ident>,
     import_normalize_props: Option<Ident>,
     top_level_node: bool,
 
@@ -234,12 +234,48 @@ where
         if let Some(_local) = self.import_normalize_props.take() {
             import_specifiers.push("normalizeProps")
         }
-        if let Some(_local) = self.import_fragment.take() {
+        if let Some(_local) = self.import_create_fragment.take() {
             import_specifiers.push("createFragment")
         }
 
         if !import_specifiers.is_empty() {
             inject(import_specifiers, &self.import_source, body);
+        }
+    }
+
+    fn set_local_import_refs(&mut self, stmts: &mut Vec<ModuleItem>) {
+        for stmt in stmts {
+            if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
+                if &import.src.value == &self.import_source {
+                    for specifier in import.specifiers.iter_mut() {
+                        match specifier {
+                            ImportSpecifier::Named(named_import) => {
+                                if named_import.local.sym == *atoms::ATOM_CREATE_VNODE {
+                                    self.import_create_vnode
+                                        .get_or_insert(named_import.local.clone());
+                                } else if named_import.local.sym
+                                    == *atoms::ATOM_CREATE_COMPONENT_VNODE
+                                {
+                                    self.import_create_component
+                                        .get_or_insert(named_import.local.clone());
+                                } else if named_import.local.sym == *atoms::ATOM_CREATE_TEXT_VNODE {
+                                    self.import_create_text_vnode
+                                        .get_or_insert(named_import.local.clone());
+                                } else if named_import.local.sym == *atoms::ATOM_CREATE_FRAGMENT {
+                                    self.import_create_fragment
+                                        .get_or_insert(named_import.local.clone());
+                                } else if named_import.local.sym == *atoms::ATOM_NORMALIZE_PROPS {
+                                    self.import_normalize_props
+                                        .get_or_insert(named_import.local.clone());
+                                }
+                            }
+                            _ => continue,
+                        }
+                    }
+
+                    return;
+                }
+            }
         }
     }
 
@@ -251,7 +287,7 @@ where
         }
 
         let fragment = self
-            .import_fragment
+            .import_create_fragment
             .get_or_insert_with(|| quote_ident!("createFragment"))
             .clone();
 
@@ -938,7 +974,7 @@ where
                 .get_or_insert_with(|| quote_ident!("createVNode"))
                 .clone()
         } else {
-            self.import_fragment
+            self.import_create_fragment
                 .get_or_insert_with(|| quote_ident!("createFragment"))
                 .clone()
         };
@@ -1306,6 +1342,8 @@ where
     }
 
     fn visit_mut_module(&mut self, module: &mut Module) {
+        self.set_local_import_refs(&mut module.body);
+
         module.visit_mut_children_with(self);
 
         self.inject_runtime(&mut module.body, |imports, default_import_src, stmts| {

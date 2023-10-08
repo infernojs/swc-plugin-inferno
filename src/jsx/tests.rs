@@ -20,6 +20,146 @@ use testing::NormalizedOutput;
 use super::*;
 use crate::{inferno, pure_annotations, PluginDiagnosticsEmitter};
 
+test!(
+    ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsConfig {
+        tsx: true,
+        ..Default::default()
+    }),
+    |t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+
+        chain!(
+            resolver(unresolved_mark, top_level_mark, false),
+            jsx(
+                Some(t.comments.clone()),
+                Default::default(),
+                unresolved_mark
+            ),
+            common_js(
+                unresolved_mark,
+                Default::default(),
+                Default::default(),
+                Some(t.comments.clone())
+            )
+        )
+    },
+    should_always_stick_the_create_vnode_ref_to_import_when_compiled_to_commonjs,
+    r#"
+import {
+  Component,
+  createTextVNode,
+  createVNode,
+  linkEvent,
+  render,
+} from 'inferno';
+
+const Foo = class Clock extends Component {
+  public render() {
+    return (
+      <Collapsible>
+        <div>
+          {[<p>Hello 0</p>, <p>Hello 1</p>]}
+          <strong>Hello 2</strong>
+        </div>
+        <p>Hello 3</p>
+      </Collapsible>
+    );
+  }
+}
+render(<Foo/>, null);
+"#,
+    r#"
+            "use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+var _inferno = require("inferno");
+const Foo = class Clock extends _inferno.Component {
+    public render() {
+        return (0, _inferno.createComponentVNode)(2, Collapsible, {
+            children: [
+                (0, _inferno.createVNode)(1, "div", null, [
+                    [
+                        (0, _inferno.createVNode)(1, "p", null, "Hello 0", 16),
+                        (0, _inferno.createVNode)(1, "p", null, "Hello 1", 16)
+                    ],
+                    (0, _inferno.createVNode)(1, "strong", null, "Hello 2", 16)
+                ], 0),
+                (0, _inferno.createVNode)(1, "p", null, "Hello 3", 16)
+            ]
+        });
+    }
+};
+(0, _inferno.render)((0, _inferno.createComponentVNode)(2, Foo), null);
+"#
+);
+
+test!(
+    ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsConfig {
+        tsx: true,
+        ..Default::default()
+    }),
+    |t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+
+        chain!(
+            resolver(unresolved_mark, top_level_mark, false),
+            jsx(
+                Some(t.comments.clone()),
+                Default::default(),
+                unresolved_mark
+            ),
+        )
+    },
+    should_always_stick_the_create_vnode_ref_to_import_when_compiled_to_esm,
+    r#"
+import {
+  Component,
+  createTextVNode,
+  createVNode,
+  linkEvent,
+  render,
+} from 'inferno';
+
+const Foo = class Clock extends Component {
+  public render() {
+    return (
+      <Collapsible>
+        <div>
+          {[<p>Hello 0</p>, <p>Hello 1</p>]}
+          <strong>Hello 2</strong>
+        </div>
+        <p>Hello 3</p>
+      </Collapsible>
+    );
+  }
+}
+render(<Foo/>, null);
+"#,
+    r#"
+import { Component, createTextVNode, createVNode, linkEvent, render, createComponentVNode } from 'inferno';
+const Foo = class Clock extends Component {
+    public render() {
+        return createComponentVNode(2, Collapsible, {
+            children: [
+                createVNode(1, "div", null, [
+                    [
+                        createVNode(1, "p", null, "Hello 0", 16),
+                        createVNode(1, "p", null, "Hello 1", 16)
+                    ],
+                    createVNode(1, "strong", null, "Hello 2", 16)
+                ], 0),
+                createVNode(1, "p", null, "Hello 3", 16)
+            ]
+        });
+    }
+};
+render(createComponentVNode(2, Foo), null);
+"#
+);
+
 /*
  * REFs
  */
