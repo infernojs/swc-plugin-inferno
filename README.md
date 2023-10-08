@@ -30,9 +30,9 @@ For rest of the settings see: https://swc.rs/docs/configuration/compilation
     "experimental": {
          "plugins": [
             ["swc-plugin-inferno", {
-              // Options
+              "pure": true // Enable or disable /*#__PURE__*/ statements
             }]
-        ],
+        ]
     }
   }
 }
