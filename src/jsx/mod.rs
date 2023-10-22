@@ -14,7 +14,6 @@ use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, Visi
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
 
-use crate::atoms;
 use crate::VNodeType::Component;
 use crate::{
     inferno_flags::{ChildFlags, VNodeFlags},
@@ -250,21 +249,21 @@ where
                     for specifier in import.specifiers.iter_mut() {
                         match specifier {
                             ImportSpecifier::Named(named_import) => {
-                                if named_import.local.sym == *atoms::ATOM_CREATE_VNODE {
+                                if named_import.local.sym == "createVNode" {
                                     self.import_create_vnode
                                         .get_or_insert(named_import.local.clone());
                                 } else if named_import.local.sym
-                                    == *atoms::ATOM_CREATE_COMPONENT_VNODE
+                                    == "createComponentVNode"
                                 {
                                     self.import_create_component
                                         .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == *atoms::ATOM_CREATE_TEXT_VNODE {
+                                } else if named_import.local.sym == "createTextVNode" {
                                     self.import_create_text_vnode
                                         .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == *atoms::ATOM_CREATE_FRAGMENT {
+                                } else if named_import.local.sym == "createFragment" {
                                     self.import_create_fragment
                                         .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == *atoms::ATOM_NORMALIZE_PROPS {
+                                } else if named_import.local.sym == "normalizeProps" {
                                     self.import_normalize_props
                                         .get_or_insert(named_import.local.clone());
                                 }
@@ -395,25 +394,25 @@ where
         match el.opening.name {
             JSXElementName::Ident(ident) => {
                 if ident.sym == js_word!("this") {
-                    vnode_kind = VNodeType::Component;
+                    vnode_kind = Component;
                     mut_flags = VNodeFlags::ComponentUnknown as u16;
                     name_expr = Box::new(Expr::This(ThisExpr { span: name_span }));
                 } else if is_component_vnode(&ident) {
-                    if ident.sym == *atoms::ATOM_FRAGMENT {
+                    if ident.sym == "Fragment" {
                         vnode_kind = VNodeType::Fragment;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
                         name_expr = Box::new(Expr::Ident(Ident::new(
-                            atoms::ATOM_FRAGMENT.clone(),
+                            "createFragment".into(),
                             ident.span,
                         )));
                     } else {
-                        vnode_kind = VNodeType::Component;
+                        vnode_kind = Component;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
                         name_expr = Box::new(Expr::Ident(ident))
                     }
                 } else {
                     vnode_kind = VNodeType::Element;
-                    mut_flags = crate::vnode_types::parse_vnode_flag(&ident.sym);
+                    mut_flags = crate::vnode_types::parse_vnode_flag(&*ident.sym);
                     name_expr = Box::new(Expr::Lit(Lit::Str(Str {
                         span: name_span,
                         raw: None,
@@ -431,7 +430,7 @@ where
                 return Expr::Invalid(Invalid { span: DUMMY_SP });
             }
             JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop }) => {
-                vnode_kind = VNodeType::Component;
+                vnode_kind = Component;
                 mut_flags = VNodeFlags::ComponentUnknown as u16;
 
                 fn convert_obj(obj: JSXObject) -> Box<Expr> {
@@ -493,7 +492,7 @@ where
                     match attr.name {
                         JSXAttrName::Ident(i) => {
                             //
-                            if i.sym == js_word!("class") || i.sym == *atoms::ATOM_CLASSNAME {
+                            if i.sym == js_word!("class") || i.sym == "className" {
                                 if vnode_kind == VNodeType::Element {
                                     if let Some(v) = attr.value {
                                         class_name_param = jsx_attr_value_to_expr(v)
@@ -501,7 +500,7 @@ where
 
                                     continue;
                                 }
-                            } else if i.sym == *atoms::ATOM_HTML_FOR {
+                            } else if i.sym == "htmlFor" {
                                 if vnode_kind == VNodeType::Element {
                                     props_obj.props.push(PropOrSpread::Prop(Box::new(
                                         Prop::KeyValue(KeyValueProp {
@@ -521,13 +520,13 @@ where
                                     )));
                                     continue;
                                 }
-                            } else if i.sym == *atoms::ATOM_ON_DOUBLE_CLICK {
+                            } else if i.sym == "onDoubleClick" {
                                 props_obj
                                     .props
                                     .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(
                                         KeyValueProp {
                                             key: PropName::Ident(Ident::new(
-                                                atoms::ATOM_ON_DBL_CLICK.clone(),
+                                                "onDblClick".into(),
                                                 span,
                                             )),
                                             value: match attr.value {
@@ -557,7 +556,7 @@ where
                                 }
 
                                 continue;
-                            } else if i.sym == *atoms::ATOM_REF {
+                            } else if i.sym == "ref" {
                                 ref_prop = attr
                                     .value
                                     .and_then(jsx_attr_value_to_expr)
@@ -576,7 +575,7 @@ where
                                 }
 
                                 continue;
-                            } else if i.sym == *atoms::ATOM_CHILD_FLAG {
+                            } else if i.sym == "$ChildFlag" {
                                 child_flags_override_param = attr
                                     .value
                                     .and_then(jsx_attr_value_to_expr)
@@ -596,10 +595,10 @@ where
 
                                 children_known = true;
                                 continue;
-                            } else if i.sym == *atoms::ATOM_HAS_VNODE_CHILDREN {
+                            } else if i.sym == "$HasVNodeChildren" {
                                 children_known = true;
                                 continue;
-                            } else if i.sym == *atoms::ATOM_FLAGS {
+                            } else if i.sym == "$Flags" {
                                 flags_override_param = attr
                                     .value
                                     .and_then(jsx_attr_value_to_expr)
@@ -618,26 +617,26 @@ where
                                 }
 
                                 continue;
-                            } else if i.sym == *atoms::ATOM_HAS_TEXT_CHILDREN {
+                            } else if i.sym == "$HasTextChildren" {
                                 children_known = true;
                                 has_text_children = true;
                                 continue;
-                            } else if i.sym == *atoms::ATOM_HAS_NON_KEYED_CHILDREN {
+                            } else if i.sym == "$HasNonKeyedChildren" {
                                 children_known = true;
                                 has_non_keyed_children = true;
                                 continue;
-                            } else if i.sym == *atoms::ATOM_HAS_KEYED_CHILDREN {
+                            } else if i.sym == "$HasKeyedChildren" {
                                 children_known = true;
                                 has_keyed_children = true;
                                 continue;
-                            } else if i.sym == *atoms::ATOM_RECREATE {
+                            } else if i.sym ==  "$ReCreate" {
                                 has_re_create_flag = true;
                                 continue;
                             }
 
                             if i.sym.to_ascii_lowercase() == js_word!("contenteditable") {
                                 content_editable_props = true;
-                            } else if i.sym == *atoms::ATOM_CHILDREN {
+                            } else if i.sym == "children" {
                                 if el.children.len() > 0 {
                                     // prop children is ignored if there are any nested children
                                     continue;
@@ -695,14 +694,26 @@ where
                                 None => true.into(),
                             };
 
-                            // TODO: Check if `i` is a valid identifier.
+                            let converted_sym = crate::vnode_types::convert_svg_attrs(&i.sym);
 
-                            let converted_sym = crate::vnode_types::convert_svg_attrs(i);
+                            let converted_prop_name = if converted_sym.contains('-') || converted_sym.contains(':') {
+                                PropName::Str(Str {
+                                    span: i.span,
+                                    raw: None,
+                                    value: converted_sym.into(),
+                                })
+                            } else {
+                                PropName::Ident(Ident {
+                                    span: i.span,
+                                    sym: converted_sym.into(),
+                                    optional: i.optional,
+                                })
+                            };
 
                             props_obj
                                 .props
                                 .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                                    key: converted_sym,
+                                    key: converted_prop_name,
                                     value,
                                 }))));
                         }
@@ -798,7 +809,7 @@ where
                     ..
                 }) => continue,
                 JSXElementChild::JSXElement(el) => {
-                    if vnode_kind != VNodeType::Component
+                    if vnode_kind != Component
                         && !parent_can_be_keyed
                         && !children_known
                         && !children_requires_normalization
@@ -893,7 +904,7 @@ where
             }
         }
 
-        if vnode_kind == VNodeType::Component {
+        if vnode_kind == Component {
             match children.len() {
                 0 => {
                     match prop_children {
@@ -965,7 +976,7 @@ where
             Some(v) => v,
         };
 
-        let create_method = if vnode_kind == VNodeType::Component {
+        let create_method = if vnode_kind == Component {
             self.import_create_component
                 .get_or_insert_with(|| quote_ident!("createComponentVNode"))
                 .clone()
@@ -979,7 +990,7 @@ where
                 .clone()
         };
 
-        let create_method_args = if vnode_kind == VNodeType::Component {
+        let create_method_args = if vnode_kind == Component {
             // Functional component cannot have basic ref so when component refs is set use it
             // If we can ever detect Functional component from Class component compile time
             // We could add some validations

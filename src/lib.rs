@@ -13,7 +13,6 @@ pub use self::{
     refresh::{options::RefreshOptions, refresh},
 };
 
-mod atoms;
 mod inferno_flags;
 mod jsx;
 mod pure_annotations;
