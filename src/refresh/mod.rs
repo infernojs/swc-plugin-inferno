@@ -46,6 +46,8 @@ fn get_persistent_id(ident: &Ident) -> Persist {
     }
 }
 
+/// `react-refresh/babel`
+/// https://github.com/facebook/react/blob/main/packages/react-refresh/src/ReactFreshBabelPlugin.js
 pub fn refresh<C: Comments>(
     dev: bool,
     options: Option<RefreshOptions>,
@@ -268,7 +270,7 @@ where
 
 // TODO: figure out if we can insert all registers at once
 impl<C: Comments> VisitMut for Refresh<C> {
-    // Does anyone write inferno without esmodule?
+    // Does anyone write react without esmodule?
     // fn visit_mut_script(&mut self, _: &mut Script) {}
 
     fn visit_mut_module(&mut self, n: &mut Module) {

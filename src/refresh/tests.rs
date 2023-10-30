@@ -1,11 +1,11 @@
+use super::*;
 use swc_core::{
     common::{chain, Mark},
     ecma::transforms::base::resolver,
 };
+use swc_ecma_parser::Syntax::Es;
 use swc_ecma_transforms_module::common_js::common_js;
 use swc_ecma_transforms_testing::{test, Tester};
-
-use super::*;
 
 fn tr(t: &mut Tester) -> impl Fold {
     let unresolved_mark = Mark::new();
@@ -41,21 +41,6 @@ test!(
     function Bar() {
         return <Hello />;
     }
-"#,
-    r#"
-    function Hello() {
-        function handleClick() {}
-
-        return <h1 onClick={handleClick}>Hi</h1>;
-    }
-    _c = Hello;
-    function Bar() {
-        return <Hello />;
-    }
-    _c1 = Bar;
-    var _c, _c1;
-    $RefreshReg$(_c, "Hello");
-    $RefreshReg$(_c1, "Bar");
 "#
 );
 
@@ -81,34 +66,6 @@ test!(
     export { Baz, NotAComp };
     export function sum() {}
     export const Bad = 42;
-"#,
-    r#"
-    export function Hello() {
-      function handleClick() {}
-
-      return <h1 onClick={handleClick}>Hi</h1>;
-    }
-    _c = Hello;
-    export default function Bar() {
-      return <Hello />;
-    }
-    _c1 = Bar;
-
-    function Baz() {
-      return <h1>OK</h1>;
-    }
-
-    _c2 = Baz;
-    const NotAComp = 'hi';
-    export { Baz, NotAComp };
-    export function sum() {}
-    export const Bad = 42;
-
-    var _c, _c1, _c2;
-
-    $RefreshReg$(_c, "Hello");
-    $RefreshReg$(_c1, "Bar");
-    $RefreshReg$(_c2, "Baz");
 "#
 );
 
@@ -130,26 +87,6 @@ test!(
       // You should name your components.
       return <Hello />;
     };
-"#,
-    r#"
-    export const Hello = () => {
-      function handleClick() {}
-
-      return <h1 onClick={handleClick}>Hi</h1>;
-    };
-    _c = Hello;
-    export let Bar = props => <Hello />;
-    _c1 = Bar;
-    export default (() => {
-      // This one should be ignored.
-      // You should name your components.
-      return <Hello />;
-    });
-
-    var _c, _c1;
-
-    $RefreshReg$(_c, "Hello");
-    $RefreshReg$(_c1, "Bar");
 "#
 );
 
@@ -166,18 +103,6 @@ test!(
       return <h1>Hi</h1>;
     }
     Hello = connect(Hello);
-"#,
-    r#"
-    function Hello() {
-      return <h1>Hi</h1>;
-    }
-
-    _c = Hello;
-    Hello = connect(Hello);
-
-    var _c;
-
-    $RefreshReg$(_c, "Hello");
 "#
 );
 
@@ -188,11 +113,6 @@ test!(
     }),
     tr,
     pascal_case_only,
-    r#"
-    function hello() {
-      return 2 * 2;
-    }
-"#,
     r#"
     function hello() {
       return 2 * 2;
@@ -218,31 +138,6 @@ test!(
     function sum() {}
     let Baz = 10;
     var Qux;
-"#,
-    r#"
-    let Hello = function () {
-      function handleClick() {}
-
-      return <h1 onClick={handleClick}>Hi</h1>;
-    };
-
-    _c = Hello;
-
-    const Bar = function Baz() {
-      return <Hello />;
-    };
-
-    _c1 = Bar;
-
-    function sum() {}
-
-    let Baz = 10;
-    var Qux;
-
-    var _c, _c1;
-
-    $RefreshReg$(_c, "Hello");
-    $RefreshReg$(_c1, "Bar");
 "#
 );
 
@@ -263,33 +158,6 @@ test!(
     };
     var Baz = () => <div />;
     var sum = () => {};
-"#,
-    r#"
-    let Hello = () => {
-      const handleClick = () => {};
-
-      return <h1 onClick={handleClick}>Hi</h1>;
-    };
-
-    _c = Hello;
-
-    const Bar = () => {
-      return <Hello />;
-    };
-
-    _c1 = Bar;
-
-    var Baz = () => <div />;
-
-    _c2 = Baz;
-
-    var sum = () => {};
-
-    var _c, _c1, _c2;
-
-    $RefreshReg$(_c, "Hello");
-    $RefreshReg$(_c1, "Bar");
-    $RefreshReg$(_c2, "Baz");
 "#
 );
 
@@ -316,25 +184,6 @@ test!(
         return <h1 onClick={handleClick}>Hi</h1>;
       }
     };
-"#,
-    r#"
-    let connect = () => {
-      function Comp() {
-        const handleClick = () => {};
-
-        return <h1 onClick={handleClick}>Hi</h1>;
-      }
-
-      return Comp;
-    };
-
-    function withRouter() {
-      return function Child() {
-        const handleClick = () => {};
-
-        return <h1 onClick={handleClick}>Hi</h1>;
-      };
-    };
 "#
 );
 
@@ -358,23 +207,6 @@ test!(
     let D = bar && (() => {
       return <h1>Hi</h1>;
     });
-"#,
-    r#"
-    let A = foo ? () => {
-      return <h1>Hi</h1>;
-    } : null;
-
-    const B = function Foo() {
-      return <h1>Hi</h1>;
-    }();
-
-    let C = () => () => {
-      return <h1>Hi</h1>;
-    };
-
-    let D = bar && (() => {
-      return <h1>Hi</h1>;
-    });
 "#
 );
 
@@ -385,7 +217,6 @@ test!(
     }),
     tr,
     ignore_unnamed_function_declarations,
-    r#"export default function() {}"#,
     r#"export default function() {}"#
 );
 
@@ -406,30 +237,6 @@ test!(
     export default Inferno.memo(forwardRef((props, ref) => {
       return <h1>Foo</h1>;
     }));
-"#,
-    r#"
-    const A = forwardRef(_c = function () {
-      return <h1>Foo</h1>;
-    });
-    _c1 = A;
-    export const B = memo(_c3 = Inferno.forwardRef(_c2 = () => {
-      return <h1>Foo</h1>;
-    }));
-    _c4 = B;
-    export default _c7 = Inferno.memo(_c6 = forwardRef(_c5 = (props, ref) => {
-      return <h1>Foo</h1>;
-    }));
-
-    var _c, _c1, _c2, _c3, _c4, _c5, _c6, _c7;
-
-    $RefreshReg$(_c, "A$forwardRef");
-    $RefreshReg$(_c1, "A");
-    $RefreshReg$(_c2, "B$memo$Inferno.forwardRef");
-    $RefreshReg$(_c3, "B$memo");
-    $RefreshReg$(_c4, "B");
-    $RefreshReg$(_c5, "%default%$Inferno.memo$forwardRef");
-    $RefreshReg$(_c6, "%default%$Inferno.memo");
-    $RefreshReg$(_c7, "%default%");
 "#
 );
 
@@ -444,17 +251,6 @@ test!(
     export default Inferno.memo(forwardRef(function (props, ref) {
       return <h1>Foo</h1>;
     }));
-"#,
-    r#"
-    export default _c2 = Inferno.memo(_c1 = forwardRef(_c = function (props, ref) {
-      return <h1>Foo</h1>;
-    }));
-
-    var _c, _c1, _c2;
-
-    $RefreshReg$(_c, "%default%$Inferno.memo$forwardRef");
-    $RefreshReg$(_c1, "%default%$Inferno.memo");
-    $RefreshReg$(_c2, "%default%");
 "#
 );
 
@@ -469,17 +265,6 @@ test!(
     export default Inferno.memo(forwardRef(function Named(props, ref) {
       return <h1>Foo</h1>;
     }));
-"#,
-    r#"
-    export default _c2 = Inferno.memo(_c1 = forwardRef(_c = function Named(props, ref) {
-      return <h1>Foo</h1>;
-    }));
-
-    var _c, _c1, _c2;
-
-    $RefreshReg$(_c, "%default%$Inferno.memo$forwardRef");
-    $RefreshReg$(_c1, "%default%$Inferno.memo");
-    $RefreshReg$(_c2, "%default%");
 "#
 );
 
@@ -496,16 +281,6 @@ test!(
     }
 
     export default memo(Foo)
-"#,
-    r#"
-    function Foo() {
-      return <div >123</div>;
-    }
-    _c = Foo;
-    export default _c1 = memo(Foo);
-    var _c, _c1;
-    $RefreshReg$(_c, "Foo");
-    $RefreshReg$(_c1, "%default%");
 "#
 );
 
@@ -521,19 +296,6 @@ test!(
       alert('Hi');
     });
     const TooComplex = (function() { return hello })(() => {});
-    if (cond) {
-      const Foo = thing(() => {});
-    }
-"#,
-    r#"
-    const throttledAlert = throttle(function () {
-      alert('Hi');
-    });
-
-    const TooComplex = function () {
-      return hello;
-    }(() => {});
-
     if (cond) {
       const Foo = thing(() => {});
     }
@@ -568,49 +330,6 @@ test!(
     // This is currently registered as a false positive:
     const NotAComponent = wow(A);
     // We could avoid it but it also doesn't hurt.
-"#,
-    r#"
-    import A from './A';
-    import Store from './Store';
-    Store.subscribe();
-    const Header = styled.div`color: red`;
-    _c = Header;
-    const StyledFactory1 = styled('div')`color: hotpink`;
-    _c1 = StyledFactory1;
-    const StyledFactory2 = styled('div')({
-      color: 'hotpink'
-    });
-    _c2 = StyledFactory2;
-    const StyledFactory3 = styled(A)({
-      color: 'hotpink'
-    });
-    _c3 = StyledFactory3;
-    const FunnyFactory = funny.factory``;
-    let Alias1 = A;
-    let Alias2 = A.Foo;
-    const Dict = {};
-
-    function Foo() {
-      return <div><A /><B /><StyledFactory1 /><StyledFactory2 /><StyledFactory3 /><Alias1 /><Alias2 /><Header /><Dict.X /></div>;
-    }
-
-    _c4 = Foo;
-    const B = hoc(A); // This is currently registered as a false positive:
-
-    _c5 = B;
-    const NotAComponent = wow(A); // We could avoid it but it also doesn't hurt.
-
-    _c6 = NotAComponent;
-
-    var _c, _c1, _c2, _c3, _c4, _c5, _c6;
-
-    $RefreshReg$(_c, "Header");
-    $RefreshReg$(_c1, "StyledFactory1");
-    $RefreshReg$(_c2, "StyledFactory2");
-    $RefreshReg$(_c3, "StyledFactory3");
-    $RefreshReg$(_c4, "Foo");
-    $RefreshReg$(_c5, "B");
-    $RefreshReg$(_c6, "NotAComponent");
 "#
 );
 
@@ -655,50 +374,6 @@ test!(
     // This is currently registered as a false positive:
     const NotAComponent = wow(A);
     // We could avoid it but it also doesn't hurt.
-"#,
-    r#"
-    import A from './A';
-    import Store from './Store';
-    Store.subscribe();
-    const Header = styled.div`color: red`;
-    _c = Header;
-    const StyledFactory1 = styled('div')`color: hotpink`;
-    _c1 = StyledFactory1;
-    const StyledFactory2 = styled('div')({
-      color: 'hotpink'
-    });
-    _c2 = StyledFactory2;
-    const StyledFactory3 = styled(A)({
-      color: 'hotpink'
-    });
-    _c3 = StyledFactory3;
-    const FunnyFactory = funny.factory``;
-    let Alias1 = A;
-    let Alias2 = A.Foo;
-    const Dict = {};
-
-    function Foo() {
-      return [Inferno.createElement(A), Inferno.createElement(B), Inferno.createElement(StyledFactory1), Inferno.createElement(StyledFactory2), Inferno.createElement(StyledFactory3), Inferno.createElement(Alias1), Inferno.createElement(Alias2), jsx(Header), Inferno.createElement(Dict.X)];
-    }
-
-    _c4 = Foo;
-    Inferno.createContext(Store);
-    const B = hoc(A); // This is currently registered as a false positive:
-
-    _c5 = B;
-    const NotAComponent = wow(A); // We could avoid it but it also doesn't hurt.
-
-    _c6 = NotAComponent;
-
-    var _c, _c1, _c2, _c3, _c4, _c5, _c6;
-
-    $RefreshReg$(_c, "Header");
-    $RefreshReg$(_c1, "StyledFactory1");
-    $RefreshReg$(_c2, "StyledFactory2");
-    $RefreshReg$(_c3, "StyledFactory3");
-    $RefreshReg$(_c4, "Foo");
-    $RefreshReg$(_c5, "B");
-    $RefreshReg$(_c6, "NotAComponent");
 "#
 );
 
@@ -716,17 +391,6 @@ test!(
     const A = () => null
     return <A />
   }
-"#,
-    r#"
-  const A = foo() {}
-  const B = () => {
-    const A = () => null
-    return <A />
-  }
-
-  _c = B;
-  var _c;
-  $RefreshReg$(_c, "B");
 "#
 );
 
@@ -744,25 +408,6 @@ test!(
     export default hoc(Foo);
     export const A = hoc(Foo);
     const B = hoc(Foo);
-"#,
-    r#"
-    function Foo() {
-      return <h1>Hi</h1>;
-    }
-
-    _c = Foo;
-    export default _c1 = hoc(Foo);
-    export const A = hoc(Foo);
-    _c2 = A;
-    const B = hoc(Foo);
-    _c3 = B;
-
-    var _c, _c1, _c2, _c3;
-
-    $RefreshReg$(_c, "Foo");
-    $RefreshReg$(_c1, "%default%");
-    $RefreshReg$(_c2, "A");
-    $RefreshReg$(_c3, "B");
 "#
 );
 
@@ -779,25 +424,6 @@ test!(
       Inferno.useEffect(() => {});
       return <h1>{foo}</h1>;
     }
-"#,
-    r#"
-    var _s = $RefreshSig$();
-
-    export default function App() {
-      _s();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1>{foo}</h1>;
-    }
-
-    _s(App, "useState{[foo, setFoo](0)}\nuseEffect{}");
-
-    _c = App;
-
-    var _c;
-
-    $RefreshReg$(_c, "App");
 "#
 );
 
@@ -823,45 +449,6 @@ test!(
     function baz() {
       return (useState(), useState())
     }
-"#,
-    r#"
-    var _s = $RefreshSig$(), _s1 = $RefreshSig$(), _s2 = $RefreshSig$();
-
-    export function Foo() {
-      _s();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1>{foo}</h1>;
-    }
-
-    _s(Foo, "useState{[foo, setFoo](0)}\nuseEffect{}");
-
-    _c = Foo;
-
-    function Bar() {
-      _s1();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1>{foo}</h1>;
-    }
-
-    _s1(Bar, "useState{[foo, setFoo](0)}\nuseEffect{}");
-
-    _c1 = Bar;
-
-    function baz() {
-      _s2();
-      return useState(), useState();
-    }
-
-    _s2(baz, "useState{}\nuseState{}");
-
-    var _c, _c1;
-
-    $RefreshReg$(_c, "Foo");
-    $RefreshReg$(_c1, "Bar");
 "#
 );
 
@@ -891,49 +478,6 @@ test!(
       };
     }
     export let C = hoc();
-"#,
-    r#"
-    var _s = $RefreshSig$(), _s1 = $RefreshSig$();
-
-    export const A = _s(Inferno.memo(_c1 = _s(Inferno.forwardRef(_c = _s((props, ref1) => {
-      _s();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1 ref={ref1}>{foo}</h1>;
-    }, "useState{[foo, setFoo](0)}\nuseEffect{}")), "useState{[foo, setFoo](0)}\nuseEffect{}")), "useState{[foo, setFoo](0)}\nuseEffect{}");
-    _c2 = A;
-    export const B = _s1(Inferno.memo(_c4 = _s1(Inferno.forwardRef(_c3 = _s1(function (props, ref1) {
-      _s1();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1 ref={ref1}>{foo}</h1>;
-    }, "useState{[foo, setFoo](0)}\nuseEffect{}")), "useState{[foo, setFoo](0)}\nuseEffect{}")), "useState{[foo, setFoo](0)}\nuseEffect{}");
-    _c5 = B;
-
-    function hoc() {
-      var _s = $RefreshSig$();
-
-      return _s(function Inner() {
-        _s();
-
-        const [foo, setFoo] = useState(0);
-        Inferno.useEffect(() => {});
-        return <h1 ref={ref}>{foo}</h1>;
-      }, "useState{[foo, setFoo](0)}\nuseEffect{}");
-    }
-
-    export let C = hoc();
-
-    var _c, _c1, _c2, _c3, _c4, _c5;
-
-    $RefreshReg$(_c, "A$Inferno.memo$Inferno.forwardRef");
-    $RefreshReg$(_c1, "A$Inferno.memo");
-    $RefreshReg$(_c2, "A");
-    $RefreshReg$(_c3, "B$Inferno.memo$Inferno.forwardRef");
-    $RefreshReg$(_c4, "B$Inferno.memo");
-    $RefreshReg$(_c5, "B");
 "#
 );
 
@@ -950,20 +494,6 @@ test!(
   }, B = () => {
     const [foo, setFoo] = useState(0);
   }
-"#,
-    r#"
-  var _s = $RefreshSig$(), _s1 = $RefreshSig$();
-
-  const A = function () {
-    _s();
-    const [foo, setFoo] = useState(0);
-  }, B = () => {
-    _s1();
-    const [foo, setFoo] = useState(0);
-  }
-  // orignial implment will register _s1 first, hopefully this won't cause any trouble
-  _s(A, "useState{[foo, setFoo](0)}");
-  _s1(B, "useState{[foo, setFoo](0)}");
 "#
 );
 
@@ -981,69 +511,7 @@ test!(
     const Bar = () => useContext(X);
     const Baz = memo(() => useContext(X));
     const Qux = () => (0, useContext(X));
-"#,
-    r#"
-    var _s = $RefreshSig$(),
-    _s1 = $RefreshSig$(),
-    _s2 = $RefreshSig$(),
-    _s3 = $RefreshSig$(),
-    _s4 = $RefreshSig$(),
-    _s5 = $RefreshSig$();
-
-    export default _s(() => {
-      _s();
-
-      return useContext(X);
-    }, "useContext{}");
-    export const Foo = () => {
-      _s1();
-
-      return useContext(X);
-    };
-
-    _s1(Foo, "useContext{}");
-
-    _c = Foo;
-    module.exports = _s2(() => {
-      _s2();
-
-      return useContext(X);
-    }, "useContext{}");
-
-    const Bar = () => {
-      _s3();
-
-      return useContext(X);
-    };
-
-    _s3(Bar, "useContext{}");
-
-    _c1 = Bar;
-    const Baz = _s4(memo(_c2 = _s4(() => {
-      _s4();
-
-      return useContext(X);
-    }, "useContext{}")), "useContext{}");
-    _c3 = Baz;
-
-    const Qux = () => {
-      _s5();
-
-      return 0, useContext(X);
-    };
-
-    _s5(Qux, "useContext{}");
-
-    _c4 = Qux;
-
-    var _c, _c1, _c2, _c3, _c4;
-
-    $RefreshReg$(_c, "Foo");
-    $RefreshReg$(_c1, "Bar");
-    $RefreshReg$(_c2, "Baz$memo");
-    $RefreshReg$(_c3, "Baz");
-    $RefreshReg$(_c4, "Qux");
-    "#
+"#
 );
 
 test!(
@@ -1066,48 +534,6 @@ test!(
       const bar = useFancyState();
       return <h1>{bar}</h1>;
     }
-"#,
-    r#"
-    var _s = $RefreshSig$(),
-    _s1 = $RefreshSig$(),
-    _s2 = $RefreshSig$();
-
-    function useFancyState() {
-      _s();
-
-      const [foo, setFoo] = Inferno.useState(0);
-      useFancyEffect();
-      return foo;
-    }
-
-    _s(useFancyState, "useState{[foo, setFoo](0)}\nuseFancyEffect{}", false, function () {
-      return [useFancyEffect];
-    });
-
-    const useFancyEffect = () => {
-      _s1();
-
-      Inferno.useEffect(() => {});
-    };
-
-    _s1(useFancyEffect, "useEffect{}");
-
-    export default function App() {
-      _s2();
-
-      const bar = useFancyState();
-      return <h1>{bar}</h1>;
-    }
-
-    _s2(App, "useFancyState{bar}", false, function () {
-      return [useFancyState];
-    });
-
-    _c = App;
-
-    var _c;
-
-    $RefreshReg$(_c, "App");
 "#
 );
 
@@ -1149,41 +575,6 @@ test!(
       const foo = useFoo()
       return <h1>{bar}</h1>;
     }
-"#,
-    r#"
-    "use strict";
-
-    Object.defineProperty(exports, "__esModule", {
-        value: true
-    });
-    Object.defineProperty(exports, "default", {
-        enumerable: true,
-        get: function() {
-            return App;
-        }
-    });
-    var _hooks = require("./hooks");
-    var _foo = _interop_require_default(require("./foo"));
-
-    var _s = $RefreshSig$();
-
-    function App() {
-        _s();
-
-        const bar = (0, _hooks.useFancyState)();
-        const foo = (0, _foo.default)();
-        return <h1>{bar}</h1>;
-    }
-
-    _s(App, "useFancyState{bar}\nuseFoo{foo}", false, function () {
-        return [_hooks.useFancyState, _foo.default];
-    });
-
-    _c = App;
-
-    var _c;
-
-    $RefreshReg$(_c, "App");
 "#
 );
 
@@ -1208,42 +599,6 @@ test!(
       useThePlatform();
       return <h1>{bar}{baz}</h1>;
     }
-"#,
-    r#"
-    var _s = $RefreshSig$();
-
-    import FancyHook from 'fancy';
-    export default function App() {
-      _s();
-
-      var _s1 = $RefreshSig$();
-
-      function useFancyState() {
-        _s1();
-
-        const [foo, setFoo] = Inferno.useState(0);
-        useFancyEffect();
-        return foo;
-      }
-
-      _s1(useFancyState, "useState{[foo, setFoo](0)}\nuseFancyEffect{}", true);
-
-      const bar = useFancyState();
-      const baz = FancyHook.useThing();
-      Inferno.useState();
-      useThePlatform();
-      return <h1>{bar}{baz}</h1>;
-    }
-
-    _s(App, "useFancyState{bar}\nuseThing{baz}\nuseState{}\nuseThePlatform{}", true, function () {
-      return [FancyHook.useThing];
-    });
-
-    _c = App;
-
-    var _c;
-
-    $RefreshReg$(_c, "App");
 "#
 );
 
@@ -1271,27 +626,6 @@ test!(
         </div>
       );
     }
-"#,
-    r#"
-    const A = require('A');
-    const B = foo ? require('X') : require('Y');
-    const C = requireCond(gk, 'C');
-    const D = import('D');
-    import E = require('E');
-    export default function App() {
-      return <div>
-          <A />
-          <B />
-          <C />
-          <D />
-          <E />
-        </div>;
-    }
-    _c = App;
-
-    var _c;
-
-    $RefreshReg$(_c, "App");
 "#
 );
 
@@ -1315,38 +649,6 @@ test!(
       });
       return <h1>{foo}</h1>;
     }
-"#,
-    r#"
-    var _s = $RefreshSig$(), _s1 = $RefreshSig$();
-
-    export function Foo() {
-      _s();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1>{foo}</h1>;
-    }
-
-    _s(Foo, "useState{[foo, setFoo](0)}\nuseEffect{}", true);
-
-    _c = Foo;
-
-    function Bar() {
-      _s1();
-
-      const [foo, setFoo] = useState(0);
-      Inferno.useEffect(() => {});
-      return <h1>{foo}</h1>;
-    }
-
-    _s1(Bar, "useState{[foo, setFoo](0)}\nuseEffect{}", true);
-
-    _c1 = Bar;
-
-    var _c, _c1;
-
-    $RefreshReg$(_c, "Foo");
-    $RefreshReg$(_c1, "Bar");
 "#
 );
 
@@ -1362,17 +664,6 @@ test!(
       (item => {
         useFoo();
       })(item);
-    }
-"#,
-    r#"
-    while (item) {
-      var _s = $RefreshSig$();
-
-      _s(item1 => {
-        _s();
-
-        useFoo();
-      }, "useFoo{}", true)(item);
     }
 "#
 );
@@ -1407,24 +698,6 @@ test!(
       useContext(X)
       return <Foo />
     }
-"#,
-    r#"
-    var _s = import_meta_refreshSig();
-
-    export default function Bar() {
-      _s();
-
-      useContext(X);
-      return <Foo />;
-    }
-
-    _s(Bar, "useContext{}");
-
-    _c = Bar;
-
-    var _c;
-
-    import_meta_refreshReg(_c, "Bar");
 "#
 );
 
@@ -1441,18 +714,6 @@ test!(
     }
 
     declare module 'x' {}
-"#,
-    r#"
-    var _s = $RefreshSig$();
-
-    function useHooks() {
-      _s();
-      return useMemo(() => 1);
-    }
-
-    _s(useHooks, "useMemo{}");
-
-    declare module 'x' {}
 "#
 );
 
@@ -1464,18 +725,7 @@ test!(
     import dynamic from 'next/dynamic'
 
     export const Comp = dynamic(() => import('../Content'), { ssr: false })
-    ",
     "
-    import dynamic from 'next/dynamic';
-    export const Comp = dynamic(_c = ()=>import('../Content')
-    , {
-        ssr: false
-    });
-    _c1 = Comp;
-    var _c, _c1;
-    $RefreshReg$(_c, \"Comp$dynamic\");
-    $RefreshReg$(_c1, \"Comp\");
-"
 );
 
 test!(
@@ -1488,22 +738,7 @@ test!(
 
       return null;
     }
-  ",
-    r#"
-    var _s = $RefreshSig$();
-
-    export function App() {
-      _s();
-      console.log(useState())
-
-      return null;
-    }
-
-    _s(App, "useState{}");
-    _c = App;
-    var _c;
-    $RefreshReg$(_c, "App")
-"#
+  "
 );
 
 test!(
@@ -1520,20 +755,6 @@ const a = (a) => {
       useE(() => console.log(a), []);
       return useState(123);
     };
-}
-"#,
-    r#"
-const a = (a)=>{
-    var _s = $RefreshSig$();
-    const useE = useEffect;
-    return _s(function useFoo() {
-        _s();
-        useE(()=>console.log(a)
-        , []);
-        return useState(123);
-    }, "useE{}\nuseState{(123)}", false, function () {
-      return [useE];
-    });
 }
 "#
 );
@@ -1555,17 +776,5 @@ test!(
         <button type="button" onClick={() => setCount(c => c + 1)}>{count}</button>
       );
     }
-"#,
-    r#"var _s = $RefreshSig$();
-import { useState } from 'inferno';
-function Counter() {
-    _s();
-    const [count, setCount] = useState(0);
-    return <button type="button" onClick={()=>setCount((c)=>c + 1)}>{count}</button>;
-}
-_s(Counter, "useState{[count, setCount](0)}", true);
-_c = Counter;
-var _c;
-$RefreshReg$(_c, "Counter");
 "#
 );

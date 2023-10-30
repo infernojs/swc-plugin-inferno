@@ -179,6 +179,6 @@ pub fn convert_svg_attrs(sym: &str) -> &str {
         "xmlnsXlink" => "xmlns:xlink",
         "xmlLang" => "xml:lang",
         "xmlSpace" => "xml:space",
-        _ => sym
+        _ => sym,
     }
 }

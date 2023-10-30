@@ -252,9 +252,7 @@ where
                                 if named_import.local.sym == "createVNode" {
                                     self.import_create_vnode
                                         .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym
-                                    == "createComponentVNode"
-                                {
+                                } else if named_import.local.sym == "createComponentVNode" {
                                     self.import_create_component
                                         .get_or_insert(named_import.local.clone());
                                 } else if named_import.local.sym == "createTextVNode" {
@@ -629,7 +627,7 @@ where
                                 children_known = true;
                                 has_keyed_children = true;
                                 continue;
-                            } else if i.sym ==  "$ReCreate" {
+                            } else if i.sym == "$ReCreate" {
                                 has_re_create_flag = true;
                                 continue;
                             }
@@ -696,19 +694,20 @@ where
 
                             let converted_sym = crate::vnode_types::convert_svg_attrs(&i.sym);
 
-                            let converted_prop_name = if converted_sym.contains('-') || converted_sym.contains(':') {
-                                PropName::Str(Str {
-                                    span: i.span,
-                                    raw: None,
-                                    value: converted_sym.into(),
-                                })
-                            } else {
-                                PropName::Ident(Ident {
-                                    span: i.span,
-                                    sym: converted_sym.into(),
-                                    optional: i.optional,
-                                })
-                            };
+                            let converted_prop_name =
+                                if converted_sym.contains('-') || converted_sym.contains(':') {
+                                    PropName::Str(Str {
+                                        span: i.span,
+                                        raw: None,
+                                        value: converted_sym.into(),
+                                    })
+                                } else {
+                                    PropName::Ident(Ident {
+                                        span: i.span,
+                                        sym: converted_sym.into(),
+                                        optional: i.optional,
+                                    })
+                                };
 
                             props_obj
                                 .props

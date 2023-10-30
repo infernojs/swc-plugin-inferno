@@ -1,5 +1,6 @@
 use swc_core::common::collections::AHashMap;
 use swc_core::common::comments::Comments;
+use swc_core::common::DUMMY_SP;
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::{js_word, JsWord};
 use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
@@ -56,7 +57,7 @@ where
                         }
                         ImportSpecifier::Default(default) => {
                             self.imports
-                                .insert(default.local.to_id(), (src, js_word!("default")));
+                                .insert(default.local.to_id(), (src, "default".into()));
                         }
                         ImportSpecifier::Namespace(ns) => {
                             self.imports.insert(ns.local.to_id(), (src, "*".into()));
@@ -108,7 +109,9 @@ where
 
         if is_inferno_call {
             if let Some(comments) = &self.comments {
-                comments.add_pure_comment(call.span.lo);
+                if call.span.lo != swc_core::common::BytePos::DUMMY {
+                    comments.add_pure_comment(call.span.lo);
+                }
             }
         }
 

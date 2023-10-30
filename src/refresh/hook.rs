@@ -93,7 +93,7 @@ impl<'a> HookRegister<'a> {
                     custom_hook.push(hook.callee);
                 }
                 HookCall::Member(Expr::Ident(obj_ident), prop) if !is_builtin_hook(prop) => {
-                    if obj_ident.sym.as_ref() != "Inferno" {
+                    if obj_ident.sym.as_ref() != "React" {
                         custom_hook.push(hook.callee);
                     }
                 }
@@ -107,7 +107,7 @@ impl<'a> HookRegister<'a> {
         } else {
             let mut hasher = Sha1::new();
             hasher.update(sign);
-            STANDARD.encode(hasher.finalize())
+            base64::encode(hasher.finalize())
         };
 
         args.push(
