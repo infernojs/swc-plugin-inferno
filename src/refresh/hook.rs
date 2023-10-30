@@ -107,7 +107,7 @@ impl<'a> HookRegister<'a> {
         } else {
             let mut hasher = Sha1::new();
             hasher.update(sign);
-            base64::encode(hasher.finalize())
+            STANDARD.encode(hasher.finalize())
         };
 
         args.push(
