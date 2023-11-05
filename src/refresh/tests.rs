@@ -3,7 +3,6 @@ use swc_core::{
     common::{chain, Mark},
     ecma::transforms::base::resolver,
 };
-use swc_ecma_parser::Syntax::Es;
 use swc_ecma_transforms_module::common_js::common_js;
 use swc_ecma_transforms_testing::{test, Tester};
 
