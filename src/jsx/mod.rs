@@ -109,7 +109,7 @@ fn named_import_exists(import_name: &str, import: &ImportDecl) -> bool {
         }
     }
 
-    return false;
+    false
 }
 
 fn merge_imports(
@@ -150,7 +150,7 @@ fn merge_imports(
         }
     }
 
-    return false;
+    false
 }
 
 #[derive(PartialEq)]
@@ -632,7 +632,7 @@ where
                             if i.sym.to_ascii_lowercase() == js_word!("contenteditable") {
                                 content_editable_props = true;
                             } else if i.sym == "children" {
-                                if el.children.len() > 0 {
+                                if !el.children.is_empty() {
                                     // prop children is ignored if there are any nested children
                                     continue;
                                 }
@@ -929,7 +929,7 @@ where
         } else {
             // Backwards compatibility...
             // Set prop children as children if no nested children were set
-            if children.len() == 0 {
+            if children.is_empty() {
                 match prop_children {
                     Some(some_prop_children) => children.push(Some(ExprOrSpread {
                         spread: None,
@@ -945,10 +945,10 @@ where
         self.top_level_node = top_level_node;
 
         if has_re_create_flag {
-            mut_flags = mut_flags | VNodeFlags::ReCreate as u16;
+            mut_flags |= VNodeFlags::ReCreate as u16;
         }
         if content_editable_props {
-            mut_flags = mut_flags | VNodeFlags::ContentEditable as u16;
+            mut_flags |= VNodeFlags::ContentEditable as u16;
         }
 
         let flags_expr = match flags_override_param {
@@ -1059,7 +1059,7 @@ where
             }
         }
 
-        return false;
+        false
     }
 }
 
