@@ -394,28 +394,25 @@ where
                 if ident.sym == js_word!("this") {
                     vnode_kind = Component;
                     mut_flags = VNodeFlags::ComponentUnknown as u16;
-                    name_expr = Box::new(Expr::This(ThisExpr { span: name_span }));
+                    name_expr = Expr::This(ThisExpr { span: name_span });
                 } else if is_component_vnode(&ident) {
                     if ident.sym == "Fragment" {
                         vnode_kind = VNodeType::Fragment;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Box::new(Expr::Ident(Ident::new(
-                            "createFragment".into(),
-                            ident.span,
-                        )));
+                        name_expr = Expr::Ident(Ident::new("createFragment".into(), ident.span));
                     } else {
                         vnode_kind = Component;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Box::new(Expr::Ident(ident))
+                        name_expr = Expr::Ident(ident)
                     }
                 } else {
                     vnode_kind = VNodeType::Element;
                     mut_flags = crate::vnode_types::parse_vnode_flag(&*ident.sym);
-                    name_expr = Box::new(Expr::Lit(Lit::Str(Str {
+                    name_expr = Expr::Lit(Lit::Str(Str {
                         span: name_span,
                         raw: None,
                         value: ident.sym,
-                    })))
+                    }))
                 }
             }
             JSXElementName::JSXNamespacedName(_) => {
@@ -450,11 +447,11 @@ where
                     })
                     .into()
                 }
-                name_expr = Box::new(Expr::Member(MemberExpr {
+                name_expr = Expr::Member(MemberExpr {
                     span: name_span,
                     obj: convert_obj(obj),
                     prop: MemberProp::Ident(prop.clone()),
-                }))
+                })
             }
         }
 
@@ -646,43 +643,32 @@ where
                                 };
 
                                 continue;
-                            } else {
-                                if vnode_kind == Component
-                                    && i.sym.as_ref().starts_with("onComponent")
-                                {
-                                    match attr.value {
-                                        Some(v) => {
-                                            // if !component_refs.is_some() {
-                                            //     component_refs = Some(ObjectLit {
-                                            //         span: DUMMY_SP,
-                                            //         props: vec![],
-                                            //     });
-                                            // }
+                            } else if vnode_kind == Component
+                                && i.sym.as_ref().starts_with("onComponent")
+                            {
+                                match attr.value {
+                                    Some(v) => {
+                                        if component_refs.is_none() {
+                                            component_refs = Some(ObjectLit {
+                                                span: DUMMY_SP,
+                                                props: vec![],
+                                            })
+                                        };
 
-                                            if component_refs.is_none() {
-                                                component_refs = Some(ObjectLit {
-                                                    span: DUMMY_SP,
-                                                    props: vec![],
-                                                })
-                                            };
-
-                                            if let Some(some_component_refs) =
-                                                component_refs.as_mut()
-                                            {
-                                                some_component_refs.props.push(PropOrSpread::Prop(
-                                                    Box::new(Prop::KeyValue(KeyValueProp {
-                                                        key: PropName::Ident(i),
-                                                        value: jsx_attr_value_to_expr(v)
-                                                            .expect("empty expression container?"),
-                                                    })),
-                                                ));
-                                            }
+                                        if let Some(some_component_refs) = component_refs.as_mut() {
+                                            some_component_refs.props.push(PropOrSpread::Prop(
+                                                Box::new(Prop::KeyValue(KeyValueProp {
+                                                    key: PropName::Ident(i),
+                                                    value: jsx_attr_value_to_expr(v)
+                                                        .expect("empty expression container?"),
+                                                })),
+                                            ));
                                         }
-                                        None => {}
-                                    };
+                                    }
+                                    None => {}
+                                };
 
-                                    continue;
-                                }
+                                continue;
                             }
 
                             let value = match attr.value {
@@ -1080,7 +1066,7 @@ where
 #[inline(always)]
 fn create_vnode_args(
     flags: ExprOrSpread,
-    name: Box<Expr>,
+    name: Expr,
     class_name: Option<Box<Expr>>,
     mut children: Vec<Option<ExprOrSpread>>,
     child_flags: u16,
@@ -1183,13 +1169,13 @@ fn create_vnode_args(
         }
     }
 
-    return args;
+    args
 }
 
 #[inline(always)]
 fn create_component_vnode_args(
     flags: ExprOrSpread,
-    name: Box<Expr>,
+    name: Expr,
     props_literal: ObjectLit,
     key: Option<ExprOrSpread>,
     refs: Option<ExprOrSpread>,
@@ -1222,7 +1208,7 @@ fn create_component_vnode_args(
         }
     }
 
-    return args;
+    args
 }
 
 #[inline(always)]
@@ -1307,7 +1293,7 @@ fn create_fragment_vnode_args(
         }
     }
 
-    return args;
+    args
 }
 
 impl<C> VisitMut for Jsx<C>
