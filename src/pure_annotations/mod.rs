@@ -1,5 +1,6 @@
 use swc_core::common::collections::AHashMap;
 use swc_core::common::comments::Comments;
+use swc_core::common::Span;
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::JsWord;
 use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
@@ -108,9 +109,11 @@ where
 
         if is_inferno_call {
             if let Some(comments) = &self.comments {
-                if call.span.lo != swc_core::common::BytePos::DUMMY {
-                    comments.add_pure_comment(call.span.lo);
+                if call.span.lo.is_dummy() {
+                    call.span.lo = Span::dummy_with_cmt().lo;
                 }
+
+                comments.add_pure_comment(call.span.lo);
             }
         }
 

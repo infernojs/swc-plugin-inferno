@@ -1,10 +1,10 @@
 import { createVNode, createTextVNode } from "inferno";
 var x = /*#__PURE__*/ createVNode(1, "div", null, [
-    createTextVNode("foo"),
-    createTextVNode("bar"),
-    createTextVNode("baz"),
+    /*#__PURE__*/ createTextVNode("foo"),
+    /*#__PURE__*/ createTextVNode("bar"),
+    /*#__PURE__*/ createTextVNode("baz"),
     /*#__PURE__*/ createVNode(1, "div", null, "buz bang", 16),
-    createTextVNode("qux"),
+    /*#__PURE__*/ createTextVNode("qux"),
     null,
-    createTextVNode("quack")
+    /*#__PURE__*/ createTextVNode("quack")
 ], 0);

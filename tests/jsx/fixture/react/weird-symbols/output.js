@@ -3,9 +3,9 @@ class MobileHomeActivityTaskPriorityIcon extends Inferno.PureComponent {
     render() {
         return /*#__PURE__*/ createComponentVNode(2, Text, {
             children: [
-                createTextVNode(" "),
+                /*#__PURE__*/ createTextVNode(" "),
                 this.props.value,
-                createTextVNode(" ")
+                /*#__PURE__*/ createTextVNode(" ")
             ]
         });
     }
