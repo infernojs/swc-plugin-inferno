@@ -21,7 +21,7 @@ use super::*;
 use crate::{inferno, pure_annotations, PluginDiagnosticsEmitter};
 
 test!(
-    ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsConfig {
+    Syntax::Typescript(::swc_ecma_parser::TsConfig {
         tsx: true,
         ..Default::default()
     }),

@@ -8,7 +8,7 @@ use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
 use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::atoms::{js_word, Atom, JsWord};
+use swc_core::ecma::atoms::{Atom, JsWord};
 use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
 use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
@@ -391,7 +391,7 @@ where
 
         match el.opening.name {
             JSXElementName::Ident(ident) => {
-                if ident.sym == js_word!("this") {
+                if ident.sym == "this" {
                     vnode_kind = Component;
                     mut_flags = VNodeFlags::ComponentUnknown as u16;
                     name_expr = Expr::This(ThisExpr { span: name_span });
@@ -433,7 +433,7 @@ where
 
                     (match obj {
                         JSXObject::Ident(i) => {
-                            if i.sym == js_word!("this") {
+                            if i.sym == "this" {
                                 Expr::This(ThisExpr { span })
                             } else {
                                 Expr::Ident(i)
@@ -487,7 +487,7 @@ where
                     match attr.name {
                         JSXAttrName::Ident(i) => {
                             //
-                            if i.sym == js_word!("class") || i.sym == "className" {
+                            if i.sym == "class" || i.sym == "className" {
                                 if vnode_kind == VNodeType::Element {
                                     if let Some(v) = attr.value {
                                         class_name_param = jsx_attr_value_to_expr(v)
@@ -502,7 +502,7 @@ where
                                             key: PropName::Str(Str {
                                                 span: i.span,
                                                 raw: None,
-                                                value: js_word!("for"),
+                                                value: "for".into(),
                                             }),
                                             value: match attr.value {
                                                 Some(v) => jsx_attr_value_to_expr(v)
@@ -532,7 +532,7 @@ where
                                         },
                                     ))));
                                 continue;
-                            } else if i.sym == js_word!("key") {
+                            } else if i.sym == "key" {
                                 key_prop = attr
                                     .value
                                     .and_then(jsx_attr_value_to_expr)
@@ -629,7 +629,7 @@ where
                                 continue;
                             }
 
-                            if i.sym.to_ascii_lowercase() == js_word!("contenteditable") {
+                            if i.sym.to_ascii_lowercase() == "contenteditable" {
                                 content_editable_props = true;
                             } else if i.sym == "children" {
                                 if !el.children.is_empty() {
@@ -1044,7 +1044,7 @@ where
                     //
                     match &attr.name {
                         JSXAttrName::Ident(i) => {
-                            if i.sym == js_word!("key") {
+                            if i.sym == "key" {
                                 return true;
                             }
                         }
@@ -1416,7 +1416,7 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
                 span: DUMMY_SP,
                 callee: Callee::Expr(Box::new(Expr::Ident(Ident {
                     span: DUMMY_SP.apply_mark(unresolved_mark),
-                    sym: js_word!("require"),
+                    sym: "require".into(),
                     optional: false,
                 }))),
                 args: vec![ExprOrSpread {
