@@ -31,15 +31,15 @@ opt-level = "s"
 strip = "symbols"
 
 [dependencies]
-base64    = "0.21.6"
+base64    = "0.21.7"
 dashmap   = "5.5.3"
-indexmap  = "2.1.0"
+indexmap  = "2.2.1"
 once_cell = "1.19.0"
-rayon     = { version = "1.8.0", optional = true }
-serde     = { version = "1.0.195", features = ["derive"], optional = true }
+rayon     = { version = "1.8.1", optional = true }
+serde     = { version = "1.0.196", features = ["derive"], optional = true }
 sha-1     = "=0.10.1"
 
-swc_core = { version = "0.87.21", features = [
+swc_core = { version = "0.89.6", features = [
     "swc_atoms",
     "swc_common",
     "swc_ecma_ast",
@@ -50,13 +50,13 @@ swc_core = { version = "0.87.21", features = [
     "ecma_ast",
     "common",
 ] }
-swc_ecma_parser            = { version = "0.141.37" }
-swc_config                 = { version = "0.1.9" }
+swc_ecma_parser            = { version = "0.142.1" }
+swc_config                 = { version = "0.1.10" }
 
 [dev-dependencies]
-swc_ecma_codegen            = { version = "0.146.54" }
-swc_ecma_transforms_compat  = { version = "0.161.15" }
-swc_ecma_transforms_module  = { version = "0.178.16" }
-swc_ecma_transforms_testing = { version = "0.138.10" }
-swc_ecma_transforms         = { version = "0.227.16" }
-testing                     = { version = "0.35.14"  }
+swc_ecma_codegen            = { version = "0.147.2" }
+swc_ecma_transforms_compat  = { version = "0.162.4" }
+swc_ecma_transforms_module  = { version = "0.179.7" }
+swc_ecma_transforms_testing = { version = "0.139.4" }
+swc_ecma_transforms         = { version = "0.228.7" }
+testing                     = { version = "0.35.16"  }

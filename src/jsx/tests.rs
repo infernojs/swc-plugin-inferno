@@ -18,7 +18,7 @@ use swc_ecma_transforms_testing::{parse_options, test, test_fixture, FixtureTest
 use testing::NormalizedOutput;
 
 use super::*;
-use crate::{inferno, pure_annotations, PluginDiagnosticsEmitter};
+use crate::{inferno, pure_annotations};
 
 test!(
     Syntax::Typescript(::swc_ecma_parser::TsConfig {
@@ -1281,13 +1281,6 @@ test!(
 
 fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Fold {
     let unresolved_mark = Mark::new();
-    // Create a handler wired with plugin's diagnostic emitter, set it for global context.
-    let handler = swc_core::common::errors::Handler::with_emitter(
-        true,
-        false,
-        Box::new(PluginDiagnosticsEmitter),
-    );
-    let _ = HANDLER.inner.set(handler);
 
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
@@ -1319,13 +1312,6 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    let handler = swc_core::common::errors::Handler::with_emitter(
-        true,
-        false,
-        Box::new(PluginDiagnosticsEmitter),
-    );
-    let _ = HANDLER.inner.set(handler);
-
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
         inferno(
@@ -1342,13 +1328,6 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
 fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
-
-    let handler = swc_core::common::errors::Handler::with_emitter(
-        true,
-        false,
-        Box::new(PluginDiagnosticsEmitter),
-    );
-    let _ = HANDLER.inner.set(handler);
 
     chain!(
         resolver(unresolved_mark, top_level_mark, false),
