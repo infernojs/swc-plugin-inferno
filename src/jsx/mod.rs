@@ -1129,7 +1129,7 @@ fn create_vnode_args(
                 Box::new(Expr::Lit(Lit::Num(Number {
                     span: DUMMY_SP,
                     raw: None,
-                    value: (child_flags) as f64,
+                    value: child_flags as f64,
                 })))
                 .as_arg(),
             ),
@@ -1270,7 +1270,7 @@ fn create_fragment_vnode_args(
                 Box::new(Expr::Lit(Lit::Num(Number {
                     span: DUMMY_SP,
                     raw: None,
-                    value: (child_flags) as f64,
+                    value: child_flags as f64,
                 })))
                 .as_arg(),
             ),
