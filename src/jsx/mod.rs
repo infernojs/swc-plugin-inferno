@@ -1404,7 +1404,14 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
                     .map(|imported| {
                         ObjectPatProp::Assign(AssignPatProp {
                             span: DUMMY_SP,
-                            key: quote_ident!(imported),
+                            key: BindingIdent {
+                                id: Ident {
+                                    span: DUMMY_SP,
+                                    sym: imported.into(),
+                                    optional: false,
+                                },
+                                type_ann: None,
+                            },
                             value: None,
                         })
                     })
