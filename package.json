@@ -31,5 +31,6 @@
     "plugin",
     "transformer"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "preferUnplugged": true
 }
