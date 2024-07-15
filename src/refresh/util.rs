@@ -5,9 +5,9 @@ use swc_core::{
     ecma::visit::{noop_visit_type, Visit, VisitWith},
 };
 
-pub fn is_builtin_hook(name: &Ident) -> bool {
+pub fn is_builtin_hook(name: &str) -> bool {
     matches!(
-        name.sym.as_ref(),
+        name,
         "useState"
             | "useReducer"
             | "useEffect"
@@ -35,7 +35,7 @@ fn assert_hygiene(e: &Expr) {
     }
 
     if let Expr::Ident(i) = e {
-        if i.span.ctxt == SyntaxContext::empty() {
+        if i.ctxt == SyntaxContext::empty() {
             panic!("`{}` should be resolved", i)
         }
     }
@@ -44,36 +44,39 @@ fn assert_hygiene(e: &Expr) {
 pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Expr {
     assert_hygiene(&expr);
 
-    Expr::Assign(AssignExpr {
+    AssignExpr {
         span: expr.span(),
         op: op!("="),
         left: handle.into(),
         right: expr,
-    })
+    }
+        .into()
 }
 
 pub fn make_call_stmt(handle: Ident) -> Stmt {
-    Stmt::Expr(ExprStmt {
+    ExprStmt {
         span: DUMMY_SP,
         expr: Box::new(make_call_expr(handle)),
-    })
+    }
+        .into()
 }
 
 pub fn make_call_expr(handle: Ident) -> Expr {
-    Expr::Call(CallExpr {
+    CallExpr {
         span: DUMMY_SP,
         callee: handle.as_callee(),
         args: Vec::new(),
-        type_args: None,
-    })
+        ..Default::default()
+    }
+        .into()
 }
 
 pub fn is_import_or_require(expr: &Expr) -> bool {
     match expr {
         Expr::Call(CallExpr {
-            callee: Callee::Expr(expr),
-            ..
-        }) => {
+                       callee: Callee::Expr(expr),
+                       ..
+                   }) => {
             if let Expr::Ident(ident) = expr.as_ref() {
                 ident.sym.contains("require")
             } else {
@@ -81,13 +84,12 @@ pub fn is_import_or_require(expr: &Expr) -> bool {
             }
         }
         Expr::Call(CallExpr {
-            callee: Callee::Import(_),
-            ..
-        }) => true,
+                       callee: Callee::Import(_),
+                       ..
+                   }) => true,
         _ => false,
     }
 }
-
 pub struct UsedInJsx(AHashSet<Id>);
 
 impl Visit for UsedInJsx {
@@ -98,15 +100,15 @@ impl Visit for UsedInJsx {
 
         if let Callee::Expr(expr) = &n.callee {
             let ident = match expr.as_ref() {
-                Expr::Ident(ident) => ident,
+                Expr::Ident(ident) => ident.to_id(),
                 Expr::Member(MemberExpr {
-                    prop: MemberProp::Ident(ident),
-                    ..
-                }) => ident,
+                                 prop: MemberProp::Ident(ident),
+                                 ..
+                             }) => (ident.sym.clone(), SyntaxContext::empty()),
                 _ => return,
             };
             if matches!(
-                ident.sym.as_ref(),
+                ident.0.as_ref(),
                 "createElement" | "jsx" | "jsxDEV" | "jsxs"
             ) {
                 if let Some(ExprOrSpread { expr, .. }) = n.args.first() {

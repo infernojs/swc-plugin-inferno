@@ -6,7 +6,7 @@ use swc_config::merge::Merge;
 use swc_core::common::comments::Comments;
 use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
-use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP};
+use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP, SyntaxContext};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::{Atom, JsWord};
 use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
@@ -53,7 +53,10 @@ pub fn parse_expr_for_jsx(
     src: String,
     top_level_mark: Mark,
 ) -> Arc<Box<Expr>> {
-    let fm = cm.new_source_file(FileName::Custom(format!("<jsx-config-{}.js>", name)), src);
+    let fm = cm.new_source_file(
+        FileName::Custom(format!("<jsx-config-{}.js>", name)).into(),
+        src
+    );
 
     parse_file_as_expr(
         &fm,
@@ -86,7 +89,7 @@ pub fn parse_expr_for_jsx(
 fn apply_mark(e: &mut Expr, mark: Mark) {
     match e {
         Expr::Ident(i) => {
-            i.span = i.span.apply_mark(mark);
+            i.ctxt = i.ctxt.apply_mark(mark);
         }
         Expr::Member(MemberExpr { obj, .. }) => {
             apply_mark(obj, mark);
@@ -138,7 +141,7 @@ fn merge_imports(
                             .specifiers
                             .push(ImportSpecifier::Named(ImportNamedSpecifier {
                                 span: DUMMY_SP,
-                                local: quote_ident!(*import_to_add),
+                                local: quote_ident!(*import_to_add).into(),
                                 imported: None,
                                 is_type_only: false,
                             }))
@@ -285,7 +288,7 @@ where
 
         let fragment = self
             .import_create_fragment
-            .get_or_insert_with(|| quote_ident!("createFragment"))
+            .get_or_insert_with(|| quote_ident!("createFragment").into())
             .clone();
 
         let mut children_requires_normalization: bool = false;
@@ -314,11 +317,11 @@ where
                             span: DUMMY_SP,
                             callee: self
                                 .import_create_text_vnode
-                                .get_or_insert_with(|| quote_ident!("createTextVNode"))
+                                .get_or_insert_with(|| quote_ident!("createTextVNode").into())
                                 .clone()
                                 .as_callee(),
                             args: vec![s.as_arg()],
-                            type_args: Default::default(),
+                            ..Default::default()
                         })),
                     }
                 }
@@ -376,6 +379,7 @@ where
             callee: fragment.as_callee(),
             args: create_fragment_vnode_args(children, false, child_flags as u16, None, None),
             type_args: None,
+            ..Default::default()
         })
     }
 
@@ -399,7 +403,7 @@ where
                     if ident.sym == "Fragment" {
                         vnode_kind = VNodeType::Fragment;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Expr::Ident(Ident::new("createFragment".into(), ident.span));
+                        name_expr = Expr::Ident(Ident::new("createFragment".into(), ident.span.into(), Default::default()));
                     } else {
                         vnode_kind = Component;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
@@ -424,7 +428,7 @@ where
 
                 return Expr::Invalid(Invalid { span: DUMMY_SP });
             }
-            JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop }) => {
+            JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop, .. }) => {
                 vnode_kind = Component;
                 mut_flags = VNodeFlags::ComponentUnknown as u16;
 
@@ -520,9 +524,9 @@ where
                                     .props
                                     .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(
                                         KeyValueProp {
-                                            key: PropName::Ident(Ident::new(
+                                            key: PropName::Ident(IdentName::new(
                                                 "onDblClick".into(),
-                                                span,
+                                                span
                                             )),
                                             value: match attr.value {
                                                 Some(v) => jsx_attr_value_to_expr(v)
@@ -688,10 +692,9 @@ where
                                         value: converted_sym.into(),
                                     })
                                 } else {
-                                    PropName::Ident(Ident {
+                                    PropName::Ident(IdentName {
                                         span: i.span,
-                                        sym: converted_sym.into(),
-                                        optional: i.optional,
+                                        sym: converted_sym.into()
                                     })
                                 };
 
@@ -702,7 +705,7 @@ where
                                     value,
                                 }))));
                         }
-                        JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name }) => {
+                        JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name, .. }) => {
                             let value = match attr.value {
                                 Some(v) => {
                                     jsx_attr_value_to_expr(v).expect("empty expression container?")
@@ -767,9 +770,10 @@ where
                             spread: None,
                             expr: Box::new(Expr::Call(CallExpr {
                                 span: DUMMY_SP,
+                                ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
                                 callee: self
                                     .import_create_text_vnode
-                                    .get_or_insert_with(|| quote_ident!("createTextVNode"))
+                                    .get_or_insert_with(|| quote_ident!("createTextVNode").into())
                                     .clone()
                                     .as_callee(),
                                 args: vec![s.as_arg()],
@@ -832,10 +836,11 @@ where
                                         spread: None,
                                         expr: Box::new(Expr::Call(CallExpr {
                                             span: DUMMY_SP,
+                                            ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
                                             callee: self
                                                 .import_create_text_vnode
                                                 .get_or_insert_with(|| {
-                                                    quote_ident!("createTextVNode")
+                                                    quote_ident!("createTextVNode").into()
                                                 })
                                                 .clone()
                                                 .as_callee(),
@@ -963,15 +968,15 @@ where
 
         let create_method = if vnode_kind == Component {
             self.import_create_component
-                .get_or_insert_with(|| quote_ident!("createComponentVNode"))
+                .get_or_insert_with(|| quote_ident!("createComponentVNode").into())
                 .clone()
         } else if vnode_kind == VNodeType::Element {
             self.import_create_vnode
-                .get_or_insert_with(|| quote_ident!("createVNode"))
+                .get_or_insert_with(|| quote_ident!("createVNode").into())
                 .clone()
         } else {
             self.import_create_fragment
-                .get_or_insert_with(|| quote_ident!("createFragment"))
+                .get_or_insert_with(|| quote_ident!("createFragment").into())
                 .clone()
         };
 
@@ -1016,6 +1021,7 @@ where
 
         let create_expr = Expr::Call(CallExpr {
             span,
+            ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
             callee: create_method.as_callee(),
             args: create_method_args,
             type_args: Default::default(),
@@ -1024,9 +1030,10 @@ where
         if needs_normalization {
             return Expr::Call(CallExpr {
                 span,
+                ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
                 callee: self
                     .import_normalize_props
-                    .get_or_insert_with(|| quote_ident!("normalizeProps"))
+                    .get_or_insert_with(|| quote_ident!("normalizeProps").into())
                     .clone()
                     .as_callee(),
                 args: vec![create_expr.as_arg()],
@@ -1354,7 +1361,7 @@ where
                 .map(|imported| {
                     ImportSpecifier::Named(ImportNamedSpecifier {
                         span: DUMMY_SP,
-                        local: quote_ident!(imported),
+                        local: quote_ident!(imported).into(),
                         imported: None,
                         is_type_only: false,
                     })
@@ -1393,6 +1400,7 @@ where
 fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
     Stmt::Decl(Decl::Var(Box::new(VarDecl {
         span: DUMMY_SP,
+        ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
         kind: VarDeclKind::Const,
         declare: false,
         decls: vec![VarDeclarator {
@@ -1407,6 +1415,7 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
                             key: BindingIdent {
                                 id: Ident {
                                     span: DUMMY_SP,
+                                    ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
                                     sym: imported.into(),
                                     optional: false,
                                 },
@@ -1422,10 +1431,12 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
             // require('inferno')
             init: Some(Box::new(Expr::Call(CallExpr {
                 span: DUMMY_SP,
+                ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
                 callee: Callee::Expr(Box::new(Expr::Ident(Ident {
-                    span: DUMMY_SP.apply_mark(unresolved_mark),
+                    ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
                     sym: "require".into(),
                     optional: false,
+                    ..Default::default()
                 }))),
                 args: vec![ExprOrSpread {
                     spread: None,

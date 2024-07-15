@@ -13,12 +13,12 @@ fn parse(
     tester: &mut Tester,
     src: &str,
 ) -> Result<(Module, Lrc<SourceMap>, Lrc<SingleThreadedComments>), ()> {
-    let syntax = ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsConfig {
+    let syntax = ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
     });
     let source_map = Lrc::new(SourceMap::default());
-    let source_file = source_map.new_source_file(FileName::Anon, src.into());
+    let source_file = source_map.new_source_file(FileName::Anon.into(), src.into());
 
     let comments = Lrc::new(SingleThreadedComments::default());
     let module = {
