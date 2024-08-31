@@ -122,19 +122,16 @@ fn merge_imports(
 ) -> bool {
     for stmt in stmts {
         if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
-            if &import.src.value == default_import_src {
+            if import.src.value == default_import_src {
                 for specifier in &import.specifiers {
-                    match specifier {
-                        ImportSpecifier::Namespace(_) => {
-                            // Do not try to merge with * As FooBar import statements
-                            return false;
-                        }
-                        _ => {}
+                    if let ImportSpecifier::Namespace(_) = specifier {
+                        // Do not try to merge with * As FooBar import statements
+                        return false;
                     }
                 }
 
                 for import_to_add in imports {
-                    let import_exists = named_import_exists(import_to_add, &import);
+                    let import_exists = named_import_exists(import_to_add, import);
 
                     if !import_exists {
                         import
@@ -248,7 +245,7 @@ where
     fn set_local_import_refs(&mut self, stmts: &mut Vec<ModuleItem>) {
         for stmt in stmts {
             if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
-                if &import.src.value == &self.import_source {
+                if import.src.value == self.import_source {
                     for specifier in import.specifiers.iter_mut() {
                         match specifier {
                             ImportSpecifier::Named(named_import) => {
@@ -403,7 +400,7 @@ where
                     if ident.sym == "Fragment" {
                         vnode_kind = VNodeType::Fragment;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Expr::Ident(Ident::new("createFragment".into(), ident.span.into(), Default::default()));
+                        name_expr = Expr::Ident(Ident::new("createFragment".into(), ident.span, Default::default()));
                     } else {
                         vnode_kind = Component;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
@@ -411,7 +408,7 @@ where
                     }
                 } else {
                     vnode_kind = VNodeType::Element;
-                    mut_flags = crate::vnode_types::parse_vnode_flag(&*ident.sym);
+                    mut_flags = crate::vnode_types::parse_vnode_flag(&ident.sym);
                     name_expr = Expr::Lit(Lit::Str(Str {
                         span: name_span,
                         raw: None,
@@ -650,26 +647,23 @@ where
                             } else if vnode_kind == Component
                                 && i.sym.as_ref().starts_with("onComponent")
                             {
-                                match attr.value {
-                                    Some(v) => {
-                                        if component_refs.is_none() {
-                                            component_refs = Some(ObjectLit {
-                                                span: DUMMY_SP,
-                                                props: vec![],
-                                            })
-                                        };
+                                if let Some(v) = attr.value {
+                                    if component_refs.is_none() {
+                                        component_refs = Some(ObjectLit {
+                                            span: DUMMY_SP,
+                                            props: vec![],
+                                        })
+                                    };
 
-                                        if let Some(some_component_refs) = component_refs.as_mut() {
-                                            some_component_refs.props.push(PropOrSpread::Prop(
-                                                Box::new(Prop::KeyValue(KeyValueProp {
-                                                    key: PropName::Ident(i),
-                                                    value: jsx_attr_value_to_expr(v)
-                                                        .expect("empty expression container?"),
-                                                })),
-                                            ));
-                                        }
+                                    if let Some(some_component_refs) = component_refs.as_mut() {
+                                        some_component_refs.props.push(PropOrSpread::Prop(
+                                            Box::new(Prop::KeyValue(KeyValueProp {
+                                                key: PropName::Ident(i),
+                                                value: jsx_attr_value_to_expr(v)
+                                                    .expect("empty expression container?"),
+                                            })),
+                                        ));
                                     }
-                                    None => {}
                                 };
 
                                 continue;
@@ -872,26 +866,22 @@ where
             } else if children_count == 1 {
                 if has_text_children {
                     child_flags = ChildFlags::HasTextChildren;
+                } else if vnode_kind == VNodeType::Fragment {
+                    child_flags = ChildFlags::HasNonKeyedChildren;
                 } else {
-                    if vnode_kind == VNodeType::Fragment {
-                        child_flags = ChildFlags::HasNonKeyedChildren;
-                    } else {
-                        child_flags = ChildFlags::HasVNodeChildren;
-                    }
+                    child_flags = ChildFlags::HasVNodeChildren;
                 }
             } else {
                 child_flags = ChildFlags::HasInvalidChildren
             }
+        } else if has_keyed_children {
+            child_flags = ChildFlags::HasKeyedChildren;
+        } else if has_non_keyed_children {
+            child_flags = ChildFlags::HasNonKeyedChildren;
+        } else if has_text_children {
+            child_flags = ChildFlags::HasTextChildren;
         } else {
-            if has_keyed_children {
-                child_flags = ChildFlags::HasKeyedChildren;
-            } else if has_non_keyed_children {
-                child_flags = ChildFlags::HasNonKeyedChildren;
-            } else if has_text_children {
-                child_flags = ChildFlags::HasTextChildren;
-            } else {
-                child_flags = ChildFlags::UnknownChildren;
-            }
+            child_flags = ChildFlags::UnknownChildren;
         }
 
         if vnode_kind == Component {
@@ -1041,7 +1031,7 @@ where
             });
         }
 
-        return create_expr;
+        create_expr
     }
 
     fn does_children_have_key_defined(el: &JSXElement) -> bool {
@@ -1456,7 +1446,7 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
 #[inline]
 fn is_component_vnode(i: &Ident) -> bool {
     // If it starts with uppercase
-    return i.as_ref().starts_with(|c: char| c.is_ascii_uppercase());
+    i.as_ref().starts_with(|c: char| c.is_ascii_uppercase())
 }
 
 #[inline]
