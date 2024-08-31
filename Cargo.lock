@@ -1341,7 +1341,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "swc-plugin-inferno"
-version = "0.0.22"
+version = "0.0.23"
 dependencies = [
  "base64 0.22.1",
  "dashmap 6.0.1",
