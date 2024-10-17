@@ -28,6 +28,7 @@ fn tr(t: &mut Tester) -> impl Fold {
 }
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -71,6 +72,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -92,6 +94,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -122,6 +125,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -143,6 +147,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -483,6 +488,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -653,6 +659,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -702,6 +709,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsSyntax {
         tsx: true,
         ..Default::default()
@@ -742,6 +750,7 @@ test!(
 );
 
 test!(
+    module,
     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
