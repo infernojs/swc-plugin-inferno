@@ -1,18 +1,16 @@
-use swc_core::{
-    common::{chain, Mark},
-    ecma::transforms::base::resolver,
-};
+use swc_core::common::Mark;
+use swc_core::ecma::transforms::base::resolver;
 use swc_ecma_transforms_testing::{test, Tester};
 
 use crate::jsx;
 
 use super::*;
 
-fn tr(t: &mut Tester) -> impl Fold {
+fn tr(t: &mut Tester) -> impl Pass {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    chain!(
+    (
         resolver(unresolved_mark, top_level_mark, false),
         refresh(
             true,
@@ -553,7 +551,7 @@ test!(
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
 
-        chain!(
+        (
             resolver(unresolved_mark, top_level_mark, false),
             refresh(
                 true,
@@ -684,7 +682,7 @@ test!(
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
 
-        chain!(
+        (
             resolver(unresolved_mark, top_level_mark, false),
             refresh(
                 true,

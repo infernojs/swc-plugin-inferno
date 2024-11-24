@@ -3,7 +3,7 @@ use swc_core::common::comments::Comments;
 use swc_core::common::Span;
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::JsWord;
-use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
+use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 
 #[cfg(test)]
 mod tests;
@@ -11,11 +11,11 @@ mod tests;
 /// This pass adds a /*#__PURE__#/ annotation to calls to known pure top-level
 /// Inferno methods, so that terser and other minifiers can safely remove them
 /// during dead code elimination.
-pub fn pure_annotations<C>(comments: Option<C>) -> impl Fold + VisitMut
+pub fn pure_annotations<C>(comments: Option<C>) -> impl Pass
 where
     C: Comments,
 {
-    as_folder(PureAnnotations {
+    visit_mut_pass(PureAnnotations {
         imports: Default::default(),
         comments,
     })

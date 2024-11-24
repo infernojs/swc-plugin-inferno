@@ -4,14 +4,12 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use swc_core::common::chain;
 use swc_core::common::input::StringInput;
 use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
 use swc_core::ecma::transforms::base::resolver;
-use swc_core::ecma::visit::FoldWith;
 use swc_ecma_codegen::{Config, Emitter};
-use swc_ecma_parser::{EsSyntax, Parser, Syntax};
+use swc_ecma_parser::{EsSyntax, Parser, Syntax, TsSyntax};
 use swc_ecma_transforms_compat::es3::property_literals;
 use swc_ecma_transforms_testing::{parse_options, test, test_fixture, FixtureTestConfig, Tester};
 use testing::NormalizedOutput;
@@ -20,7 +18,7 @@ use super::*;
 use crate::{inferno, pure_annotations};
 
 test!(
-    Syntax::Typescript(::swc_ecma_parser::TsSyntax {
+    Syntax::Typescript(TsSyntax {
         tsx: true,
         ..Default::default()
     }),
@@ -28,7 +26,7 @@ test!(
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
 
-        chain!(
+        (
             resolver(unresolved_mark, top_level_mark, false),
             jsx(
                 Some(t.comments.clone()),
@@ -65,7 +63,7 @@ render(<Foo/>, null);
 );
 
 test!(
-    ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsSyntax {
+    Syntax::Typescript(TsSyntax {
         tsx: true,
         ..Default::default()
     }),
@@ -73,7 +71,7 @@ test!(
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
 
-        chain!(
+        (
             resolver(unresolved_mark, top_level_mark, false),
             jsx(
                 Some(t.comments.clone()),
@@ -115,7 +113,7 @@ render(<Foo/>, null);
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -137,7 +135,7 @@ onComponentDidMount={childOnComponentDidMount}
  */
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -150,7 +148,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -163,7 +161,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -178,7 +176,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -191,7 +189,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -204,7 +202,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -217,7 +215,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -230,7 +228,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -243,7 +241,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -256,7 +254,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -269,7 +267,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -282,7 +280,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -295,7 +293,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -312,7 +310,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -325,7 +323,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -338,7 +336,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -355,7 +353,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -368,7 +366,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -381,7 +379,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -394,7 +392,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -411,7 +409,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -424,7 +422,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -437,7 +435,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -450,7 +448,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -463,7 +461,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -476,7 +474,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -489,7 +487,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -502,7 +500,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -515,7 +513,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -528,7 +526,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -541,7 +539,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -554,7 +552,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -567,7 +565,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -580,7 +578,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -593,7 +591,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -606,7 +604,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -619,7 +617,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -632,7 +630,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -645,7 +643,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -658,7 +656,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -671,7 +669,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -685,7 +683,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -698,7 +696,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -711,7 +709,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -724,7 +722,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -737,7 +735,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -750,7 +748,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -763,7 +761,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -776,7 +774,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -789,7 +787,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -802,7 +800,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -815,7 +813,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -828,7 +826,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -841,7 +839,7 @@ test!(
 
 // TODO: How to verify errors
 // test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+//     Syntax::Es(EsSyntax {
 //         jsx: true,
 //         ..Default::default()
 //     }),
@@ -857,7 +855,7 @@ test!(
 
 // TODO: How to verify errors
 // test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+//     Syntax::Es(EsSyntax {
 //         jsx: true,
 //         ..Default::default()
 //     }),
@@ -878,7 +876,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -891,7 +889,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -904,7 +902,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -917,7 +915,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -930,7 +928,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -943,7 +941,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -956,7 +954,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -969,7 +967,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -982,7 +980,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -995,7 +993,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1008,7 +1006,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1021,7 +1019,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1034,7 +1032,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1047,7 +1045,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1060,7 +1058,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1073,7 +1071,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1086,7 +1084,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1099,7 +1097,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1112,7 +1110,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1125,7 +1123,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1138,7 +1136,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1151,7 +1149,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1164,7 +1162,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1177,7 +1175,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1190,7 +1188,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1203,7 +1201,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1216,7 +1214,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1229,7 +1227,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1242,7 +1240,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1255,7 +1253,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1268,7 +1266,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1281,7 +1279,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1296,7 +1294,7 @@ test!(
 // but I'm not sure if anybody writes code like this
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1309,7 +1307,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1322,7 +1320,7 @@ test!(
 
 // TODO: How to verify errors
 // test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+//     Syntax::Es(EsSyntax {
 //         jsx: true,
 //         ..Default::default()
 //     }),
@@ -1338,7 +1336,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1351,7 +1349,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1362,10 +1360,10 @@ test!(
     "#
 );
 
-fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Fold {
+fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Pass {
     let unresolved_mark = Mark::new();
 
-    chain!(
+    (
         resolver(unresolved_mark, top_level_mark, false),
         jsx(Some(t.comments.clone()), options, unresolved_mark)
     )
@@ -1391,11 +1389,11 @@ fn true_by_default() -> bool {
     true
 }
 
-fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
+fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    chain!(
+    (
         resolver(unresolved_mark, top_level_mark, false),
         inferno(
             t.cm.clone(),
@@ -1408,11 +1406,11 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
     )
 }
 
-fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
+fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    chain!(
+    (
         resolver(unresolved_mark, top_level_mark, false),
         inferno(
             t.cm.clone(),
@@ -1426,7 +1424,7 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Fold {
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1441,7 +1439,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1460,7 +1458,7 @@ var bar = function () {
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1485,7 +1483,7 @@ var x =
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1501,7 +1499,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1519,7 +1517,7 @@ var profile = <div>
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1539,7 +1537,7 @@ var profile = <div>
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1563,7 +1561,7 @@ var profile = <div>
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1574,7 +1572,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1587,7 +1585,7 @@ test!(
     module,
     // This is not worth optimization if Inferno does not have support for static vNodes trees
     // cloning the element runtime is more expensive than creating new and adds extra memory
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1618,11 +1616,11 @@ class App extends Component {
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
-    |t| chain!(
+    |t| (
         tr(t, Default::default(), Mark::fresh(Mark::root())),
         property_literals(),
     ),
@@ -1632,7 +1630,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1643,7 +1641,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1654,7 +1652,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1665,7 +1663,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1676,7 +1674,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1700,7 +1698,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1715,7 +1713,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1731,7 +1729,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1758,7 +1756,7 @@ var x = <Composite>
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1769,7 +1767,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1780,7 +1778,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1795,7 +1793,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1817,7 +1815,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1830,7 +1828,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1841,7 +1839,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1854,7 +1852,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1877,7 +1875,7 @@ Inferno.render(<HelloMessage name={
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1888,7 +1886,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1905,7 +1903,7 @@ var x = <div>
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1933,7 +1931,7 @@ var x =
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1944,7 +1942,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1955,7 +1953,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1966,7 +1964,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -1978,7 +1976,7 @@ test!(
 test!(
     module,
     // Comments are currently stripped out
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2000,7 +1998,7 @@ comment */
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2011,7 +2009,7 @@ test!(
 
 // TODO: Namespaces disabled
 // test!(
-//     ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+//     Syntax::Es(EsSyntax {
 //         jsx: true,
 //         ..Default::default()
 //     }),
@@ -2033,7 +2031,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2044,7 +2042,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2058,7 +2056,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2069,7 +2067,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2080,7 +2078,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2091,7 +2089,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2102,7 +2100,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2113,7 +2111,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2127,7 +2125,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2144,7 +2142,7 @@ test!(
 
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2156,7 +2154,7 @@ test!(
 // https://github.com/swc-project/swc/issues/517
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2180,7 +2178,7 @@ fn jsx_text() {
 // https://github.com/swc-project/swc/issues/542
 test!(
     module,
-    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+    Syntax::Es(EsSyntax {
         jsx: true,
         ..Default::default()
     }),
@@ -2199,7 +2197,7 @@ test!(
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
 
-        chain!(
+        (
             resolver(unresolved_mark, top_level_mark, false),
             jsx(
                 Some(t.comments.clone()),
@@ -2295,7 +2293,7 @@ fn test_script(src: &str, output: &Path, options: Options) {
         let top_level_mark = Mark::new();
         let unresolved_mark = Mark::new();
 
-        let script = script.fold_with(&mut chain!(
+        let script = Program::Script(script).apply(&mut (
             resolver(Mark::new(), top_level_mark, false),
             inferno(
                 tester.cm.clone(),
@@ -2325,7 +2323,7 @@ fn test_script(src: &str, output: &Path, options: Options) {
         };
 
         // println!("Emitting: {:?}", module);
-        emitter.emit_script(&script).unwrap();
+        emitter.emit_program(&script).unwrap();
 
         let s = String::from_utf8_lossy(&buf).to_string();
         assert!(NormalizedOutput::new_raw(s).compare_to_file(output).is_ok());

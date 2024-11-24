@@ -2,11 +2,11 @@
 #![allow(clippy::arc_with_non_send_sync)]
 
 use swc_core::{
-    common::{chain, comments::Comments, sync::Lrc, Mark, SourceMap},
-    ecma::{ast::Program, visit::Fold, visit::FoldWith, visit::VisitMut},
+    common::{comments::Comments, sync::Lrc, Mark, SourceMap},
+    ecma::{ast::Program},
     plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
 };
-
+use swc_core::ecma::ast::Pass;
 pub use self::{
     jsx::*,
     pure_annotations::pure_annotations,
@@ -34,7 +34,7 @@ pub fn inferno<C>(
     mut options: Options,
     top_level_mark: Mark,
     unresolved_mark: Mark,
-) -> impl Fold + VisitMut
+) -> impl Pass
 where
     C: Comments + Clone,
 {
@@ -43,7 +43,7 @@ where
 
     let refresh_options = options.refresh.take();
 
-    chain!(
+    (
         refresh(
             development,
             refresh_options,
@@ -63,7 +63,7 @@ fn inferno_jsx_plugin(program: Program, data: TransformPluginProgramMetadata) ->
     // TODO: Where to get source map
     let cm = Lrc::new(SourceMap::default());
 
-    program.fold_with(&mut inferno(
+    program.apply(&mut inferno(
         cm,
         Some(&data.comments),
         Default::default(),

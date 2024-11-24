@@ -5,9 +5,9 @@ use swc_core::{
     },
     ecma::ast::*,
     ecma::utils::{private_ident, quote_ident, quote_str, ExprFactory},
-    ecma::visit::{as_folder, Fold, Visit, VisitMut, VisitMutWith},
+    ecma::visit::{Visit, VisitMut, VisitMutWith},
 };
-
+use swc_core::ecma::visit::visit_mut_pass;
 use self::{
     hook::HookRegister,
     util::{collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt},
@@ -54,8 +54,8 @@ pub fn refresh<C: Comments>(
     cm: Lrc<SourceMap>,
     comments: Option<C>,
     global_mark: Mark,
-) -> impl Fold + VisitMut {
-    as_folder(Refresh {
+) -> impl Pass {
+    visit_mut_pass(Refresh {
         enable: dev && options.is_some(),
         cm,
         comments,

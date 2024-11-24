@@ -10,7 +10,7 @@ use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP, Synta
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::{Atom, JsWord};
 use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
-use swc_core::ecma::visit::{as_folder, noop_visit_mut_type, Fold, VisitMut, VisitMutWith};
+use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
 
@@ -166,11 +166,11 @@ pub enum VNodeType {
 ///
 /// `top_level_mark` should be [Mark] passed to
 /// [swc_ecma_transforms_base::resolver::resolver_with_mark].
-pub fn jsx<C>(comments: Option<C>, options: Options, unresolved_mark: Mark) -> impl Fold + VisitMut
+pub fn jsx<C>(comments: Option<C>, options: Options, unresolved_mark: Mark) -> impl Pass
 where
     C: Comments,
 {
-    as_folder(Jsx {
+    visit_mut_pass(Jsx {
         unresolved_mark,
         import_source: options
             .import_source
