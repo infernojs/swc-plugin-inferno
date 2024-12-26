@@ -10,10 +10,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "cargo wasi build --release",
-    "build:debug": "cargo wasi build",
+    "build": "cargo build --target wasm32-wasip1 --release",
+    "build:debug": "cargo build --target wasm32-wasip1",
     "test:update": "export UPDATE=1 && cargo test",
-    "prepack": "cp ./target/wasm32-wasi/release/swc_plugin_inferno.wasm ."
+    "prepack": "cp ./target/wasm32-wasip1/release/swc_plugin_inferno.wasm ."
   },
   "homepage": "https://github.com/infernojs/swc-plugin-inferno",
   "repository": {
