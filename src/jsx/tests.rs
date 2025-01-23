@@ -233,6 +233,19 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_lowercase_certain_props,
+    r#"
+<button accessKey="s"/>
+"#
+);
+
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
     should_create_text_vnodes_when_there_is_single_children_2,
     r#"
 <div>1</div>

@@ -13,12 +13,14 @@ use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, S
 use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
-
 use crate::VNodeType::Component;
 use crate::{
     inferno_flags::{ChildFlags, VNodeFlags},
     refresh::options::{deserialize_refresh, RefreshOptions},
 };
+use crate::transformations::transform_attribute::transform_attribute;
+use crate::transformations::lowercase_attrs::requires_lowercasing;
+use crate::transformations::parse_vnode_flag::parse_vnode_flag;
 
 #[cfg(test)]
 mod tests;
@@ -408,7 +410,7 @@ where
                     }
                 } else {
                     vnode_kind = VNodeType::Element;
-                    mut_flags = crate::vnode_types::parse_vnode_flag(&ident.sym);
+                    mut_flags = parse_vnode_flag(&ident.sym);
                     name_expr = Expr::Lit(Lit::Str(Str {
                         span: name_span,
                         raw: None,
@@ -494,26 +496,6 @@ where
                                         class_name_param = jsx_attr_value_to_expr(v)
                                     }
 
-                                    continue;
-                                }
-                            } else if i.sym == "htmlFor" {
-                                if vnode_kind == VNodeType::Element {
-                                    props_obj.props.push(PropOrSpread::Prop(Box::new(
-                                        Prop::KeyValue(KeyValueProp {
-                                            key: PropName::Str(Str {
-                                                span: i.span,
-                                                raw: None,
-                                                value: "for".into(),
-                                            }),
-                                            value: match attr.value {
-                                                Some(v) => jsx_attr_value_to_expr(v)
-                                                    .expect("empty expression?"),
-                                                None => Box::new(Expr::Lit(Lit::Null(Null {
-                                                    span: DUMMY_SP,
-                                                }))),
-                                            },
-                                        }),
-                                    )));
                                     continue;
                                 }
                             } else if i.sym == "onDoubleClick" {
@@ -676,9 +658,14 @@ where
                                 None => true.into(),
                             };
 
-                            let converted_sym = crate::vnode_types::convert_svg_attrs(&i.sym);
+                            let converted_prop_name = if requires_lowercasing(&i.sym) {
+                                PropName::Ident(IdentName {
+                                    span: i.span,
+                                    sym: i.sym.to_lowercase().into()
+                                })
+                            } else {
+                                let converted_sym = transform_attribute(&i.sym);
 
-                            let converted_prop_name =
                                 if converted_sym.contains('-') || converted_sym.contains(':') {
                                     PropName::Str(Str {
                                         span: i.span,
@@ -690,7 +677,8 @@ where
                                         span: i.span,
                                         sym: converted_sym.into()
                                     })
-                                };
+                                }
+                            };
 
                             props_obj
                                 .props

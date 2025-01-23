@@ -17,7 +17,7 @@ mod inferno_flags;
 mod jsx;
 mod pure_annotations;
 mod refresh;
-mod vnode_types;
+mod transformations;
 
 ///
 /// `top_level_mark` should be [Mark] passed to

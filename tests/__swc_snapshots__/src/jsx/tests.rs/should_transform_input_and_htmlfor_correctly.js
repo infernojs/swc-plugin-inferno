@@ -10,8 +10,8 @@ createVNode(1, "label", null, /*#__PURE__*/ createVNode(64, "input", null, null,
     onClick: onClick,
     type: "number",
     pattern: "[0-9]+([,\\.][0-9]+)?",
-    inputMode: "numeric",
+    inputmode: "numeric",
     min: minimum
 }), 2, {
-    "for": id
+    for: id
 });
