@@ -3,6 +3,7 @@ pub fn transform_attribute(sym: &str) -> &str {
         // React attributes
         "acceptCharset" => "accept-charset",
         "httpEquiv" => "http-equiv",
+        "transformOrigin" => "transform-origin",
         "htmlFor" => "for",
 
         // SVG attributes
