@@ -7,9 +7,9 @@
 
 # InfernoJS SWC Plugin
 
-> Plugin for SWC to enable JSX for Inferno
+> Plugin for SWC to enable JSX/TSX for Inferno
 
-This plugin transforms JSX code in your projects to [Inferno](https://github.com/trueadm/inferno) compatible virtual DOM.
+This plugin transforms JSX and TSX code in your projects to [Inferno](https://github.com/trueadm/inferno) compatible virtual DOM.
 It is recommended to use this plugin for compiling JSX for inferno. It is different to other JSX plugins, because it outputs highly optimized inferno specific `createVNode` calls. This plugin also checks children shape during compilation stage to reduce overhead from runtime application.
 
 ## How to install
