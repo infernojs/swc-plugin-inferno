@@ -1,8 +1,8 @@
-use swc_core::common::collections::AHashMap;
+use rustc_hash::FxHashMap;
+use swc_core::atoms::Atom;
 use swc_core::common::comments::Comments;
 use swc_core::common::Span;
 use swc_core::ecma::ast::*;
-use swc_core::ecma::atoms::JsWord;
 use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 
 #[cfg(test)]
@@ -25,7 +25,7 @@ struct PureAnnotations<C>
 where
     C: Comments,
 {
-    imports: AHashMap<Id, (JsWord, JsWord)>,
+    imports: FxHashMap<Id, (Atom, Atom)>,
     comments: Option<C>,
 }
 
@@ -121,7 +121,7 @@ where
     }
 }
 
-fn is_pure(src: &JsWord, specifier: &JsWord) -> bool {
+fn is_pure(src: &Atom, specifier: &Atom) -> bool {
     match &**src {
         "inferno" => matches!(
             &**specifier,

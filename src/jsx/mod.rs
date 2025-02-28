@@ -8,7 +8,7 @@ use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
 use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP, SyntaxContext};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::atoms::{Atom, JsWord};
+use swc_core::ecma::atoms::{Atom};
 use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
 use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
@@ -195,7 +195,7 @@ where
 {
     unresolved_mark: Mark,
 
-    import_source: JsWord,
+    import_source: Atom,
 
     import_create_vnode: Option<Ident>,
     import_create_component: Option<Ident>,
@@ -209,7 +209,7 @@ where
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct JsxDirectives {
-    pub import_source: Option<JsWord>,
+    pub import_source: Option<Atom>,
 }
 
 impl<C> Jsx<C>
@@ -1438,7 +1438,7 @@ fn is_component_vnode(i: &Ident) -> bool {
 }
 
 #[inline]
-fn jsx_text_to_str(t: Atom) -> JsWord {
+fn jsx_text_to_str(t: Atom) -> Atom {
     let mut buf = String::new();
     let replaced = t.replace('\t', " ");
 
