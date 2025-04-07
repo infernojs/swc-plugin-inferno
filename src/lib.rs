@@ -58,7 +58,6 @@ where
 
 #[plugin_transform]
 fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata) -> Program {
-    println!("HELLO!!!");
     let top_level_mark = Mark::new();
 
     // TODO: Where to get source map
