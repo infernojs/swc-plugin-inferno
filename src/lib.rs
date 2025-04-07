@@ -57,7 +57,8 @@ where
 }
 
 #[plugin_transform]
-fn inferno_jsx_plugin(program: Program, data: TransformPluginProgramMetadata) -> Program {
+fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata) -> Program {
+    println!("HELLO!!!");
     let top_level_mark = Mark::new();
 
     // TODO: Where to get source map
@@ -65,9 +66,9 @@ fn inferno_jsx_plugin(program: Program, data: TransformPluginProgramMetadata) ->
 
     program.apply(&mut inferno(
         cm,
-        Some(&data.comments),
+        Some(&metadata.comments),
         Default::default(),
         top_level_mark,
-        data.unresolved_mark,
+        metadata.unresolved_mark,
     ))
 }
