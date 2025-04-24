@@ -7,7 +7,7 @@ include       = ["Cargo.toml", "src/**/*.rs"]
 license       = "MIT"
 name          = "swc-plugin-inferno"
 repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
-version       = "2.4.2"
+version       = "2.4.3"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -35,7 +35,7 @@ serde        = { version = "1", features = ["derive"], optional = true }
 sha-1        = "=0.10.1"
 rustc-hash   = "2.1.1"
 
-swc_core = { version = "21", features = [
+swc_core = { version = "22", features = [
     "swc_atoms",
     "swc_common",
     "transform_common",
@@ -52,6 +52,5 @@ swc_config                 = { version = "2" }
 [dev-dependencies]
 swc_ecma_codegen            = { version = "10" }
 swc_ecma_transforms_compat  = { version = "13" }
-swc_ecma_transforms_testing = { version = "14" }
-swc_ecma_transforms         = { version = "15" }
-testing                     = { version = "8" }
+swc_ecma_transforms_testing = { version = "15" }
+testing                     = { version = "9" }
