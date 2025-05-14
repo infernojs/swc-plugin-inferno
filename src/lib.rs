@@ -1,16 +1,16 @@
 #![deny(clippy::all)]
 #![allow(clippy::arc_with_non_send_sync)]
 
-use swc_core::{
-    common::{comments::Comments, sync::Lrc, Mark, SourceMap},
-    ecma::{ast::Program},
-    plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
-};
-use swc_core::ecma::ast::Pass;
 pub use self::{
     jsx::*,
     pure_annotations::pure_annotations,
     refresh::{options::RefreshOptions, refresh},
+};
+use swc_core::ecma::ast::Pass;
+use swc_core::{
+    common::{comments::Comments, sync::Lrc, Mark, SourceMap},
+    ecma::ast::Program,
+    plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
 };
 
 mod inferno_flags;
@@ -49,7 +49,7 @@ where
             refresh_options,
             cm.clone(),
             comments.clone(),
-            top_level_mark
+            top_level_mark,
         ),
         jsx(comments.clone(), options, unresolved_mark),
         pure_annotations(comments),

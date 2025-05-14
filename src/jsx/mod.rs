@@ -1,26 +1,26 @@
 #![allow(clippy::redundant_allocation)]
 
+use crate::transformations::lowercase_attrs::requires_lowercasing;
+use crate::transformations::parse_vnode_flag::parse_vnode_flag;
+use crate::transformations::transform_attribute::transform_attribute;
+use crate::VNodeType::Component;
+use crate::{
+    inferno_flags::{ChildFlags, VNodeFlags},
+    refresh::options::{deserialize_refresh, RefreshOptions},
+};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, sync::Arc};
 use swc_config::merge::Merge;
 use swc_core::common::comments::Comments;
 use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
-use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, DUMMY_SP, SyntaxContext};
+use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, SyntaxContext, DUMMY_SP};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::atoms::{Atom};
+use swc_core::ecma::atoms::Atom;
 use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
 use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
-use crate::VNodeType::Component;
-use crate::{
-    inferno_flags::{ChildFlags, VNodeFlags},
-    refresh::options::{deserialize_refresh, RefreshOptions},
-};
-use crate::transformations::transform_attribute::transform_attribute;
-use crate::transformations::lowercase_attrs::requires_lowercasing;
-use crate::transformations::parse_vnode_flag::parse_vnode_flag;
 
 #[cfg(test)]
 mod tests;
@@ -57,7 +57,7 @@ pub fn parse_expr_for_jsx(
 ) -> Arc<Box<Expr>> {
     let fm = cm.new_source_file(
         FileName::Custom(format!("<jsx-config-{name}.js>")).into(),
-        src
+        src,
     );
 
     parse_file_as_expr(
@@ -402,7 +402,11 @@ where
                     if ident.sym == "Fragment" {
                         vnode_kind = VNodeType::Fragment;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Expr::Ident(Ident::new("createFragment".into(), ident.span, Default::default()));
+                        name_expr = Expr::Ident(Ident::new(
+                            "createFragment".into(),
+                            ident.span,
+                            Default::default(),
+                        ));
                     } else {
                         vnode_kind = Component;
                         mut_flags = VNodeFlags::ComponentUnknown as u16;
@@ -505,7 +509,7 @@ where
                                         KeyValueProp {
                                             key: PropName::Ident(IdentName::new(
                                                 "onDblClick".into(),
-                                                span
+                                                span,
                                             )),
                                             value: match attr.value {
                                                 Some(v) => jsx_attr_value_to_expr(v)
@@ -661,7 +665,7 @@ where
                             let converted_prop_name = if requires_lowercasing(&i.sym) {
                                 PropName::Ident(IdentName {
                                     span: i.span,
-                                    sym: i.sym.to_lowercase().into()
+                                    sym: i.sym.to_lowercase().into(),
                                 })
                             } else {
                                 let converted_sym = transform_attribute(&i.sym);
@@ -675,7 +679,7 @@ where
                                 } else {
                                     PropName::Ident(IdentName {
                                         span: i.span,
-                                        sym: converted_sym.into()
+                                        sym: converted_sym.into(),
                                     })
                                 }
                             };
@@ -818,7 +822,8 @@ where
                                         spread: None,
                                         expr: Box::new(Expr::Call(CallExpr {
                                             span: DUMMY_SP,
-                                            ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+                                            ctxt: SyntaxContext::empty()
+                                                .apply_mark(self.unresolved_mark),
                                             callee: self
                                                 .import_create_text_vnode
                                                 .get_or_insert_with(|| {

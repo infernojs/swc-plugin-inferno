@@ -31,8 +31,8 @@ test!(
             jsx(
                 Some(t.comments.clone()),
                 Default::default(),
-                unresolved_mark
-            )
+                unresolved_mark,
+            ),
         )
     },
     should_always_stick_the_create_vnode_ref_to_import_when_compiled_to_commonjs,
@@ -76,7 +76,7 @@ test!(
             jsx(
                 Some(t.comments.clone()),
                 Default::default(),
-                unresolved_mark
+                unresolved_mark,
             ),
         )
     },
@@ -1378,7 +1378,7 @@ fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Pass {
 
     (
         resolver(unresolved_mark, top_level_mark, false),
-        jsx(Some(t.comments.clone()), options, unresolved_mark)
+        jsx(Some(t.comments.clone()), options, unresolved_mark),
     )
 }
 
@@ -1413,9 +1413,9 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
             Some(t.comments.clone()),
             options.options,
             top_level_mark,
-            unresolved_mark
+            unresolved_mark,
         ),
-        pure_annotations(Some(t.comments.clone()))
+        pure_annotations(Some(t.comments.clone())),
     )
 }
 
@@ -1430,8 +1430,8 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
             Some(t.comments.clone()),
             options.options,
             top_level_mark,
-            unresolved_mark
-        )
+            unresolved_mark,
+        ),
     )
 }
 
@@ -2215,8 +2215,8 @@ test!(
             jsx(
                 Some(t.comments.clone()),
                 Default::default(),
-                unresolved_mark
-            )
+                unresolved_mark,
+            ),
         )
     },
     issue_4956,
@@ -2316,7 +2316,7 @@ fn test_script(src: &str, output: &Path, options: Options) {
                 unresolved_mark,
             ),
             hygiene(),
-            fixer(Some(&tester.comments))
+            fixer(Some(&tester.comments)),
         ));
 
         let mut buf = vec![];

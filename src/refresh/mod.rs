@@ -1,17 +1,17 @@
+use self::{
+    hook::HookRegister,
+    util::{collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt},
+};
 use rustc_hash::FxHashSet;
+use swc_core::ecma::visit::visit_mut_pass;
 use swc_core::{
     common::{
-        comments::Comments, sync::Lrc, util::take::Take, BytePos, Mark,
-        SourceMap, SourceMapper, Span, Spanned, SyntaxContext, DUMMY_SP,
+        comments::Comments, sync::Lrc, util::take::Take, BytePos, Mark, SourceMap, SourceMapper,
+        Span, Spanned, SyntaxContext, DUMMY_SP,
     },
     ecma::ast::*,
     ecma::utils::{private_ident, quote_ident, quote_str, ExprFactory},
     ecma::visit::{Visit, VisitMut, VisitMutWith},
-};
-use swc_core::ecma::visit::visit_mut_pass;
-use self::{
-    hook::HookRegister,
-    util::{collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt},
 };
 
 pub mod options;
@@ -119,10 +119,10 @@ impl<C: Comments> Refresh<C> {
                             hook_reg,
                         );
                         if let Persist::Hoc(Hoc {
-                                                insert,
-                                                reg,
-                                                hook: Some(hook),
-                                            }) = res
+                            insert,
+                            reg,
+                            hook: Some(hook),
+                        }) = res
                         {
                             make_hook_reg(init_expr.as_mut(), hook);
                             Persist::Hoc(Hoc {
@@ -184,7 +184,7 @@ impl<C: Comments> Refresh<C> {
                             args,
                             ..Default::default()
                         }
-                            .into()
+                        .into()
                     }
                     *first_arg = Box::new(make_assign_stmt(reg_ident, first));
 
@@ -310,28 +310,28 @@ impl<C: Comments> VisitMut for Refresh<C> {
 
                 // export function Foo() {}
                 ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                                                                  decl: Decl::Fn(FnDecl { ident, .. }),
-                                                                  ..
-                                                              })) => get_persistent_id(ident),
+                    decl: Decl::Fn(FnDecl { ident, .. }),
+                    ..
+                })) => get_persistent_id(ident),
 
                 // export default function Foo() {}
                 ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(ExportDefaultDecl {
-                                                                         decl:
-                                                                         DefaultDecl::Fn(FnExpr {
-                                                                                             // We don't currently handle anonymous default exports.
-                                                                                             ident: Some(ident),
-                                                                                             ..
-                                                                                         }),
-                                                                         ..
-                                                                     })) => get_persistent_id(ident),
+                    decl:
+                        DefaultDecl::Fn(FnExpr {
+                            // We don't currently handle anonymous default exports.
+                            ident: Some(ident),
+                            ..
+                        }),
+                    ..
+                })) => get_persistent_id(ident),
 
                 // const Foo = () => {}
                 // export const Foo = () => {}
                 ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl)))
                 | ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                                                                    decl: Decl::Var(var_decl),
-                                                                    ..
-                                                                })) => {
+                    decl: Decl::Var(var_decl),
+                    ..
+                })) => {
                     self.get_persistent_id_from_var_decl(var_decl, &used_in_jsx, &mut hook_visitor)
                 }
 
@@ -340,9 +340,9 @@ impl<C: Comments> VisitMut for Refresh<C> {
                 // In those cases it is more plausible people will omit names
                 // so they're worth handling despite possible false positives.
                 ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(ExportDefaultExpr {
-                                                                         expr,
-                                                                         span,
-                                                                     })) => {
+                    expr,
+                    span,
+                })) => {
                     if let Expr::Call(call) = expr.as_mut() {
                         if let Persist::Hoc(Hoc { reg, hook, .. }) = self
                             .get_persistent_id_from_possible_hoc(
@@ -361,7 +361,7 @@ impl<C: Comments> VisitMut for Refresh<C> {
                                 expr: Box::new(make_assign_stmt(reg[0].0.clone(), expr.take())),
                                 span: *span,
                             }
-                                .into();
+                            .into();
                             Persist::Hoc(Hoc {
                                 insert: false,
                                 reg,
@@ -410,7 +410,7 @@ impl<C: Comments> VisitMut for Refresh<C> {
                                 persistent_id.into(),
                             )),
                         }
-                            .into(),
+                        .into(),
                     );
                 }
 
@@ -426,7 +426,7 @@ impl<C: Comments> VisitMut for Refresh<C> {
                                     Ident::new(name.0.clone(), DUMMY_SP, name.1).into(),
                                 )),
                             }
-                                .into(),
+                            .into(),
                         )
                     }
                     refresh_regs.append(&mut hoc.reg);
@@ -459,7 +459,7 @@ impl<C: Comments> VisitMut for Refresh<C> {
                         .collect(),
                     ..Default::default()
                 }
-                    .into(),
+                .into(),
             );
         }
 
@@ -478,9 +478,9 @@ impl<C: Comments> VisitMut for Refresh<C> {
                         args: vec![handle.as_arg(), quote_str!(persistent_id.0).as_arg()],
                         ..Default::default()
                     }
-                        .into(),
-                }
                     .into(),
+                }
+                .into(),
             );
         }
 

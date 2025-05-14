@@ -51,7 +51,7 @@ pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Expr {
         left: handle.into(),
         right: expr,
     }
-        .into()
+    .into()
 }
 
 pub fn make_call_stmt(handle: Ident) -> Stmt {
@@ -59,7 +59,7 @@ pub fn make_call_stmt(handle: Ident) -> Stmt {
         span: DUMMY_SP,
         expr: Box::new(make_call_expr(handle)),
     }
-        .into()
+    .into()
 }
 
 pub fn make_call_expr(handle: Ident) -> Expr {
@@ -69,15 +69,15 @@ pub fn make_call_expr(handle: Ident) -> Expr {
         args: Vec::new(),
         ..Default::default()
     }
-        .into()
+    .into()
 }
 
 pub fn is_import_or_require(expr: &Expr) -> bool {
     match expr {
         Expr::Call(CallExpr {
-                       callee: Callee::Expr(expr),
-                       ..
-                   }) => {
+            callee: Callee::Expr(expr),
+            ..
+        }) => {
             if let Expr::Ident(ident) = expr.as_ref() {
                 ident.sym.contains("require")
             } else {
@@ -85,9 +85,9 @@ pub fn is_import_or_require(expr: &Expr) -> bool {
             }
         }
         Expr::Call(CallExpr {
-                       callee: Callee::Import(_),
-                       ..
-                   }) => true,
+            callee: Callee::Import(_),
+            ..
+        }) => true,
         _ => false,
     }
 }
@@ -103,9 +103,9 @@ impl Visit for UsedInJsx {
             let ident = match expr.as_ref() {
                 Expr::Ident(ident) => ident.to_id(),
                 Expr::Member(MemberExpr {
-                                 prop: MemberProp::Ident(ident),
-                                 ..
-                             }) => (ident.sym.clone(), SyntaxContext::empty()),
+                    prop: MemberProp::Ident(ident),
+                    ..
+                }) => (ident.sym.clone(), SyntaxContext::empty()),
                 _ => return,
             };
             if matches!(

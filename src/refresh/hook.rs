@@ -70,7 +70,7 @@ impl<'a> HookRegister<'a> {
             declare: false,
             ..Default::default()
         }
-            .into()
+        .into()
     }
 
     // The second call is around the function itself. This is used to associate a
@@ -115,7 +115,7 @@ impl<'a> HookRegister<'a> {
                 raw: None,
                 value: sign.into(),
             })
-                .as_arg(),
+            .as_arg(),
         );
 
         let mut should_reset = self.should_reset;
@@ -156,9 +156,9 @@ impl<'a> HookRegister<'a> {
                                 obj: Box::new(obj),
                                 prop: MemberProp::Ident(prop),
                             }
-                                .into(),
+                            .into(),
                         }
-                            .as_arg(),
+                        .as_arg(),
                     )
                 })
                 .collect();
@@ -182,7 +182,7 @@ impl<'a> HookRegister<'a> {
                     }),
                     ..Default::default()
                 }
-                    .as_arg(),
+                .as_arg(),
             );
         }
 
@@ -192,7 +192,7 @@ impl<'a> HookRegister<'a> {
             args,
             ..Default::default()
         }
-            .into()
+        .into()
     }
 
     fn gen_hook_register_stmt(&mut self, ident: Ident, sig: HookSig) {
@@ -202,7 +202,7 @@ impl<'a> HookRegister<'a> {
                 span: DUMMY_SP,
                 expr: Box::new(self.wrap_with_register(sig.handle, ident.into(), sig.hooks)),
             }
-                .into(),
+            .into(),
         )
     }
 }
@@ -300,9 +300,9 @@ impl<'a> VisitMut for HookRegister<'a> {
         // only when expr has ident
         match d {
             DefaultDecl::Fn(FnExpr {
-                                ident: Some(ident),
-                                function: f,
-                            }) if f.body.is_some() => {
+                ident: Some(ident),
+                function: f,
+            }) if f.body.is_some() => {
                 if let Some(sig) = collect_hooks(&mut f.body.as_mut().unwrap().stmts, self.cm) {
                     self.gen_hook_register_stmt(ident.clone(), sig);
                 }
@@ -400,10 +400,10 @@ impl<'a> HookCollector<'a> {
             }
             // hook cannot be used in class, so we're fine without SuperProp
             Expr::Member(MemberExpr {
-                             obj,
-                             prop: MemberProp::Ident(ident),
-                             ..
-                         }) => {
+                obj,
+                prop: MemberProp::Ident(ident),
+                ..
+            }) => {
                 hook_call = Some(HookCall::Member(*obj.clone(), ident.clone()));
                 Some(&ident.sym)
             }

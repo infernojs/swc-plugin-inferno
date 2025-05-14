@@ -20,8 +20,8 @@ fn tr(t: &mut Tester) -> impl Pass {
             }),
             t.cm.clone(),
             Some(t.comments.clone()),
-            top_level_mark
-        )
+            top_level_mark,
+        ),
     )
 }
 
@@ -561,12 +561,12 @@ test!(
                 }),
                 t.cm.clone(),
                 Some(t.comments.clone()),
-                top_level_mark
+                top_level_mark,
             ),
             jsx(
                 Some(t.comments.clone()),
                 Default::default(),
-                unresolved_mark
+                unresolved_mark,
             ),
         )
     },
@@ -693,8 +693,8 @@ test!(
                 }),
                 t.cm.clone(),
                 Some(t.comments.clone()),
-                top_level_mark
-            )
+                top_level_mark,
+            ),
         )
     },
     custom_identifier,
