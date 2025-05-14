@@ -56,7 +56,7 @@ pub fn parse_expr_for_jsx(
     top_level_mark: Mark,
 ) -> Arc<Box<Expr>> {
     let fm = cm.new_source_file(
-        FileName::Custom(format!("<jsx-config-{}.js>", name)).into(),
+        FileName::Custom(format!("<jsx-config-{name}.js>")).into(),
         src
     );
 
@@ -1457,7 +1457,7 @@ fn jsx_text_to_str(t: Atom) -> Atom {
         } else {
             Cow::Borrowed(line.trim_end_matches(' '))
         };
-        if line.len() == 0 {
+        if line.is_empty() {
             continue;
         }
         if i != 0 && !buf.is_empty() {
