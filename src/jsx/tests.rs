@@ -850,6 +850,19 @@ test!(
     "#
 );
 
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_not_transform_fill_opacity_component,
+    r#"
+      <Foobar fillOpacity="1"/>
+    "#
+);
+
 // TODO: How to verify errors
 // test!(
 //     Syntax::Es(EsSyntax {

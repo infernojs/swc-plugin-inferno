@@ -668,7 +668,11 @@ where
                                     sym: i.sym.to_lowercase().into(),
                                 })
                             } else {
-                                let converted_sym = transform_attribute(&i.sym);
+                                let converted_sym = if vnode_kind == VNodeType::Element {
+                                    transform_attribute(&i.sym)
+                                } else {
+                                    &i.sym
+                                };
 
                                 if converted_sym.contains('-') || converted_sym.contains(':') {
                                     PropName::Str(Str {
