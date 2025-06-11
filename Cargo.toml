@@ -7,7 +7,7 @@ include       = ["Cargo.toml", "src/**/*.rs"]
 license       = "MIT"
 name          = "swc-plugin-inferno"
 repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
-version       = "2.6.0"
+version       = "2.6.1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
