@@ -2292,7 +2292,7 @@ fn test_script(src: &str, output: &Path, options: Options) {
     Tester::run(|tester| {
         let fm = tester
             .cm
-            .new_source_file(FileName::Real("input.js".into()).into(), src.into());
+            .new_source_file(FileName::Real("input.js".into()).into(), src.to_string());
 
         let syntax = Syntax::Es(EsSyntax {
             jsx: true,
