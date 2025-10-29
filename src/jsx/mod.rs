@@ -9,7 +9,7 @@ use crate::{
     refresh::options::{deserialize_refresh, RefreshOptions},
 };
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use swc_config::merge::Merge;
 use swc_atoms::Wtf8Atom;
 use swc_core::atoms::atom;
@@ -223,7 +223,7 @@ where
     fn inject_runtime<T, F>(&mut self, body: &mut Vec<T>, inject: F)
     where
         T: StmtLike,
-        F: Fn(Vec<(Ident)>, Wtf8Atom, &mut Vec<T>),
+        F: Fn(Vec<Ident>, Wtf8Atom, &mut Vec<T>),
     {
         let mut import_specifiers: Vec<Ident> = vec![];
 
@@ -1397,7 +1397,7 @@ fn is_component_vnode(i: &Ident) -> bool {
 
 // const { createElement } = require('react')
 // const { jsx: jsx } = require('react/jsx-runtime')
-fn add_require(imports: Vec<(Ident)>, src: Wtf8Atom, unresolved_mark: Mark) -> Stmt {
+fn add_require(imports: Vec<Ident>, src: Wtf8Atom, unresolved_mark: Mark) -> Stmt {
     VarDecl {
         span: DUMMY_SP,
         kind: VarDeclKind::Const,
@@ -1432,7 +1432,7 @@ fn add_require(imports: Vec<(Ident)>, src: Wtf8Atom, unresolved_mark: Mark) -> S
                     spread: None,
                     expr: Box::new(Expr::Lit(Lit::Str(Str {
                         span: DUMMY_SP,
-                        value: src.into(),
+                        value: src,
                         raw: None,
                     }))),
                 }],
