@@ -2240,7 +2240,6 @@ fn jsx_text() {
     );
 }
 
-
 // https://github.com/swc-project/swc/issues/542
 test!(
     module,

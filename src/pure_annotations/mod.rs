@@ -115,7 +115,6 @@ where
             _ => false,
         };
 
-
         if is_inferno_call {
             if let Some(comments) = &self.comments {
                 if call.span.lo.is_dummy() {

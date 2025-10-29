@@ -10,8 +10,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use swc_config::merge::Merge;
 use swc_atoms::Wtf8Atom;
+use swc_config::merge::Merge;
 use swc_core::atoms::atom;
 use swc_core::atoms::wtf8::{Wtf8, Wtf8Buf};
 use swc_core::common::comments::Comments;
@@ -20,8 +20,10 @@ use swc_core::common::util::take::Take;
 use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, SyntaxContext, DUMMY_SP};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::Atom;
-use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, swc_atoms, ExprFactory, StmtLike};
 use swc_core::ecma::utils::str::is_line_terminator;
+use swc_core::ecma::utils::{
+    drop_span, prepend_stmt, quote_ident, swc_atoms, ExprFactory, StmtLike,
+};
 use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
@@ -1388,7 +1390,6 @@ where
     }
 }
 
-
 #[inline]
 fn is_component_vnode(i: &Ident) -> bool {
     // If it starts with uppercase
@@ -1442,7 +1443,7 @@ fn add_require(imports: Vec<Ident>, src: Wtf8Atom, unresolved_mark: Mark) -> Stm
         }],
         ..Default::default()
     }
-        .into()
+    .into()
 }
 
 impl<C> Jsx<C>
@@ -1464,14 +1465,14 @@ where
                         raw: None,
                         value: i.sym.into(),
                     })
-                        .into()
+                    .into()
                 } else {
                     i.into()
                 }
             }
             JSXElementName::JSXNamespacedName(JSXNamespacedName {
-                                                  ref ns, ref name, ..
-                                              }) => {
+                ref ns, ref name, ..
+            }) => {
                 let value = format!("{}:{}", ns.sym, name.sym);
 
                 Lit::Str(Str {
@@ -1479,7 +1480,7 @@ where
                     raw: None,
                     value: value.into(),
                 })
-                    .into()
+                .into()
             }
             JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop, .. }) => {
                 fn convert_obj(obj: JSXObject) -> Box<Expr> {
@@ -1498,18 +1499,18 @@ where
                             obj: convert_obj(e.obj),
                             prop: MemberProp::Ident(e.prop),
                         }
-                            .into(),
+                        .into(),
                         #[cfg(swc_ast_unknown)]
                         _ => panic!("unable to access unknown nodes"),
                     })
-                        .into()
+                    .into()
                 }
                 MemberExpr {
                     span,
                     obj: convert_obj(obj),
                     prop: MemberProp::Ident(prop),
                 }
-                    .into()
+                .into()
             }
             #[cfg(swc_ast_unknown)]
             _ => panic!("unable to access unknown nodes"),
@@ -1751,7 +1752,7 @@ fn jsx_attr_value_to_expr(v: JSXAttrValue) -> Option<Box<Expr>> {
                 raw: None,
                 value: value.into(),
             })
-                .into()
+            .into()
         }
         JSXAttrValue::JSXExprContainer(e) => match e.expr {
             JSXExpr::JSXEmptyExpr(_) => None?,
