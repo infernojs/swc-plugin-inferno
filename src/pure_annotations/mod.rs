@@ -1,5 +1,5 @@
 use rustc_hash::FxHashMap;
-use swc_core::atoms::Atom;
+use swc_core::atoms::{atom, Atom, Wtf8Atom};
 use swc_core::common::comments::Comments;
 use swc_core::common::Span;
 use swc_core::ecma::ast::*;
@@ -25,7 +25,7 @@ struct PureAnnotations<C>
 where
     C: Comments,
 {
-    imports: FxHashMap<Id, (Atom, Atom)>,
+    imports: FxHashMap<Id, (Wtf8Atom, Atom)>,
     comments: Option<C>,
 }
 
@@ -39,7 +39,9 @@ where
         // Pass 1: collect imports
         for item in &module.body {
             if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = item {
-                let src_str = &*import.src.value;
+                let Some(src_str) = import.src.value.as_str() else {
+                    continue;
+                };
                 if src_str != "inferno" {
                     continue;
                 }
@@ -48,20 +50,26 @@ where
                     let src = import.src.value.clone();
                     match specifier {
                         ImportSpecifier::Named(named) => {
-                            let imported = match &named.imported {
+                            let imported: Atom = match &named.imported {
                                 Some(ModuleExportName::Ident(imported)) => imported.sym.clone(),
-                                Some(ModuleExportName::Str(..)) => named.local.sym.clone(),
+                                Some(ModuleExportName::Str(s)) => {
+                                    s.value.to_atom_lossy().into_owned()
+                                }
                                 None => named.local.sym.clone(),
+                                #[cfg(swc_ast_unknown)]
+                                Some(_) => continue,
                             };
                             self.imports.insert(named.local.to_id(), (src, imported));
                         }
                         ImportSpecifier::Default(default) => {
                             self.imports
-                                .insert(default.local.to_id(), (src, "default".into()));
+                                .insert(default.local.to_id(), (src, atom!("default")));
                         }
                         ImportSpecifier::Namespace(ns) => {
-                            self.imports.insert(ns.local.to_id(), (src, "*".into()));
+                            self.imports.insert(ns.local.to_id(), (src, atom!("*")));
                         }
+                        #[cfg(swc_ast_unknown)]
+                        _ => (),
                     }
                 }
             }
@@ -107,6 +115,7 @@ where
             _ => false,
         };
 
+
         if is_inferno_call {
             if let Some(comments) = &self.comments {
                 if call.span.lo.is_dummy() {
@@ -121,8 +130,12 @@ where
     }
 }
 
-fn is_pure(src: &Atom, specifier: &Atom) -> bool {
-    match &**src {
+fn is_pure(src: &Wtf8Atom, specifier: &Atom) -> bool {
+    let Some(src) = src.as_str() else {
+        return false;
+    };
+
+    match src {
         "inferno" => matches!(
             &**specifier,
             "createComponentVNode"

@@ -11,13 +11,17 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, sync::Arc};
 use swc_config::merge::Merge;
+use swc_atoms::Wtf8Atom;
+use swc_core::atoms::atom;
+use swc_core::atoms::wtf8::{Wtf8, Wtf8Buf};
 use swc_core::common::comments::Comments;
 use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
 use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, SyntaxContext, DUMMY_SP};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::Atom;
-use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, ExprFactory, StmtLike};
+use swc_core::ecma::utils::{drop_span, prepend_stmt, quote_ident, swc_atoms, ExprFactory, StmtLike};
+use swc_core::ecma::utils::str::is_line_terminator;
 use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{parse_file_as_expr, Syntax};
@@ -100,11 +104,11 @@ fn apply_mark(e: &mut Expr, mark: Mark) {
     }
 }
 
-fn named_import_exists(import_name: &str, import: &ImportDecl) -> bool {
+fn named_import_exists(import_name: &Ident, import: &ImportDecl) -> bool {
     for specifier in &import.specifiers {
         match specifier {
             ImportSpecifier::Named(named) => {
-                if import_name == named.local.sym.as_ref() {
+                if import_name.sym == named.local.sym {
                     return true;
                 }
             }
@@ -118,8 +122,8 @@ fn named_import_exists(import_name: &str, import: &ImportDecl) -> bool {
 }
 
 fn merge_imports(
-    imports: &Vec<&str>,
-    default_import_src: &str,
+    imports: &Vec<Ident>,
+    default_import_src: Wtf8Atom,
     stmts: &mut Vec<ModuleItem>,
 ) -> bool {
     for stmt in stmts {
@@ -140,7 +144,7 @@ fn merge_imports(
                             .specifiers
                             .push(ImportSpecifier::Named(ImportNamedSpecifier {
                                 span: DUMMY_SP,
-                                local: quote_ident!(*import_to_add).into(),
+                                local: import_to_add.clone(),
                                 imported: None,
                                 is_type_only: false,
                             }))
@@ -195,7 +199,7 @@ where
 {
     unresolved_mark: Mark,
 
-    import_source: Atom,
+    import_source: Wtf8Atom,
 
     import_create_vnode: Option<Ident>,
     import_create_component: Option<Ident>,
@@ -219,28 +223,28 @@ where
     fn inject_runtime<T, F>(&mut self, body: &mut Vec<T>, inject: F)
     where
         T: StmtLike,
-        F: Fn(Vec<&str>, &str, &mut Vec<T>),
+        F: Fn(Vec<(Ident)>, Wtf8Atom, &mut Vec<T>),
     {
-        let mut import_specifiers = vec![];
+        let mut import_specifiers: Vec<Ident> = vec![];
 
         if let Some(_local) = self.import_create_vnode.take() {
-            import_specifiers.push("createVNode")
+            import_specifiers.push(quote_ident!("createVNode").into())
         }
         if let Some(_local) = self.import_create_component.take() {
-            import_specifiers.push("createComponentVNode")
+            import_specifiers.push(quote_ident!("createComponentVNode").into())
         }
         if let Some(_local) = self.import_create_text_vnode.take() {
-            import_specifiers.push("createTextVNode")
+            import_specifiers.push(quote_ident!("createTextVNode").into())
         }
         if let Some(_local) = self.import_normalize_props.take() {
-            import_specifiers.push("normalizeProps")
+            import_specifiers.push(quote_ident!("normalizeProps").into())
         }
         if let Some(_local) = self.import_create_fragment.take() {
-            import_specifiers.push("createFragment")
+            import_specifiers.push(quote_ident!("createFragment").into())
         }
 
         if !import_specifiers.is_empty() {
-            inject(import_specifiers, &self.import_source, body);
+            inject(import_specifiers, self.import_source.clone(), body);
         }
     }
 
@@ -299,7 +303,7 @@ where
             let child_expr = Some(match child {
                 JSXElementChild::JSXText(text) => {
                     // TODO(kdy1): Optimize
-                    let value = jsx_text_to_str(text.value);
+                    let value: swc_atoms::Wtf8Atom = jsx_text_to_str(&*text.value);
                     let s = Str {
                         span: text.span,
                         raw: None,
@@ -418,7 +422,7 @@ where
                     name_expr = Expr::Lit(Lit::Str(Str {
                         span: name_span,
                         raw: None,
-                        value: ident.sym,
+                        value: ident.sym.into(),
                     }))
                 }
             }
@@ -744,7 +748,7 @@ where
             let child_expr = Some(match child {
                 JSXElementChild::JSXText(text) => {
                     // TODO(kdy1): Optimize
-                    let value = jsx_text_to_str(text.value);
+                    let value = jsx_text_to_str(&*text.value);
                     let s = Str {
                         span: text.span,
                         raw: None,
@@ -1338,7 +1342,7 @@ where
 
         self.inject_runtime(&mut module.body, |imports, default_import_src, stmts| {
             // Merge new imports to existing import
-            if merge_imports(&imports, default_import_src, stmts) {
+            if merge_imports(&imports, default_import_src.clone(), stmts) {
                 return;
             }
 
@@ -1348,7 +1352,7 @@ where
                 .map(|imported| {
                     ImportSpecifier::Named(ImportNamedSpecifier {
                         span: DUMMY_SP,
-                        local: quote_ident!(imported).into(),
+                        local: imported,
                         imported: None,
                         is_type_only: false,
                     })
@@ -1363,7 +1367,7 @@ where
                     src: Str {
                         span: DUMMY_SP,
                         raw: None,
-                        value: default_import_src.into(),
+                        value: default_import_src.clone(),
                     }
                     .into(),
                     type_only: Default::default(),
@@ -1384,10 +1388,18 @@ where
     }
 }
 
-fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
-    Stmt::Decl(Decl::Var(Box::new(VarDecl {
+
+#[inline]
+fn is_component_vnode(i: &Ident) -> bool {
+    // If it starts with uppercase
+    i.as_ref().starts_with(|c: char| c.is_ascii_uppercase())
+}
+
+// const { createElement } = require('react')
+// const { jsx: jsx } = require('react/jsx-runtime')
+fn add_require(imports: Vec<(Ident)>, src: Wtf8Atom, unresolved_mark: Mark) -> Stmt {
+    VarDecl {
         span: DUMMY_SP,
-        ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
         kind: VarDeclKind::Const,
         declare: false,
         decls: vec![VarDeclarator {
@@ -1396,18 +1408,10 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
                 span: DUMMY_SP,
                 props: imports
                     .into_iter()
-                    .map(|imported| {
+                    .map(|local| {
                         ObjectPatProp::Assign(AssignPatProp {
                             span: DUMMY_SP,
-                            key: BindingIdent {
-                                id: Ident {
-                                    span: DUMMY_SP,
-                                    ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
-                                    sym: imported.into(),
-                                    optional: false,
-                                },
-                                type_ann: None,
-                            },
+                            key: local.into(),
                             value: None,
                         })
                     })
@@ -1415,13 +1419,12 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
                 optional: false,
                 type_ann: None,
             }),
-            // require('inferno')
+            // require('react')
             init: Some(Box::new(Expr::Call(CallExpr {
                 span: DUMMY_SP,
-                ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
                 callee: Callee::Expr(Box::new(Expr::Ident(Ident {
                     ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
-                    sym: "require".into(),
+                    sym: atom!("require"),
                     optional: false,
                     ..Default::default()
                 }))),
@@ -1433,110 +1436,383 @@ fn add_require(imports: Vec<&str>, src: &str, unresolved_mark: Mark) -> Stmt {
                         raw: None,
                     }))),
                 }],
-                type_args: None,
+                ..Default::default()
             }))),
             definite: false,
         }],
-    })))
-}
-
-#[inline]
-fn is_component_vnode(i: &Ident) -> bool {
-    // If it starts with uppercase
-    i.as_ref().starts_with(|c: char| c.is_ascii_uppercase())
-}
-
-#[inline]
-fn jsx_text_to_str(t: Atom) -> Atom {
-    let mut buf = String::new();
-    let replaced = t.replace('\t', " ");
-
-    for (is_last, (i, line)) in replaced.lines().enumerate().identify_last() {
-        if line.is_empty() {
-            continue;
-        }
-        let line = Cow::from(line);
-        let line = if i != 0 {
-            Cow::Borrowed(line.trim_start_matches(' '))
-        } else {
-            line
-        };
-        let line = if is_last {
-            line
-        } else {
-            Cow::Borrowed(line.trim_end_matches(' '))
-        };
-        if line.is_empty() {
-            continue;
-        }
-        if i != 0 && !buf.is_empty() {
-            buf.push(' ')
-        }
-        buf.push_str(&line);
+        ..Default::default()
     }
-    buf.into()
+        .into()
+}
+
+impl<C> Jsx<C>
+where
+    C: Comments,
+{
+    fn jsx_name(&self, name: JSXElementName) -> Box<Expr> {
+        let span = name.span();
+        match name {
+            JSXElementName::Ident(i) => {
+                if i.sym == "this" {
+                    return ThisExpr { span }.into();
+                }
+
+                // If it starts with lowercase
+                if i.as_ref().starts_with(|c: char| c.is_ascii_lowercase()) {
+                    Lit::Str(Str {
+                        span,
+                        raw: None,
+                        value: i.sym.into(),
+                    })
+                        .into()
+                } else {
+                    i.into()
+                }
+            }
+            JSXElementName::JSXNamespacedName(JSXNamespacedName {
+                                                  ref ns, ref name, ..
+                                              }) => {
+                let value = format!("{}:{}", ns.sym, name.sym);
+
+                Lit::Str(Str {
+                    span,
+                    raw: None,
+                    value: value.into(),
+                })
+                    .into()
+            }
+            JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop, .. }) => {
+                fn convert_obj(obj: JSXObject) -> Box<Expr> {
+                    let span = obj.span();
+
+                    (match obj {
+                        JSXObject::Ident(i) => {
+                            if i.sym == "this" {
+                                Expr::This(ThisExpr { span })
+                            } else {
+                                i.into()
+                            }
+                        }
+                        JSXObject::JSXMemberExpr(e) => MemberExpr {
+                            span,
+                            obj: convert_obj(e.obj),
+                            prop: MemberProp::Ident(e.prop),
+                        }
+                            .into(),
+                        #[cfg(swc_ast_unknown)]
+                        _ => panic!("unable to access unknown nodes"),
+                    })
+                        .into()
+                }
+                MemberExpr {
+                    span,
+                    obj: convert_obj(obj),
+                    prop: MemberProp::Ident(prop),
+                }
+                    .into()
+            }
+            #[cfg(swc_ast_unknown)]
+            _ => panic!("unable to access unknown nodes"),
+        }
+    }
+}
+
+fn to_prop_name(n: JSXAttrName) -> PropName {
+    let span = n.span();
+
+    match n {
+        JSXAttrName::Ident(i) => {
+            if i.sym.contains('-') {
+                PropName::Str(Str {
+                    span,
+                    raw: None,
+                    value: i.sym.into(),
+                })
+            } else {
+                PropName::Ident(i)
+            }
+        }
+        JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name, .. }) => {
+            let value = format!("{}:{}", ns.sym, name.sym);
+
+            PropName::Str(Str {
+                span,
+                raw: None,
+                value: value.into(),
+            })
+        }
+        #[cfg(swc_ast_unknown)]
+        _ => panic!("unable to access unknown nodes"),
+    }
+}
+
+/// https://github.com/microsoft/TypeScript/blob/9e20e032effad965567d4a1e1c30d5433b0a3332/src/compiler/transformers/jsx.ts#L572-L608
+///
+/// JSX trims whitespace at the end and beginning of lines, except that the
+/// start/end of a tag is considered a start/end of a line only if that line is
+/// on the same line as the closing tag. See examples in
+/// tests/cases/conformance/jsx/tsxReactEmitWhitespace.tsx
+/// See also https://www.w3.org/TR/html4/struct/text.html#h-9.1 and https://www.w3.org/TR/CSS2/text.html#white-space-model
+///
+/// An equivalent algorithm would be:
+/// - If there is only one line, return it.
+/// - If there is only whitespace (but multiple lines), return `undefined`.
+/// - Split the text into lines.
+/// - 'trimRight' the first line, 'trimLeft' the last line, 'trim' middle lines.
+/// - Decode entities on each line (individually).
+/// - Remove empty lines and join the rest with " ".
+#[inline]
+fn jsx_text_to_str<'a, T>(t: &'a T) -> Wtf8Atom
+where
+    &'a T: Into<&'a Wtf8>,
+    T: ?Sized,
+{
+    let t = t.into();
+    // Fast path: JSX text is almost always valid UTF-8
+    if let Some(s) = t.as_str() {
+        return jsx_text_to_str_impl(s).into();
+    }
+
+    // Slow path: Handle Wtf8 with surrogates (extremely rare)
+    jsx_text_to_str_wtf8_impl(t)
+}
+
+/// Handle JSX text with surrogates
+fn jsx_text_to_str_wtf8_impl(t: &Wtf8) -> Wtf8Atom {
+    let mut acc: Option<Wtf8Buf> = None;
+    let mut only_line: Option<(usize, usize)> = None; // (start, end) byte positions
+    let mut first_non_whitespace: Option<usize> = Some(0);
+    let mut last_non_whitespace: Option<usize> = None;
+
+    let mut byte_pos = 0;
+    for cp in t.code_points() {
+        let c = cp.to_char_lossy();
+        let cp_value = cp.to_u32();
+
+        // Calculate byte length of this code point in WTF-8
+        let cp_byte_len = if cp_value < 0x80 {
+            1
+        } else if cp_value < 0x800 {
+            2
+        } else if cp_value < 0x10000 {
+            3
+        } else {
+            4
+        };
+
+        if is_line_terminator(c) {
+            if let (Some(first), Some(last)) = (first_non_whitespace, last_non_whitespace) {
+                add_line_of_jsx_text_wtf8(first, last, t, &mut acc, &mut only_line);
+            }
+            first_non_whitespace = None;
+        } else if !is_white_space_single_line(c) {
+            last_non_whitespace = Some(byte_pos + cp_byte_len);
+            if first_non_whitespace.is_none() {
+                first_non_whitespace.replace(byte_pos);
+            }
+        }
+
+        byte_pos += cp_byte_len;
+    }
+
+    // Handle final line
+    if let Some(first) = first_non_whitespace {
+        add_line_of_jsx_text_wtf8(first, t.len(), t, &mut acc, &mut only_line);
+    }
+
+    if let Some(acc) = acc {
+        acc.into()
+    } else if let Some((start, end)) = only_line {
+        t.slice(start, end).into()
+    } else {
+        Wtf8Atom::default()
+    }
+}
+
+/// Helper for adding lines of JSX text when handling Wtf8 with surrogates
+fn add_line_of_jsx_text_wtf8(
+    line_start: usize,
+    line_end: usize,
+    source: &Wtf8,
+    acc: &mut Option<Wtf8Buf>,
+    only_line: &mut Option<(usize, usize)>,
+) {
+    if let Some((only_start, only_end)) = only_line.take() {
+        // Second line - create accumulator
+        let mut buffer = Wtf8Buf::with_capacity(source.len());
+        buffer.push_wtf8(source.slice(only_start, only_end));
+        buffer.push_str(" ");
+        buffer.push_wtf8(source.slice(line_start, line_end));
+        *acc = Some(buffer);
+    } else if let Some(ref mut buffer) = acc {
+        // Subsequent lines
+        buffer.push_str(" ");
+        buffer.push_wtf8(source.slice(line_start, line_end));
+    } else {
+        // First line
+        *only_line = Some((line_start, line_end));
+    }
+}
+
+/// Internal implementation that works with &str
+#[inline]
+fn jsx_text_to_str_impl(t: &str) -> Atom {
+    let mut acc: Option<String> = None;
+    let mut only_line: Option<&str> = None;
+    let mut first_non_whitespace: Option<usize> = Some(0);
+    let mut last_non_whitespace: Option<usize> = None;
+
+    for (index, c) in t.char_indices() {
+        if is_line_terminator(c) {
+            if let (Some(first), Some(last)) = (first_non_whitespace, last_non_whitespace) {
+                let line_text = &t[first..last];
+                add_line_of_jsx_text(line_text, &mut acc, &mut only_line);
+            }
+            first_non_whitespace = None;
+        } else if !is_white_space_single_line(c) {
+            last_non_whitespace = Some(index + c.len_utf8());
+            if first_non_whitespace.is_none() {
+                first_non_whitespace.replace(index);
+            }
+        }
+    }
+
+    if let Some(first) = first_non_whitespace {
+        let line_text = &t[first..];
+        add_line_of_jsx_text(line_text, &mut acc, &mut only_line);
+    }
+
+    if let Some(acc) = acc {
+        acc.into()
+    } else if let Some(only_line) = only_line {
+        only_line.into()
+    } else {
+        "".into()
+    }
+}
+
+/// [TODO]: Re-validate this whitespace handling logic.
+///
+/// We cannot use [swc_ecma_utils::str::is_white_space_single_line] because
+/// HTML entities (like `&nbsp;` → `\u{00a0}`) are pre-processed by the parser,
+/// making it impossible to distinguish them from literal Unicode characters. We
+/// should never trim HTML entities.
+///
+/// As a reference, Babel only trims regular spaces and tabs, so this is a
+/// simplified implementation already in use.
+/// https://github.com/babel/babel/blob/e5c8dc7330cb2f66c37637677609df90b31ff0de/packages/babel-types/src/utils/react/cleanJSXElementLiteralChild.ts#L28-L39
+fn is_white_space_single_line(c: char) -> bool {
+    matches!(c, ' ' | '\t')
+}
+
+// less allocations trick from OXC
+// https://github.com/oxc-project/oxc/blob/4c35f4abb6874bd741b84b34df7889637425e9ea/crates/oxc_transformer/src/jsx/jsx_impl.rs#L1061-L1091
+fn add_line_of_jsx_text<'a>(
+    trimmed_line: &'a str,
+    acc: &mut Option<String>,
+    only_line: &mut Option<&'a str>,
+) {
+    if let Some(buffer) = acc.as_mut() {
+        // Already some text in accumulator. Push a space before this line is added to
+        // `acc`.
+        buffer.push(' ');
+    } else if let Some(only_line_content) = only_line.take() {
+        // This is the 2nd line containing text. Previous line did not contain any HTML
+        // entities. Generate an accumulator containing previous line and a
+        // trailing space. Current line will be added to the accumulator after
+        // it.
+        let mut buffer = String::with_capacity(trimmed_line.len() * 2); // rough estimate
+        buffer.push_str(only_line_content);
+        buffer.push(' ');
+        *acc = Some(buffer);
+    }
+
+    // [TODO]: Decode any HTML entities in this line
+
+    // For now, just use the trimmed line directly
+    if let Some(buffer) = acc.as_mut() {
+        buffer.push_str(trimmed_line);
+    } else {
+        // This is the first line containing text, and there are no HTML entities in
+        // this line. Record this line in `only_line`.
+        // If this turns out to be the only line, we won't need to construct a String,
+        // so avoid all copying.
+        *only_line = Some(trimmed_line);
+    }
 }
 
 fn jsx_attr_value_to_expr(v: JSXAttrValue) -> Option<Box<Expr>> {
     Some(match v {
-        JSXAttrValue::Lit(Lit::Str(s)) => {
+        JSXAttrValue::Str(s) => {
             let value = transform_jsx_attr_str(&s.value);
 
-            Box::new(Expr::Lit(Lit::Str(Str {
+            Lit::Str(Str {
                 span: s.span,
                 raw: None,
                 value: value.into(),
-            })))
+            })
+                .into()
         }
-        JSXAttrValue::Lit(lit) => Box::new(lit.into()),
         JSXAttrValue::JSXExprContainer(e) => match e.expr {
             JSXExpr::JSXEmptyExpr(_) => None?,
             JSXExpr::Expr(e) => e,
+            #[cfg(swc_ast_unknown)]
+            _ => panic!("unable to access unknown nodes"),
         },
-        JSXAttrValue::JSXElement(e) => Box::new(Expr::JSXElement(e)),
-        JSXAttrValue::JSXFragment(f) => Box::new(Expr::JSXFragment(f)),
+        JSXAttrValue::JSXElement(e) => e.into(),
+        JSXAttrValue::JSXFragment(f) => f.into(),
+        #[cfg(swc_ast_unknown)]
+        _ => panic!("unable to access unknown nodes"),
     })
 }
 
-fn transform_jsx_attr_str(v: &str) -> String {
+fn transform_jsx_attr_str(v: &Wtf8) -> Wtf8Buf {
     let single_quote = false;
-    let mut buf = String::with_capacity(v.len());
-    let mut iter = v.chars().peekable();
+    let mut buf = Wtf8Buf::with_capacity(v.len());
+    let mut iter = v.code_points().peekable();
 
-    while let Some(c) = iter.next() {
-        match c {
-            '\u{0008}' => buf.push_str("\\b"),
-            '\u{000c}' => buf.push_str("\\f"),
-            ' ' => buf.push(' '),
+    while let Some(code_point) = iter.next() {
+        if let Some(c) = code_point.to_char() {
+            match c {
+                '\u{0008}' => buf.push_str("\\b"),
+                '\u{000c}' => buf.push_str("\\f"),
+                ' ' => buf.push_char(' '),
 
-            '\n' | '\r' | '\t' => {
-                buf.push(' ');
+                '\n' | '\r' | '\t' => {
+                    buf.push_char(' ');
 
-                while let Some(' ') = iter.peek() {
-                    iter.next();
+                    while let Some(next) = iter.peek() {
+                        if next.to_char() == Some(' ') {
+                            iter.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                '\u{000b}' => buf.push_str("\\v"),
+                '\0' => buf.push_str("\\x00"),
+
+                '\'' if single_quote => buf.push_str("\\'"),
+                '"' if !single_quote => buf.push_char('"'),
+
+                '\x01'..='\x0f' | '\x10'..='\x1f' => {
+                    buf.push_char(c);
+                }
+
+                '\x20'..='\x7e' => {
+                    //
+                    buf.push_char(c);
+                }
+                '\u{7f}'..='\u{ff}' => {
+                    buf.push_char(c);
+                }
+
+                _ => {
+                    buf.push_char(c);
                 }
             }
-            '\u{000b}' => buf.push_str("\\v"),
-            '\0' => buf.push_str("\\x00"),
-
-            '\'' if single_quote => buf.push_str("\\'"),
-            '"' if !single_quote => buf.push('\"'),
-
-            '\x01'..='\x0f' | '\x10'..='\x1f' => {
-                buf.push(c);
-            }
-
-            '\x20'..='\x7e' => {
-                //
-                buf.push(c);
-            }
-            '\u{7f}'..='\u{ff}' => {
-                buf.push(c);
-            }
-
-            _ => {
-                buf.push(c);
-            }
+        } else {
+            buf.push(code_point);
         }
     }
 
