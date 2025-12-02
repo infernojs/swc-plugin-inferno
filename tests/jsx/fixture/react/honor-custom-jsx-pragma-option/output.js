@@ -1,5 +1,5 @@
-/*#__PURE__*/ import { createVNode, createComponentVNode } from "inferno";
-createComponentVNode(2, Foo);
+import { createVNode, createComponentVNode } from "inferno";
+/*#__PURE__*/ createComponentVNode(2, Foo);
 var profile = /*#__PURE__*/ createVNode(1, "div", null, [
     /*#__PURE__*/ createVNode(1, "img", "profile", null, 1, {
         src: "avatar.png"

@@ -1,4 +1,4 @@
-/*#__PURE__*/ import { createVNode } from "inferno";
-createVNode(1, "button", null, null, 1, {
+import { createVNode } from "inferno";
+/*#__PURE__*/ createVNode(1, "button", null, null, 1, {
     accesskey: "s"
 });

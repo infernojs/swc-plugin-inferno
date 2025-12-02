@@ -1,5 +1,5 @@
-/*#__PURE__*/ import { createVNode, normalizeProps } from "inferno";
-createVNode(1, "p", null, "text", 16, {
+import { createVNode, normalizeProps } from "inferno";
+/*#__PURE__*/ createVNode(1, "p", null, "text", 16, {
     prop: true,
     prop: true
 });

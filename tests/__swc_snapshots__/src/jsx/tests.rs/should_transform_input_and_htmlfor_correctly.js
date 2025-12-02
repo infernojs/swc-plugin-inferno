@@ -1,5 +1,5 @@
-/*#__PURE__*/ import { createVNode } from "inferno";
-createVNode(1, "label", null, /*#__PURE__*/ createVNode(64, "input", null, null, 1, {
+import { createVNode } from "inferno";
+/*#__PURE__*/ createVNode(1, "label", null, /*#__PURE__*/ createVNode(64, "input", null, null, 1, {
     id: id,
     name: name,
     value: value,

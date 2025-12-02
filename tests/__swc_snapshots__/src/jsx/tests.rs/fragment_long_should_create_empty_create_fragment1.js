@@ -1,2 +1,2 @@
-/*#__PURE__*/ import { createFragment } from "inferno";
-createFragment();
+import { createFragment } from "inferno";
+/*#__PURE__*/ createFragment();

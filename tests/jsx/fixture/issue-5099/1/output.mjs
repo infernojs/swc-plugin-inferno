@@ -1,5 +1,5 @@
-/** @jsx h */ /** @jsxFrag */ import { createVNode, createFragment } from "inferno";
-import { h } from "preact";
+import { createVNode, createFragment } from "inferno";
+/** @jsx h */ /** @jsxFrag */ import { h } from "preact";
 import { Marked } from "markdown";
 export const handler = {
     async GET (req, ctx) {

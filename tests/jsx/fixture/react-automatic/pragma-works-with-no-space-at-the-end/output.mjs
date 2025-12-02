@@ -1,2 +1,2 @@
-/* @jsxImportSource foo*/ /*#__PURE__*/ import { createVNode } from "inferno";
-createVNode(1, "div", null, "Hi", 16);
+import { createVNode } from "inferno";
+/* @jsxImportSource foo*/ /*#__PURE__*/ createVNode(1, "div", null, "Hi", 16);

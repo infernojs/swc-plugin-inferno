@@ -1,2 +1,2 @@
-/*#__PURE__*/ import { createVNode } from "inferno";
-createVNode(128, "textarea", null, "foobar", 16);
+import { createVNode } from "inferno";
+/*#__PURE__*/ createVNode(128, "textarea", null, "foobar", 16);

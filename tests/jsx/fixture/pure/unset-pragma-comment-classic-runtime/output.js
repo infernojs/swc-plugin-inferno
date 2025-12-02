@@ -1,2 +1,2 @@
-/* @jsx h */ /*#__PURE__*/ import { createVNode } from "inferno";
-createVNode(1, "div");
+import { createVNode } from "inferno";
+/* @jsx h */ /*#__PURE__*/ createVNode(1, "div");

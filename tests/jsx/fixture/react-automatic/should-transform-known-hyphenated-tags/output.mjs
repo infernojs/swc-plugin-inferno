@@ -1,2 +1,2 @@
-/*#__PURE__*/ import { createVNode } from "inferno";
-createVNode(32, "font-face");
+import { createVNode } from "inferno";
+/*#__PURE__*/ createVNode(32, "font-face");
