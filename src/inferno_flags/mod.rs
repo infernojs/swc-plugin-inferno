@@ -1,3 +1,4 @@
+#[repr(u16)]
 #[derive(Copy, Clone)]
 pub enum VNodeFlags {
     HtmlElement = 1,
@@ -18,6 +19,8 @@ pub enum VNodeFlags {
     // Component = 14,
 }
 
+#[allow(clippy::enum_variant_names)]
+#[repr(u16)]
 #[derive(Copy, Clone)]
 pub enum ChildFlags {
     UnknownChildren = 0,

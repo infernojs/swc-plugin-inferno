@@ -985,6 +985,19 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    should_create_text_vnodes_for_multiple_text_siblings,
+    r#"
+    <div>Hello<span/>World</div>
+    "#
+);
+
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
     should_handle_many_dynamic_and_non_dynamic_children_short_syntax,
     r#"
       <><><span></span>Text{Wohoo}</></>

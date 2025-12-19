@@ -9,6 +9,9 @@ name          = "swc-plugin-inferno"
 repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
 version       = "2.10.0"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(swc_ast_unknown)'] }
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 bench = false

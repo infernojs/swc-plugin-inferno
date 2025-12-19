@@ -818,32 +818,29 @@ where
             match children_count {
                 1 => has_text_children = true,
                 _ => {
-                    for i in 0..children.len() {
-                        let child = &children[i];
+                    for child in &mut children {
+                        let Some(expr) = child.take() else {
+                            continue;
+                        };
 
-                        match child {
-                            Some(v) => {
-                                if let Expr::Lit(Lit::Str(text)) = &*v.expr {
-                                    children[i] = Some(ExprOrSpread {
-                                        spread: None,
-                                        expr: Box::new(Expr::Call(CallExpr {
-                                            span: DUMMY_SP,
-                                            ctxt: SyntaxContext::empty()
-                                                .apply_mark(self.unresolved_mark),
-                                            callee: self
-                                                .import_create_text_vnode
-                                                .get_or_insert_with(|| {
-                                                    quote_ident!("createTextVNode").into()
-                                                })
-                                                .clone()
-                                                .as_callee(),
-                                            args: vec![text.clone().as_arg()],
-                                            type_args: Default::default(),
-                                        })),
-                                    })
-                                }
-                            }
-                            _ => continue,
+                        if let Expr::Lit(Lit::Str(text)) = &*expr.expr {
+                            let text = text.clone();
+                            *child = Some(ExprOrSpread {
+                                spread: None,
+                                expr: Box::new(Expr::Call(CallExpr {
+                                    span: DUMMY_SP,
+                                    ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+                                    callee: self
+                                        .import_create_text_vnode
+                                        .get_or_insert_with(|| quote_ident!("createTextVNode").into())
+                                        .clone()
+                                        .as_callee(),
+                                    args: vec![text.as_arg()],
+                                    type_args: Default::default(),
+                                })),
+                            });
+                        } else {
+                            *child = Some(expr);
                         }
                     }
                 }
@@ -999,17 +996,18 @@ where
                 create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, ref_prop)
             }
         } else if vnode_kind == VNodeType::Element {
-            create_vnode_args(
-                flags_expr,
-                name_expr,
-                class_name_param,
+            CreateVNodeArgs {
+                flags: flags_expr,
+                name: name_expr,
+                class_name: class_name_param,
                 children,
-                child_flags as u16,
+                child_flags: child_flags as u16,
                 child_flags_override_param,
-                props_obj,
-                key_prop,
-                ref_prop,
-            )
+                props: props_obj,
+                key: key_prop,
+                refs: ref_prop,
+            }
+            .into_args()
         } else {
             create_fragment_vnode_args(
                 children,
@@ -1073,116 +1071,132 @@ where
     }
 }
 
-#[inline(always)]
-fn create_vnode_args(
+struct CreateVNodeArgs {
     flags: ExprOrSpread,
     name: Expr,
     class_name: Option<Box<Expr>>,
-    mut children: Vec<Option<ExprOrSpread>>,
+    children: Vec<Option<ExprOrSpread>>,
     child_flags: u16,
     child_flags_override_param: Option<ExprOrSpread>,
     props: ObjectLit,
     key: Option<ExprOrSpread>,
     refs: Option<ExprOrSpread>,
-) -> Vec<ExprOrSpread> {
-    let mut args: Vec<ExprOrSpread> = vec![flags, name.as_arg()];
+}
 
-    let has_children = !children.is_empty();
-    let has_child_flags = child_flags_override_param.is_some()
-        || child_flags != (ChildFlags::HasInvalidChildren as u16);
-    let has_props = !props.props.is_empty();
-    let has_key = key.is_some();
-    let has_ref = refs.is_some();
+impl CreateVNodeArgs {
+    #[inline(always)]
+    fn into_args(self) -> Vec<ExprOrSpread> {
+        let CreateVNodeArgs {
+            flags,
+            name,
+            class_name,
+            mut children,
+            child_flags,
+            child_flags_override_param,
+            props,
+            key,
+            refs,
+        } = self;
 
-    match class_name {
-        None => {
-            if has_children || has_child_flags || has_props || has_key || has_ref {
-                args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+        let mut args: Vec<ExprOrSpread> = vec![flags, name.as_arg()];
+
+        let has_children = !children.is_empty();
+        let has_child_flags = child_flags_override_param.is_some()
+            || child_flags != (ChildFlags::HasInvalidChildren as u16);
+        let has_props = !props.props.is_empty();
+        let has_key = key.is_some();
+        let has_ref = refs.is_some();
+
+        match class_name {
+            None => {
+                if has_children || has_child_flags || has_props || has_key || has_ref {
+                    args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+                }
+            }
+            Some(some_class_name) => {
+                args.push(some_class_name.as_arg());
             }
         }
-        Some(some_class_name) => {
-            args.push(some_class_name.as_arg());
-        }
-    }
 
-    match children.len() {
-        0 => {
-            if has_child_flags || has_props || has_key || has_ref {
-                args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+        match children.len() {
+            0 => {
+                if has_child_flags || has_props || has_key || has_ref {
+                    args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+                }
             }
-        }
-        1 => {
-            let only_child = children.take().into_iter().next().flatten();
-            match only_child {
-                Some(child) => args.push(child.expr.as_arg()),
-                None => args.push(
-                    Box::new(Expr::Array(ArrayLit {
-                        span: DUMMY_SP,
-                        elems: vec![None],
-                    }))
-                    .as_arg(),
-                ),
+            1 => {
+                let only_child = children.take().into_iter().next().flatten();
+                match only_child {
+                    Some(child) => args.push(child.expr.as_arg()),
+                    None => args.push(
+                        Box::new(Expr::Array(ArrayLit {
+                            span: DUMMY_SP,
+                            elems: vec![None],
+                        }))
+                        .as_arg(),
+                    ),
+                }
             }
-        }
-        _ => args.push(
-            Box::new(Expr::Array(ArrayLit {
-                span: DUMMY_SP,
-                elems: children.take(),
-            }))
-            .as_arg(),
-        ),
-    }
-
-    if has_child_flags {
-        match child_flags_override_param {
-            Some(some_child_flags_override_param) => {
-                args.push(some_child_flags_override_param);
-            }
-            None => args.push(
-                Box::new(Expr::Lit(Lit::Num(Number {
+            _ => args.push(
+                Box::new(Expr::Array(ArrayLit {
                     span: DUMMY_SP,
-                    raw: None,
-                    value: child_flags as f64,
-                })))
+                    elems: children.take(),
+                }))
                 .as_arg(),
             ),
         }
-    } else if has_props || has_key || has_ref {
-        args.push(
-            Box::new(Expr::Lit(Lit::Num(Number {
-                span: DUMMY_SP,
-                raw: None,
-                value: (ChildFlags::HasInvalidChildren as u16) as f64,
-            })))
-            .as_arg(),
-        );
-    }
 
-    if has_props {
-        args.push(props.as_arg());
-    } else if has_key || has_ref {
-        args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-    }
+        if has_child_flags {
+            match child_flags_override_param {
+                Some(some_child_flags_override_param) => {
+                    args.push(some_child_flags_override_param);
+                }
+                None => args.push(
+                    Box::new(Expr::Lit(Lit::Num(Number {
+                        span: DUMMY_SP,
+                        raw: None,
+                        value: child_flags as f64,
+                    })))
+                    .as_arg(),
+                ),
+            }
+        } else if has_props || has_key || has_ref {
+            args.push(
+                Box::new(Expr::Lit(Lit::Num(Number {
+                    span: DUMMY_SP,
+                    raw: None,
+                    value: (ChildFlags::HasInvalidChildren as u16) as f64,
+                })))
+                .as_arg(),
+            );
+        }
 
-    match key {
-        None => {
-            if has_ref {
-                args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+        if has_props {
+            args.push(props.as_arg());
+        } else if has_key || has_ref {
+            args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+        }
+
+        match key {
+            None => {
+                if has_ref {
+                    args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
+                }
+            }
+            Some(some_key) => {
+                args.push(some_key);
             }
         }
-        Some(some_key) => {
-            args.push(some_key);
-        }
-    }
 
-    match refs {
-        None => {}
-        Some(some_refs) => {
-            args.push(some_refs);
+        match refs {
+            None => {}
+            Some(some_refs) => {
+                args.push(some_refs);
+            }
         }
-    }
 
-    args
+        args
+    }
 }
 
 #[inline(always)]
