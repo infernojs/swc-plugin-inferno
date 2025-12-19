@@ -15,7 +15,6 @@ use swc_config::merge::Merge;
 use swc_core::atoms::atom;
 use swc_core::atoms::wtf8::{Wtf8, Wtf8Buf};
 use swc_core::common::comments::Comments;
-use swc_core::common::iter::IdentifyLast;
 use swc_core::common::util::take::Take;
 use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, SyntaxContext, DUMMY_SP};
 use swc_core::ecma::ast::*;
@@ -86,12 +85,7 @@ pub fn parse_expr_for_jsx(
         expr
     })
     .map(Arc::new)
-    .unwrap_or_else(|()| {
-        panic!(
-            "failed to parse jsx option {}: '{}' is not an expression",
-            name, fm.src,
-        )
-    })
+    .unwrap_or_else(|()| Arc::new(Box::new(Expr::Invalid(Invalid { span: DUMMY_SP }))))
 }
 
 fn apply_mark(e: &mut Expr, mark: Mark) {
@@ -124,13 +118,13 @@ fn named_import_exists(import_name: &Ident, import: &ImportDecl) -> bool {
 }
 
 fn merge_imports(
-    imports: &Vec<Ident>,
-    default_import_src: Wtf8Atom,
+    imports: &[Ident],
+    default_import_src: &Wtf8Atom,
     stmts: &mut Vec<ModuleItem>,
 ) -> bool {
     for stmt in stmts {
         if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
-            if import.src.value == default_import_src {
+            if import.src.value == *default_import_src {
                 for specifier in &import.specifiers {
                     if let ImportSpecifier::Namespace(_) = specifier {
                         // Do not try to merge with * As FooBar import statements
@@ -227,7 +221,7 @@ where
         T: StmtLike,
         F: Fn(Vec<Ident>, Wtf8Atom, &mut Vec<T>),
     {
-        let mut import_specifiers: Vec<Ident> = vec![];
+        let mut import_specifiers: Vec<Ident> = Vec::new();
 
         if let Some(_local) = self.import_create_vnode.take() {
             import_specifiers.push(quote_ident!("createVNode").into())
@@ -503,7 +497,8 @@ where
                             if i.sym == "class" || i.sym == "className" {
                                 if vnode_kind == VNodeType::Element {
                                     if let Some(v) = attr.value {
-                                        class_name_param = jsx_attr_value_to_expr(v)
+                                        class_name_param =
+                                            Some(jsx_attr_value_to_expr_or_invalid(v, i.span))
                                     }
 
                                     continue;
@@ -518,8 +513,9 @@ where
                                                 span,
                                             )),
                                             value: match attr.value {
-                                                Some(v) => jsx_attr_value_to_expr(v)
-                                                    .expect("empty expression?"),
+                                                Some(v) => {
+                                                    jsx_attr_value_to_expr_or_invalid(v, i.span)
+                                                }
                                                 None => true.into(),
                                             },
                                         },
@@ -631,7 +627,7 @@ where
                                 }
 
                                 prop_children = match attr.value {
-                                    Some(v) => jsx_attr_value_to_expr(v),
+                                    Some(v) => Some(jsx_attr_value_to_expr_or_invalid(v, i.span)),
                                     None => continue,
                                 };
 
@@ -648,12 +644,12 @@ where
                                     };
 
                                     if let Some(some_component_refs) = component_refs.as_mut() {
+                                        let ident_span = i.span;
+                                        let key = PropName::Ident(i);
+                                        let value =
+                                            jsx_attr_value_to_expr_or_invalid(v, ident_span);
                                         some_component_refs.props.push(PropOrSpread::Prop(
-                                            Box::new(Prop::KeyValue(KeyValueProp {
-                                                key: PropName::Ident(i),
-                                                value: jsx_attr_value_to_expr(v)
-                                                    .expect("empty expression container?"),
-                                            })),
+                                            Box::new(Prop::KeyValue(KeyValueProp { key, value })),
                                         ));
                                     }
                                 };
@@ -662,9 +658,7 @@ where
                             }
 
                             let value = match attr.value {
-                                Some(v) => {
-                                    jsx_attr_value_to_expr(v).expect("empty expression container?")
-                                }
+                                Some(v) => jsx_attr_value_to_expr_or_invalid(v, i.span),
                                 None => true.into(),
                             };
 
@@ -703,13 +697,15 @@ where
                         }
                         JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name, .. }) => {
                             let value = match attr.value {
-                                Some(v) => {
-                                    jsx_attr_value_to_expr(v).expect("empty expression container?")
-                                }
+                                Some(v) => jsx_attr_value_to_expr_or_invalid(v, ns.span),
                                 None => true.into(),
                             };
 
-                            let str_value = format!("{}:{}", ns.sym, name.sym);
+                            let mut str_value =
+                                String::with_capacity(ns.sym.len() + 1 + name.sym.len());
+                            str_value.push_str(ns.sym.as_ref());
+                            str_value.push(':');
+                            str_value.push_str(name.sym.as_ref());
                             let key = Str {
                                 span,
                                 raw: None,
@@ -904,13 +900,27 @@ where
                         }
                     }
                 }
-                1 if children[0].as_ref().unwrap().spread.is_none() => {
-                    props_obj
-                        .props
-                        .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                            key: PropName::Ident(quote_ident!("children")),
-                            value: children.take().into_iter().next().flatten().unwrap().expr,
-                        }))));
+                1 => {
+                    if let Some(Some(ExprOrSpread { spread: None, .. })) = children.first() {
+                        if let Some(child) = children.take().into_iter().next().flatten() {
+                            props_obj
+                                .props
+                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                                    key: PropName::Ident(quote_ident!("children")),
+                                    value: child.expr,
+                                }))));
+                        }
+                    } else {
+                        props_obj
+                            .props
+                            .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
+                                key: PropName::Ident(quote_ident!("children")),
+                                value: Box::new(Expr::Array(ArrayLit {
+                                    span: DUMMY_SP,
+                                    elems: children.take(),
+                                })),
+                            }))));
+                    }
                 }
                 _ => {
                     props_obj
@@ -1101,16 +1111,19 @@ fn create_vnode_args(
                 args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
             }
         }
-        1 => args.push(
-            children
-                .take()
-                .into_iter()
-                .next()
-                .flatten()
-                .unwrap()
-                .expr
-                .as_arg(),
-        ),
+        1 => {
+            let only_child = children.take().into_iter().next().flatten();
+            match only_child {
+                Some(child) => args.push(child.expr.as_arg()),
+                None => args.push(
+                    Box::new(Expr::Array(ArrayLit {
+                        span: DUMMY_SP,
+                        elems: vec![None],
+                    }))
+                    .as_arg(),
+                ),
+            }
+        }
         _ => args.push(
             Box::new(Expr::Array(ArrayLit {
                 span: DUMMY_SP,
@@ -1232,16 +1245,17 @@ fn create_fragment_vnode_args(
         }
         1 => {
             if children_shape_is_user_defined || child_flags == ChildFlags::UnknownChildren as u16 {
-                args.push(
-                    children
-                        .take()
-                        .into_iter()
-                        .next()
-                        .flatten()
-                        .unwrap()
-                        .expr
+                let only_child = children.take().into_iter().next().flatten();
+                match only_child {
+                    Some(child) => args.push(child.expr.as_arg()),
+                    None => args.push(
+                        Box::new(Expr::Array(ArrayLit {
+                            span: DUMMY_SP,
+                            elems: vec![None],
+                        }))
                         .as_arg(),
-                );
+                    ),
+                }
             } else {
                 args.push(
                     Box::new(Expr::Array(ArrayLit {
@@ -1344,7 +1358,7 @@ where
 
         self.inject_runtime(&mut module.body, |imports, default_import_src, stmts| {
             // Merge new imports to existing import
-            if merge_imports(&imports, default_import_src.clone(), stmts) {
+            if merge_imports(&imports, &default_import_src, stmts) {
                 return;
             }
 
@@ -1444,107 +1458,6 @@ fn add_require(imports: Vec<Ident>, src: Wtf8Atom, unresolved_mark: Mark) -> Stm
         ..Default::default()
     }
     .into()
-}
-
-impl<C> Jsx<C>
-where
-    C: Comments,
-{
-    fn jsx_name(&self, name: JSXElementName) -> Box<Expr> {
-        let span = name.span();
-        match name {
-            JSXElementName::Ident(i) => {
-                if i.sym == "this" {
-                    return ThisExpr { span }.into();
-                }
-
-                // If it starts with lowercase
-                if i.as_ref().starts_with(|c: char| c.is_ascii_lowercase()) {
-                    Lit::Str(Str {
-                        span,
-                        raw: None,
-                        value: i.sym.into(),
-                    })
-                    .into()
-                } else {
-                    i.into()
-                }
-            }
-            JSXElementName::JSXNamespacedName(JSXNamespacedName {
-                ref ns, ref name, ..
-            }) => {
-                let value = format!("{}:{}", ns.sym, name.sym);
-
-                Lit::Str(Str {
-                    span,
-                    raw: None,
-                    value: value.into(),
-                })
-                .into()
-            }
-            JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop, .. }) => {
-                fn convert_obj(obj: JSXObject) -> Box<Expr> {
-                    let span = obj.span();
-
-                    (match obj {
-                        JSXObject::Ident(i) => {
-                            if i.sym == "this" {
-                                Expr::This(ThisExpr { span })
-                            } else {
-                                i.into()
-                            }
-                        }
-                        JSXObject::JSXMemberExpr(e) => MemberExpr {
-                            span,
-                            obj: convert_obj(e.obj),
-                            prop: MemberProp::Ident(e.prop),
-                        }
-                        .into(),
-                        #[cfg(swc_ast_unknown)]
-                        _ => panic!("unable to access unknown nodes"),
-                    })
-                    .into()
-                }
-                MemberExpr {
-                    span,
-                    obj: convert_obj(obj),
-                    prop: MemberProp::Ident(prop),
-                }
-                .into()
-            }
-            #[cfg(swc_ast_unknown)]
-            _ => panic!("unable to access unknown nodes"),
-        }
-    }
-}
-
-fn to_prop_name(n: JSXAttrName) -> PropName {
-    let span = n.span();
-
-    match n {
-        JSXAttrName::Ident(i) => {
-            if i.sym.contains('-') {
-                PropName::Str(Str {
-                    span,
-                    raw: None,
-                    value: i.sym.into(),
-                })
-            } else {
-                PropName::Ident(i)
-            }
-        }
-        JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name, .. }) => {
-            let value = format!("{}:{}", ns.sym, name.sym);
-
-            PropName::Str(Str {
-                span,
-                raw: None,
-                value: value.into(),
-            })
-        }
-        #[cfg(swc_ast_unknown)]
-        _ => panic!("unable to access unknown nodes"),
-    }
 }
 
 /// https://github.com/microsoft/TypeScript/blob/9e20e032effad965567d4a1e1c30d5433b0a3332/src/compiler/transformers/jsx.ts#L572-L608
@@ -1764,6 +1677,18 @@ fn jsx_attr_value_to_expr(v: JSXAttrValue) -> Option<Box<Expr>> {
         JSXAttrValue::JSXFragment(f) => f.into(),
         #[cfg(swc_ast_unknown)]
         _ => panic!("unable to access unknown nodes"),
+    })
+}
+
+fn jsx_attr_value_to_expr_or_invalid(v: JSXAttrValue, err_span: Span) -> Box<Expr> {
+    jsx_attr_value_to_expr(v).unwrap_or_else(|| {
+        HANDLER.with(|handler| {
+            handler
+                .struct_span_err(err_span, "The value of JSX attribute should not be empty")
+                .emit()
+        });
+
+        Box::new(Expr::Invalid(Invalid { span: DUMMY_SP }))
     })
 }
 

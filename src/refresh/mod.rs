@@ -3,6 +3,7 @@ use self::{
     util::{collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt},
 };
 use rustc_hash::FxHashSet;
+use std::borrow::Cow;
 use swc_core::ecma::visit::visit_mut_pass;
 use swc_core::{
     common::{
@@ -38,9 +39,10 @@ enum Persist {
 }
 fn get_persistent_id(ident: &Ident) -> Persist {
     if ident.sym.starts_with(|c: char| c.is_ascii_uppercase()) {
-        if cfg!(debug_assertions) && ident.ctxt == SyntaxContext::empty() {
-            panic!("`{ident}` should be resolved")
-        }
+        debug_assert!(
+            !cfg!(debug_assertions) || ident.ctxt != SyntaxContext::empty(),
+            "`{ident}` should be resolved"
+        );
         Persist::Component(ident.clone())
     } else {
         Persist::None
@@ -156,16 +158,23 @@ impl<C: Comments> Refresh<C> {
         } else {
             return Persist::None;
         };
-        let hoc_name = match callee.as_ref() {
-            Expr::Ident(fn_name) => fn_name.sym.to_string(),
+        let hoc_name: Cow<'_, str> = match callee.as_ref() {
+            Expr::Ident(fn_name) => Cow::Borrowed(fn_name.sym.as_ref()),
             // original react implement use `getSource` so we just follow them
-            Expr::Member(member) => self.cm.span_to_snippet(member.span).unwrap_or_default(),
+            Expr::Member(member) => {
+                Cow::Owned(self.cm.span_to_snippet(member.span).unwrap_or_default())
+            }
             _ => return Persist::None,
         };
-        let reg_str = (
-            format!("{}${}", reg.last().unwrap().1 .0, &hoc_name).into(),
-            SyntaxContext::empty(),
-        );
+        let reg_name = match reg.last() {
+            Some((_, id)) => id.0.as_ref(),
+            None => return Persist::None,
+        };
+        let mut reg_str_value = String::with_capacity(reg_name.len() + 1 + hoc_name.len());
+        reg_str_value.push_str(reg_name);
+        reg_str_value.push('$');
+        reg_str_value.push_str(hoc_name.as_ref());
+        let reg_str = (reg_str_value.into(), SyntaxContext::empty());
         match first_arg.as_mut() {
             Expr::Call(expr) => {
                 let reg_ident = private_ident!("_c");
@@ -176,8 +185,9 @@ impl<C: Comments> Refresh<C> {
                     let mut first = first_arg.take();
                     if let Some(HocHook { callee, rest_arg }) = &hoc.hook {
                         let span = first.span();
-                        let mut args = vec![first.as_arg()];
-                        args.extend(rest_arg.clone());
+                        let mut args = Vec::with_capacity(1 + rest_arg.len());
+                        args.push(first.as_arg());
+                        args.extend(rest_arg.iter().cloned());
                         first = CallExpr {
                             span,
                             callee: callee.clone(),
@@ -415,19 +425,20 @@ impl<C: Comments> VisitMut for Refresh<C> {
                 }
 
                 Persist::Hoc(mut hoc) => {
-                    hoc.reg = hoc.reg.into_iter().rev().collect();
+                    hoc.reg.reverse();
                     if hoc.insert {
-                        let (ident, name) = hoc.reg.last().unwrap();
-                        items.push(
-                            ExprStmt {
-                                span: DUMMY_SP,
-                                expr: Box::new(make_assign_stmt(
-                                    ident.clone(),
-                                    Ident::new(name.0.clone(), DUMMY_SP, name.1).into(),
-                                )),
-                            }
-                            .into(),
-                        )
+                        if let Some((ident, name)) = hoc.reg.last() {
+                            items.push(
+                                ExprStmt {
+                                    span: DUMMY_SP,
+                                    expr: Box::new(make_assign_stmt(
+                                        ident.clone(),
+                                        Ident::new(name.0.clone(), DUMMY_SP, name.1).into(),
+                                    )),
+                                }
+                                .into(),
+                            )
+                        }
                     }
                     refresh_regs.append(&mut hoc.reg);
                 }

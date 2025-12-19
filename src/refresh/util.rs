@@ -36,9 +36,7 @@ fn assert_hygiene(e: &Expr) {
     }
 
     if let Expr::Ident(i) = e {
-        if i.ctxt == SyntaxContext::empty() {
-            panic!("`{i}` should be resolved")
-        }
+        debug_assert!(i.ctxt != SyntaxContext::empty(), "`{i}` should be resolved");
     }
 }
 
@@ -79,7 +77,7 @@ pub fn is_import_or_require(expr: &Expr) -> bool {
             ..
         }) => {
             if let Expr::Ident(ident) = expr.as_ref() {
-                ident.sym.contains("require")
+                ident.sym.as_ref().starts_with("require")
             } else {
                 false
             }

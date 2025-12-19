@@ -35,7 +35,7 @@ serde        = { version = "1", features = ["derive"], optional = true }
 sha-1        = "=0.10.1"
 rustc-hash   = "2.1.1"
 
-swc_core = { version = "49", features = [
+swc_core = { version = "52", features = [
     "swc_atoms",
     "swc_common",
     "transform_common",
@@ -46,11 +46,11 @@ swc_core = { version = "49", features = [
     "ecma_ast",
     "common",
 ] }
-swc_ecma_parser            = { version = "28" }
+swc_ecma_parser            = { version = "30" }
 swc_config                 = { version = "3" }
 
 [dev-dependencies]
 swc_ecma_codegen            = { version = "21" }
-swc_ecma_transforms_compat  = { version = "36" }
-swc_ecma_transforms_testing = { version = "34" }
+swc_ecma_transforms_compat  = { version = "38" }
+swc_ecma_transforms_testing = { version = "36" }
 testing                     = { version = "19" }
