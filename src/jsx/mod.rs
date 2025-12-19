@@ -832,7 +832,9 @@ where
                                     ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
                                     callee: self
                                         .import_create_text_vnode
-                                        .get_or_insert_with(|| quote_ident!("createTextVNode").into())
+                                        .get_or_insert_with(|| {
+                                            quote_ident!("createTextVNode").into()
+                                        })
                                         .clone()
                                         .as_callee(),
                                     args: vec![text.as_arg()],

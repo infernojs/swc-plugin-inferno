@@ -303,9 +303,10 @@ impl<'a> VisitMut for HookRegister<'a> {
 
         // only when expr has ident
         if let DefaultDecl::Fn(FnExpr {
-                ident: Some(ident),
-                function: f,
-            }) = d {
+            ident: Some(ident),
+            function: f,
+        }) = d
+        {
             if let Some(body) = &mut f.body {
                 if let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
                     self.gen_hook_register_stmt(ident.clone(), sig);
