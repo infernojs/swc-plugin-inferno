@@ -302,18 +302,15 @@ impl<'a> VisitMut for HookRegister<'a> {
         d.visit_mut_children_with(self);
 
         // only when expr has ident
-        match d {
-            DefaultDecl::Fn(FnExpr {
+        if let DefaultDecl::Fn(FnExpr {
                 ident: Some(ident),
                 function: f,
-            }) => {
-                if let Some(body) = &mut f.body {
-                    if let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
-                        self.gen_hook_register_stmt(ident.clone(), sig);
-                    }
+            }) = d {
+            if let Some(body) = &mut f.body {
+                if let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
+                    self.gen_hook_register_stmt(ident.clone(), sig);
                 }
             }
-            _ => {}
         }
     }
 
