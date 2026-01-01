@@ -1,0 +1,9 @@
+<TimelineInfiniteScrollerItem
+    key={itemKey}
+    ev={ev}
+    itemRef={itemRef}
+    isExternal={isExternal}
+    shouldRing={shouldRing}
+    onEventClick={onEventClick}
+    currentIssueRef={this._currentIssueRef}
+/>

@@ -662,7 +662,7 @@ where
                                 None => true.into(),
                             };
 
-                            let converted_prop_name = if requires_lowercasing(&i.sym) {
+                            let converted_prop_name = if vnode_kind == VNodeType::Element && requires_lowercasing(&i.sym) {
                                 PropName::Ident(IdentName {
                                     span: i.span,
                                     sym: i.sym.to_lowercase().into(),
