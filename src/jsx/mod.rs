@@ -13,13 +13,11 @@ use std::sync::Arc;
 use swc_atoms::Wtf8Atom;
 use swc_config::merge::Merge;
 use swc_core::atoms::atom;
-use swc_core::atoms::wtf8::{Wtf8, Wtf8Buf};
 use swc_core::common::comments::Comments;
 use swc_core::common::util::take::Take;
 use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, SyntaxContext, DUMMY_SP};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::Atom;
-use swc_core::ecma::utils::str::is_line_terminator;
 use swc_core::ecma::utils::{
     drop_span, prepend_stmt, quote_ident, swc_atoms, ExprFactory, StmtLike,
 };
@@ -29,6 +27,14 @@ use swc_ecma_parser::{parse_file_as_expr, Syntax};
 
 #[cfg(test)]
 mod tests;
+
+mod attr;
+mod text;
+mod vnode_args;
+
+use self::attr::{jsx_attr_value_to_expr, jsx_attr_value_to_expr_or_invalid};
+use self::text::jsx_text_to_str;
+use self::vnode_args::{create_component_vnode_args, create_fragment_vnode_args, CreateVNodeArgs};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, Merge)]
 #[serde(rename_all = "camelCase")]
@@ -101,20 +107,12 @@ fn apply_mark(e: &mut Expr, mark: Mark) {
 }
 
 fn named_import_exists(import_name: &Ident, import: &ImportDecl) -> bool {
-    for specifier in &import.specifiers {
-        match specifier {
-            ImportSpecifier::Named(named) => {
-                if import_name.sym == named.local.sym {
-                    return true;
-                }
-            }
-            _ => {
-                continue;
-            }
-        }
-    }
-
-    false
+    import.specifiers.iter().any(|specifier| {
+        matches!(
+            specifier,
+            ImportSpecifier::Named(named) if import_name.sym == named.local.sym
+        )
+    })
 }
 
 fn merge_imports(
@@ -221,7 +219,7 @@ where
         T: StmtLike,
         F: Fn(Vec<Ident>, Wtf8Atom, &mut Vec<T>),
     {
-        let mut import_specifiers: Vec<Ident> = Vec::new();
+        let mut import_specifiers: Vec<Ident> = Vec::with_capacity(5);
 
         if let Some(_local) = self.import_create_vnode.take() {
             import_specifiers.push(quote_ident!("createVNode").into())
@@ -386,6 +384,11 @@ where
         let top_level_node = self.top_level_node;
         let span = el.span();
         self.top_level_node = false;
+        let unresolved_ctxt = SyntaxContext::empty().apply_mark(self.unresolved_mark);
+
+        if let Some(comments) = &self.comments {
+            comments.add_pure_comment(span.lo);
+        }
 
         let name_span: Span = el.opening.name.span();
         let name_expr;
@@ -460,10 +463,6 @@ where
                     prop: MemberProp::Ident(prop.clone()),
                 })
             }
-        }
-
-        if let Some(comments) = &self.comments {
-            comments.add_pure_comment(span.lo);
         }
 
         let mut props_obj = ObjectLit {
@@ -764,7 +763,7 @@ where
                             spread: None,
                             expr: Box::new(Expr::Call(CallExpr {
                                 span: DUMMY_SP,
-                                ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+                                ctxt: unresolved_ctxt,
                                 callee: self
                                     .import_create_text_vnode
                                     .get_or_insert_with(|| quote_ident!("createTextVNode").into())
@@ -831,7 +830,7 @@ where
                                 spread: None,
                                 expr: Box::new(Expr::Call(CallExpr {
                                     span: DUMMY_SP,
-                                    ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+                                    ctxt: unresolved_ctxt,
                                     callee: self
                                         .import_create_text_vnode
                                         .get_or_insert_with(|| {
@@ -1026,7 +1025,7 @@ where
 
         let create_expr = Expr::Call(CallExpr {
             span,
-            ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+            ctxt: unresolved_ctxt,
             callee: create_method.as_callee(),
             args: create_method_args,
             type_args: Default::default(),
@@ -1035,7 +1034,7 @@ where
         if needs_normalization {
             return Expr::Call(CallExpr {
                 span,
-                ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+                ctxt: unresolved_ctxt,
                 callee: self
                     .import_normalize_props
                     .get_or_insert_with(|| quote_ident!("normalizeProps").into())
@@ -1073,259 +1072,6 @@ where
 
         false
     }
-}
-
-struct CreateVNodeArgs {
-    flags: ExprOrSpread,
-    name: Expr,
-    class_name: Option<Box<Expr>>,
-    children: Vec<Option<ExprOrSpread>>,
-    child_flags: u16,
-    child_flags_override_param: Option<ExprOrSpread>,
-    props: ObjectLit,
-    key: Option<ExprOrSpread>,
-    refs: Option<ExprOrSpread>,
-}
-
-impl CreateVNodeArgs {
-    #[inline(always)]
-    fn into_args(self) -> Vec<ExprOrSpread> {
-        let CreateVNodeArgs {
-            flags,
-            name,
-            class_name,
-            mut children,
-            child_flags,
-            child_flags_override_param,
-            props,
-            key,
-            refs,
-        } = self;
-
-        let mut args: Vec<ExprOrSpread> = vec![flags, name.as_arg()];
-
-        let has_children = !children.is_empty();
-        let has_child_flags = child_flags_override_param.is_some()
-            || child_flags != (ChildFlags::HasInvalidChildren as u16);
-        let has_props = !props.props.is_empty();
-        let has_key = key.is_some();
-        let has_ref = refs.is_some();
-
-        match class_name {
-            None => {
-                if has_children || has_child_flags || has_props || has_key || has_ref {
-                    args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-                }
-            }
-            Some(some_class_name) => {
-                args.push(some_class_name.as_arg());
-            }
-        }
-
-        match children.len() {
-            0 => {
-                if has_child_flags || has_props || has_key || has_ref {
-                    args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-                }
-            }
-            1 => {
-                let only_child = children.take().into_iter().next().flatten();
-                match only_child {
-                    Some(child) => args.push(child.expr.as_arg()),
-                    None => args.push(
-                        Box::new(Expr::Array(ArrayLit {
-                            span: DUMMY_SP,
-                            elems: vec![None],
-                        }))
-                        .as_arg(),
-                    ),
-                }
-            }
-            _ => args.push(
-                Box::new(Expr::Array(ArrayLit {
-                    span: DUMMY_SP,
-                    elems: children.take(),
-                }))
-                .as_arg(),
-            ),
-        }
-
-        if has_child_flags {
-            match child_flags_override_param {
-                Some(some_child_flags_override_param) => {
-                    args.push(some_child_flags_override_param);
-                }
-                None => args.push(
-                    Box::new(Expr::Lit(Lit::Num(Number {
-                        span: DUMMY_SP,
-                        raw: None,
-                        value: child_flags as f64,
-                    })))
-                    .as_arg(),
-                ),
-            }
-        } else if has_props || has_key || has_ref {
-            args.push(
-                Box::new(Expr::Lit(Lit::Num(Number {
-                    span: DUMMY_SP,
-                    raw: None,
-                    value: (ChildFlags::HasInvalidChildren as u16) as f64,
-                })))
-                .as_arg(),
-            );
-        }
-
-        if has_props {
-            args.push(props.as_arg());
-        } else if has_key || has_ref {
-            args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-        }
-
-        match key {
-            None => {
-                if has_ref {
-                    args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-                }
-            }
-            Some(some_key) => {
-                args.push(some_key);
-            }
-        }
-
-        match refs {
-            None => {}
-            Some(some_refs) => {
-                args.push(some_refs);
-            }
-        }
-
-        args
-    }
-}
-
-#[inline(always)]
-fn create_component_vnode_args(
-    flags: ExprOrSpread,
-    name: Expr,
-    props_literal: ObjectLit,
-    key: Option<ExprOrSpread>,
-    refs: Option<ExprOrSpread>,
-) -> Vec<ExprOrSpread> {
-    let mut args: Vec<ExprOrSpread> = vec![flags, name.as_arg()];
-
-    if props_literal.props.is_empty() {
-        if key.is_some() || refs.is_some() {
-            args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-        }
-    } else {
-        args.push(props_literal.as_arg());
-    }
-
-    match key {
-        None => {
-            if refs.is_some() {
-                args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-            }
-        }
-        Some(some_key) => {
-            args.push(some_key);
-        }
-    }
-
-    match refs {
-        None => {}
-        Some(some_ref) => {
-            args.push(some_ref);
-        }
-    }
-
-    args
-}
-
-#[inline(always)]
-fn create_fragment_vnode_args(
-    mut children: Vec<Option<ExprOrSpread>>,
-    children_shape_is_user_defined: bool,
-    child_flags: u16,
-    child_flags_override_param: Option<ExprOrSpread>,
-    key: Option<ExprOrSpread>,
-) -> Vec<ExprOrSpread> {
-    let mut args: Vec<ExprOrSpread> = vec![];
-    let has_child_flags = child_flags_override_param.is_some()
-        || child_flags != (ChildFlags::HasInvalidChildren as u16);
-    let has_key = key.is_some();
-
-    match children.len() {
-        0 => {
-            if has_child_flags || has_key {
-                args.push(Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))).as_arg());
-            }
-        }
-        1 => {
-            if children_shape_is_user_defined || child_flags == ChildFlags::UnknownChildren as u16 {
-                let only_child = children.take().into_iter().next().flatten();
-                match only_child {
-                    Some(child) => args.push(child.expr.as_arg()),
-                    None => args.push(
-                        Box::new(Expr::Array(ArrayLit {
-                            span: DUMMY_SP,
-                            elems: vec![None],
-                        }))
-                        .as_arg(),
-                    ),
-                }
-            } else {
-                args.push(
-                    Box::new(Expr::Array(ArrayLit {
-                        span: DUMMY_SP,
-                        elems: children.take(),
-                    }))
-                    .as_arg(),
-                );
-            }
-        }
-        _ => args.push(
-            Box::new(Expr::Array(ArrayLit {
-                span: DUMMY_SP,
-                elems: children.take(),
-            }))
-            .as_arg(),
-        ),
-    }
-
-    if has_child_flags {
-        match child_flags_override_param {
-            Some(some_child_flags_override_param) => {
-                args.push(some_child_flags_override_param);
-            }
-            None => args.push(
-                Box::new(Expr::Lit(Lit::Num(Number {
-                    span: DUMMY_SP,
-                    raw: None,
-                    value: child_flags as f64,
-                })))
-                .as_arg(),
-            ),
-        }
-    } else if has_key {
-        args.push(
-            Box::new(Expr::Lit(Lit::Num(Number {
-                span: DUMMY_SP,
-                raw: None,
-                value: (ChildFlags::HasInvalidChildren as u16) as f64,
-            })))
-            .as_arg(),
-        );
-    }
-
-    match key {
-        None => {}
-        Some(some_key) => {
-            args.push(some_key);
-        }
-    }
-
-    args
 }
 
 impl<C> VisitMut for Jsx<C>
@@ -1476,289 +1222,4 @@ fn add_require(imports: Vec<Ident>, src: Wtf8Atom, unresolved_mark: Mark) -> Stm
         ..Default::default()
     }
     .into()
-}
-
-/// https://github.com/microsoft/TypeScript/blob/9e20e032effad965567d4a1e1c30d5433b0a3332/src/compiler/transformers/jsx.ts#L572-L608
-///
-/// JSX trims whitespace at the end and beginning of lines, except that the
-/// start/end of a tag is considered a start/end of a line only if that line is
-/// on the same line as the closing tag. See examples in
-/// tests/cases/conformance/jsx/tsxReactEmitWhitespace.tsx
-/// See also https://www.w3.org/TR/html4/struct/text.html#h-9.1 and https://www.w3.org/TR/CSS2/text.html#white-space-model
-///
-/// An equivalent algorithm would be:
-/// - If there is only one line, return it.
-/// - If there is only whitespace (but multiple lines), return `undefined`.
-/// - Split the text into lines.
-/// - 'trimRight' the first line, 'trimLeft' the last line, 'trim' middle lines.
-/// - Decode entities on each line (individually).
-/// - Remove empty lines and join the rest with " ".
-#[inline]
-fn jsx_text_to_str<'a, T>(t: &'a T) -> Wtf8Atom
-where
-    &'a T: Into<&'a Wtf8>,
-    T: ?Sized,
-{
-    let t = t.into();
-    // Fast path: JSX text is almost always valid UTF-8
-    if let Some(s) = t.as_str() {
-        return jsx_text_to_str_impl(s).into();
-    }
-
-    // Slow path: Handle Wtf8 with surrogates (extremely rare)
-    jsx_text_to_str_wtf8_impl(t)
-}
-
-/// Handle JSX text with surrogates
-fn jsx_text_to_str_wtf8_impl(t: &Wtf8) -> Wtf8Atom {
-    let mut acc: Option<Wtf8Buf> = None;
-    let mut only_line: Option<(usize, usize)> = None; // (start, end) byte positions
-    let mut first_non_whitespace: Option<usize> = Some(0);
-    let mut last_non_whitespace: Option<usize> = None;
-
-    let mut byte_pos = 0;
-    for cp in t.code_points() {
-        let c = cp.to_char_lossy();
-        let cp_value = cp.to_u32();
-
-        // Calculate byte length of this code point in WTF-8
-        let cp_byte_len = if cp_value < 0x80 {
-            1
-        } else if cp_value < 0x800 {
-            2
-        } else if cp_value < 0x10000 {
-            3
-        } else {
-            4
-        };
-
-        if is_line_terminator(c) {
-            if let (Some(first), Some(last)) = (first_non_whitespace, last_non_whitespace) {
-                add_line_of_jsx_text_wtf8(first, last, t, &mut acc, &mut only_line);
-            }
-            first_non_whitespace = None;
-        } else if !is_white_space_single_line(c) {
-            last_non_whitespace = Some(byte_pos + cp_byte_len);
-            if first_non_whitespace.is_none() {
-                first_non_whitespace.replace(byte_pos);
-            }
-        }
-
-        byte_pos += cp_byte_len;
-    }
-
-    // Handle final line
-    if let Some(first) = first_non_whitespace {
-        add_line_of_jsx_text_wtf8(first, t.len(), t, &mut acc, &mut only_line);
-    }
-
-    if let Some(acc) = acc {
-        acc.into()
-    } else if let Some((start, end)) = only_line {
-        t.slice(start, end).into()
-    } else {
-        Wtf8Atom::default()
-    }
-}
-
-/// Helper for adding lines of JSX text when handling Wtf8 with surrogates
-fn add_line_of_jsx_text_wtf8(
-    line_start: usize,
-    line_end: usize,
-    source: &Wtf8,
-    acc: &mut Option<Wtf8Buf>,
-    only_line: &mut Option<(usize, usize)>,
-) {
-    if let Some((only_start, only_end)) = only_line.take() {
-        // Second line - create accumulator
-        let mut buffer = Wtf8Buf::with_capacity(source.len());
-        buffer.push_wtf8(source.slice(only_start, only_end));
-        buffer.push_str(" ");
-        buffer.push_wtf8(source.slice(line_start, line_end));
-        *acc = Some(buffer);
-    } else if let Some(ref mut buffer) = acc {
-        // Subsequent lines
-        buffer.push_str(" ");
-        buffer.push_wtf8(source.slice(line_start, line_end));
-    } else {
-        // First line
-        *only_line = Some((line_start, line_end));
-    }
-}
-
-/// Internal implementation that works with &str
-#[inline]
-fn jsx_text_to_str_impl(t: &str) -> Atom {
-    let mut acc: Option<String> = None;
-    let mut only_line: Option<&str> = None;
-    let mut first_non_whitespace: Option<usize> = Some(0);
-    let mut last_non_whitespace: Option<usize> = None;
-
-    for (index, c) in t.char_indices() {
-        if is_line_terminator(c) {
-            if let (Some(first), Some(last)) = (first_non_whitespace, last_non_whitespace) {
-                let line_text = &t[first..last];
-                add_line_of_jsx_text(line_text, &mut acc, &mut only_line);
-            }
-            first_non_whitespace = None;
-        } else if !is_white_space_single_line(c) {
-            last_non_whitespace = Some(index + c.len_utf8());
-            if first_non_whitespace.is_none() {
-                first_non_whitespace.replace(index);
-            }
-        }
-    }
-
-    if let Some(first) = first_non_whitespace {
-        let line_text = &t[first..];
-        add_line_of_jsx_text(line_text, &mut acc, &mut only_line);
-    }
-
-    if let Some(acc) = acc {
-        acc.into()
-    } else if let Some(only_line) = only_line {
-        only_line.into()
-    } else {
-        "".into()
-    }
-}
-
-/// [TODO]: Re-validate this whitespace handling logic.
-///
-/// We cannot use [swc_ecma_utils::str::is_white_space_single_line] because
-/// HTML entities (like `&nbsp;` → `\u{00a0}`) are pre-processed by the parser,
-/// making it impossible to distinguish them from literal Unicode characters. We
-/// should never trim HTML entities.
-///
-/// As a reference, Babel only trims regular spaces and tabs, so this is a
-/// simplified implementation already in use.
-/// https://github.com/babel/babel/blob/e5c8dc7330cb2f66c37637677609df90b31ff0de/packages/babel-types/src/utils/react/cleanJSXElementLiteralChild.ts#L28-L39
-fn is_white_space_single_line(c: char) -> bool {
-    matches!(c, ' ' | '\t')
-}
-
-// less allocations trick from OXC
-// https://github.com/oxc-project/oxc/blob/4c35f4abb6874bd741b84b34df7889637425e9ea/crates/oxc_transformer/src/jsx/jsx_impl.rs#L1061-L1091
-fn add_line_of_jsx_text<'a>(
-    trimmed_line: &'a str,
-    acc: &mut Option<String>,
-    only_line: &mut Option<&'a str>,
-) {
-    if let Some(buffer) = acc.as_mut() {
-        // Already some text in accumulator. Push a space before this line is added to
-        // `acc`.
-        buffer.push(' ');
-    } else if let Some(only_line_content) = only_line.take() {
-        // This is the 2nd line containing text. Previous line did not contain any HTML
-        // entities. Generate an accumulator containing previous line and a
-        // trailing space. Current line will be added to the accumulator after
-        // it.
-        let mut buffer = String::with_capacity(trimmed_line.len() * 2); // rough estimate
-        buffer.push_str(only_line_content);
-        buffer.push(' ');
-        *acc = Some(buffer);
-    }
-
-    // [TODO]: Decode any HTML entities in this line
-
-    // For now, just use the trimmed line directly
-    if let Some(buffer) = acc.as_mut() {
-        buffer.push_str(trimmed_line);
-    } else {
-        // This is the first line containing text, and there are no HTML entities in
-        // this line. Record this line in `only_line`.
-        // If this turns out to be the only line, we won't need to construct a String,
-        // so avoid all copying.
-        *only_line = Some(trimmed_line);
-    }
-}
-
-fn jsx_attr_value_to_expr(v: JSXAttrValue) -> Option<Box<Expr>> {
-    Some(match v {
-        JSXAttrValue::Str(s) => {
-            let value = transform_jsx_attr_str(&s.value);
-
-            Lit::Str(Str {
-                span: s.span,
-                raw: None,
-                value: value.into(),
-            })
-            .into()
-        }
-        JSXAttrValue::JSXExprContainer(e) => match e.expr {
-            JSXExpr::JSXEmptyExpr(_) => None?,
-            JSXExpr::Expr(e) => e,
-            #[cfg(swc_ast_unknown)]
-            _ => panic!("unable to access unknown nodes"),
-        },
-        JSXAttrValue::JSXElement(e) => e.into(),
-        JSXAttrValue::JSXFragment(f) => f.into(),
-        #[cfg(swc_ast_unknown)]
-        _ => panic!("unable to access unknown nodes"),
-    })
-}
-
-fn jsx_attr_value_to_expr_or_invalid(v: JSXAttrValue, err_span: Span) -> Box<Expr> {
-    jsx_attr_value_to_expr(v).unwrap_or_else(|| {
-        HANDLER.with(|handler| {
-            handler
-                .struct_span_err(err_span, "The value of JSX attribute should not be empty")
-                .emit()
-        });
-
-        Box::new(Expr::Invalid(Invalid { span: DUMMY_SP }))
-    })
-}
-
-fn transform_jsx_attr_str(v: &Wtf8) -> Wtf8Buf {
-    let single_quote = false;
-    let mut buf = Wtf8Buf::with_capacity(v.len());
-    let mut iter = v.code_points().peekable();
-
-    while let Some(code_point) = iter.next() {
-        if let Some(c) = code_point.to_char() {
-            match c {
-                '\u{0008}' => buf.push_str("\\b"),
-                '\u{000c}' => buf.push_str("\\f"),
-                ' ' => buf.push_char(' '),
-
-                '\n' | '\r' | '\t' => {
-                    buf.push_char(' ');
-
-                    while let Some(next) = iter.peek() {
-                        if next.to_char() == Some(' ') {
-                            iter.next();
-                        } else {
-                            break;
-                        }
-                    }
-                }
-                '\u{000b}' => buf.push_str("\\v"),
-                '\0' => buf.push_str("\\x00"),
-
-                '\'' if single_quote => buf.push_str("\\'"),
-                '"' if !single_quote => buf.push_char('"'),
-
-                '\x01'..='\x0f' | '\x10'..='\x1f' => {
-                    buf.push_char(c);
-                }
-
-                '\x20'..='\x7e' => {
-                    //
-                    buf.push_char(c);
-                }
-                '\u{7f}'..='\u{ff}' => {
-                    buf.push_char(c);
-                }
-
-                _ => {
-                    buf.push_char(c);
-                }
-            }
-        } else {
-            buf.push(code_point);
-        }
-    }
-
-    buf
 }
