@@ -91,10 +91,10 @@ impl<'a> HookRegister<'a> {
                 HookCall::Ident(ident) if !is_builtin_hook(&ident.sym) => {
                     custom_hook.push(hook.callee);
                 }
-                HookCall::Member(Expr::Ident(obj_ident), prop) if !is_builtin_hook(&prop.sym) => {
-                    if obj_ident.sym.as_ref() != "React" {
-                        custom_hook.push(hook.callee);
-                    }
+                HookCall::Member(Expr::Ident(obj_ident), prop)
+                    if !is_builtin_hook(&prop.sym) && obj_ident.sym.as_ref() != "React" =>
+                {
+                    custom_hook.push(hook.callee);
                 }
                 _ => (),
             };

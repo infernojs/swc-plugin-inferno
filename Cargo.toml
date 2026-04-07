@@ -36,9 +36,9 @@ base64       = "0.22.1"
 rayon        = { version = "1", optional = true }
 serde        = { version = "1", features = ["derive"], optional = true }
 sha-1        = "=0.10.1"
-rustc-hash   = "2.1.1"
+rustc-hash   = "2.1.2"
 
-swc_core = { version = "57", features = [
+swc_core = { version = "62", features = [
     "swc_atoms",
     "swc_common",
     "transform_common",
@@ -49,11 +49,11 @@ swc_core = { version = "57", features = [
     "ecma_ast",
     "common",
 ] }
-swc_ecma_parser            = { version = "34" }
-swc_config                 = { version = "3" }
+swc_ecma_parser            = { version = "38" }
+swc_config                 = { version = "4" }
 
 [dev-dependencies]
-swc_ecma_codegen            = { version = "23" }
-swc_ecma_transforms_compat  = { version = "43", features = ["es3"] }
-swc_ecma_transforms_testing = { version = "41" }
-testing                     = { version = "19" }
+swc_ecma_codegen            = { version = "26" }
+swc_ecma_transforms_compat  = { version = "47", features = ["es3"] }
+swc_ecma_transforms_testing = { version = "45" }
+testing                     = { version = "22" }
