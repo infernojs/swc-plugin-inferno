@@ -1,12 +1,12 @@
 #![allow(clippy::redundant_allocation)]
 
+use crate::VNodeType::Component;
 use crate::transformations::lowercase_attrs::requires_lowercasing;
 use crate::transformations::parse_vnode_flag::parse_vnode_flag;
 use crate::transformations::transform_attribute::transform_attribute;
-use crate::VNodeType::Component;
 use crate::{
     inferno_flags::{ChildFlags, VNodeFlags},
-    refresh::options::{deserialize_refresh, RefreshOptions},
+    refresh::options::{RefreshOptions, deserialize_refresh},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -15,15 +15,15 @@ use swc_config::merge::Merge;
 use swc_core::atoms::atom;
 use swc_core::common::comments::Comments;
 use swc_core::common::util::take::Take;
-use swc_core::common::{FileName, Mark, SourceMap, Span, Spanned, SyntaxContext, DUMMY_SP};
+use swc_core::common::{DUMMY_SP, FileName, Mark, SourceMap, Span, Spanned, SyntaxContext};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::atoms::Atom;
 use swc_core::ecma::utils::{
-    drop_span, prepend_stmt, quote_ident, swc_atoms, ExprFactory, StmtLike,
+    ExprFactory, StmtLike, drop_span, prepend_stmt, quote_ident, swc_atoms,
 };
-use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
+use swc_core::ecma::visit::{VisitMut, VisitMutWith, noop_visit_mut_type, visit_mut_pass};
 use swc_core::plugin::errors::HANDLER;
-use swc_ecma_parser::{parse_file_as_expr, Syntax};
+use swc_ecma_parser::{Syntax, parse_file_as_expr};
 
 #[cfg(test)]
 mod tests;
@@ -34,7 +34,7 @@ mod vnode_args;
 
 use self::attr::{jsx_attr_value_to_expr, jsx_attr_value_to_expr_or_invalid};
 use self::text::jsx_text_to_str;
-use self::vnode_args::{create_component_vnode_args, create_fragment_vnode_args, CreateVNodeArgs};
+use self::vnode_args::{CreateVNodeArgs, create_component_vnode_args, create_fragment_vnode_args};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, Merge)]
 #[serde(rename_all = "camelCase")]
@@ -121,8 +121,8 @@ fn merge_imports(
     stmts: &mut Vec<ModuleItem>,
 ) -> bool {
     for stmt in stmts {
-        if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
-            if import.src.value == *default_import_src {
+        if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt
+            && import.src.value == *default_import_src {
                 for specifier in &import.specifiers {
                     if let ImportSpecifier::Namespace(_) = specifier {
                         // Do not try to merge with * As FooBar import statements
@@ -147,7 +147,6 @@ fn merge_imports(
 
                 return true;
             }
-        }
     }
 
     false
@@ -244,8 +243,8 @@ where
 
     fn set_local_import_refs(&mut self, stmts: &mut Vec<ModuleItem>) {
         for stmt in stmts {
-            if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt {
-                if import.src.value == self.import_source {
+            if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt
+                && import.src.value == self.import_source {
                     for specifier in import.specifiers.iter_mut() {
                         match specifier {
                             ImportSpecifier::Named(named_import) => {
@@ -272,7 +271,6 @@ where
 
                     return;
                 }
-            }
         }
     }
 
@@ -1118,7 +1116,7 @@ where
     fn visit_mut_module(&mut self, module: &mut Module) {
         self.set_local_import_refs(&mut module.body);
 
-        module.visit_mut_children_with(self);
+        self.visit_mut_module_items(&mut module.body);
 
         self.inject_runtime(&mut module.body, |imports, default_import_src, stmts| {
             // Merge new imports to existing import
@@ -1158,8 +1156,16 @@ where
         });
     }
 
+    fn visit_mut_module_items(&mut self, items: &mut Vec<ModuleItem>) {
+        items.visit_mut_children_with(self);
+    }
+
+    fn visit_mut_stmts(&mut self, stmts: &mut Vec<Stmt>) {
+        stmts.visit_mut_children_with(self);
+    }
+
     fn visit_mut_script(&mut self, script: &mut Script) {
-        script.visit_mut_children_with(self);
+        self.visit_mut_stmts(&mut script.body);
 
         let mark = self.unresolved_mark;
         self.inject_runtime(&mut script.body, |imports, src, stmts| {

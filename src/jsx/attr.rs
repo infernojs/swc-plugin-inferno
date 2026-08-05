@@ -1,6 +1,6 @@
 use swc_core::{
     atoms::wtf8::{Wtf8, Wtf8Buf},
-    common::{Span, DUMMY_SP},
+    common::{DUMMY_SP, Span},
     ecma::ast::*,
 };
 

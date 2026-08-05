@@ -2,7 +2,7 @@
 authors       = ["Havunen <sampo.kivisto@live.fi>"]
 description   = "SWC plugin for InfernoJS."
 documentation = "https://github.com/infernojs/swc-plugin-inferno"
-edition       = "2021"
+edition       = "2024"
 include       = ["Cargo.toml", "src/**/*.rs"]
 license       = "MIT"
 name          = "swc-plugin-inferno"
@@ -32,7 +32,7 @@ opt-level = "s"
 strip = "symbols"
 
 [dependencies]
-base64       = "0.23.0"
+base64       = "0.23.1"
 rayon        = { version = "1", optional = true }
 serde        = { version = "1", features = ["derive"], optional = true }
 sha-1        = "=0.10.1"

@@ -8,7 +8,7 @@ pub use self::{
 };
 use swc_core::ecma::ast::Pass;
 use swc_core::{
-    common::{comments::Comments, sync::Lrc, Mark, SourceMap},
+    common::{Mark, SourceMap, comments::Comments, sync::Lrc},
     ecma::ast::Program,
     plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
 };

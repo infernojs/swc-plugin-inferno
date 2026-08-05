@@ -1,9 +1,9 @@
 use rustc_hash::FxHashSet;
 use swc_core::{
-    common::{Spanned, SyntaxContext, DUMMY_SP},
+    common::{DUMMY_SP, Spanned, SyntaxContext},
     ecma::ast::*,
     ecma::utils::ExprFactory,
-    ecma::visit::{noop_visit_type, Visit, VisitWith},
+    ecma::visit::{Visit, VisitWith, noop_visit_type},
 };
 
 pub fn is_builtin_hook(name: &str) -> bool {
@@ -109,13 +109,11 @@ impl Visit for UsedInJsx {
             if matches!(
                 ident.0.as_ref(),
                 "createElement" | "jsx" | "jsxDEV" | "jsxs"
-            ) {
-                if let Some(ExprOrSpread { expr, .. }) = n.args.first() {
-                    if let Expr::Ident(ident) = expr.as_ref() {
+            )
+                && let Some(ExprOrSpread { expr, .. }) = n.args.first()
+                    && let Expr::Ident(ident) = expr.as_ref() {
                         self.0.insert(ident.to_id());
                     }
-                }
-            }
         }
     }
 

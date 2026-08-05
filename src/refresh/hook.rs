@@ -1,13 +1,13 @@
 use std::{fmt::Write, mem};
 
-use base64::prelude::{Engine, BASE64_STANDARD};
+use base64::prelude::{BASE64_STANDARD, Engine};
 use sha1::{Digest, Sha1};
 use swc_core::common::util::take::Take;
-use swc_core::common::{SourceMap, SourceMapper, Spanned, SyntaxContext, DUMMY_SP};
+use swc_core::common::{DUMMY_SP, SourceMap, SourceMapper, Spanned, SyntaxContext};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::utils::{private_ident, quote_ident, ExprFactory};
+use swc_core::ecma::utils::{ExprFactory, private_ident, quote_ident};
 use swc_core::ecma::visit::{
-    noop_visit_mut_type, noop_visit_type, Visit, VisitMut, VisitMutWith, VisitWith,
+    Visit, VisitMut, VisitMutWith, VisitWith, noop_visit_mut_type, noop_visit_type,
 };
 
 use super::util::{is_builtin_hook, make_call_expr, make_call_stmt};
@@ -306,23 +306,19 @@ impl<'a> VisitMut for HookRegister<'a> {
             ident: Some(ident),
             function: f,
         }) = d
-        {
-            if let Some(body) = &mut f.body {
-                if let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
+            && let Some(body) = &mut f.body
+                && let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
                     self.gen_hook_register_stmt(ident.clone(), sig);
                 }
-            }
-        }
     }
 
     fn visit_mut_fn_decl(&mut self, f: &mut FnDecl) {
         f.visit_mut_children_with(self);
 
-        if let Some(body) = &mut f.function.body {
-            if let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
+        if let Some(body) = &mut f.function.body
+            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
                 self.gen_hook_register_stmt(f.ident.clone(), sig);
             }
-        }
     }
 }
 
@@ -467,11 +463,10 @@ impl<'a> Visit for HookCollector<'a> {
     fn visit_expr(&mut self, expr: &Expr) {
         expr.visit_children_with(self);
 
-        if let Expr::Call(call) = expr {
-            if let Some(hook) = self.get_hook_from_call_expr(call, None) {
+        if let Expr::Call(call) = expr
+            && let Some(hook) = self.get_hook_from_call_expr(call, None) {
                 self.state.push(hook)
             }
-        }
     }
 
     fn visit_stmt(&mut self, stmt: &Stmt) {

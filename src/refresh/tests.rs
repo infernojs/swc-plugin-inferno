@@ -1,16 +1,16 @@
 use swc_core::common::Mark;
 use swc_core::ecma::transforms::base::resolver;
-use swc_ecma_transforms_testing::{test, Tester};
+use swc_ecma_transforms_testing::{Tester, test};
 
 use crate::jsx;
 
 use super::*;
 
-fn tr(t: &mut Tester) -> impl Pass {
+fn tr(t: &mut Tester) -> Box<dyn Pass> {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    (
+    Box::new((
         resolver(unresolved_mark, top_level_mark, false),
         refresh(
             true,
@@ -22,7 +22,7 @@ fn tr(t: &mut Tester) -> impl Pass {
             Some(t.comments.clone()),
             top_level_mark,
         ),
-    )
+    ))
 }
 
 test!(

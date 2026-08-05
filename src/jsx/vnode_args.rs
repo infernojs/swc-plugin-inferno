@@ -1,6 +1,6 @@
 use crate::inferno_flags::ChildFlags;
 use swc_core::{
-    common::{util::take::Take, DUMMY_SP},
+    common::{DUMMY_SP, util::take::Take},
     ecma::ast::{ArrayLit, Expr, ExprOrSpread, Lit, Null, Number, ObjectLit},
     ecma::utils::ExprFactory,
 };

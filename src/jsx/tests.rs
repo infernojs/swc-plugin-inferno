@@ -11,7 +11,7 @@ use swc_core::ecma::transforms::base::resolver;
 use swc_ecma_codegen::{Config, Emitter};
 use swc_ecma_parser::{EsSyntax, Parser, Syntax, TsSyntax};
 use swc_ecma_transforms_compat::es3::property_literals;
-use swc_ecma_transforms_testing::{parse_options, test, test_fixture, FixtureTestConfig, Tester};
+use swc_ecma_transforms_testing::{FixtureTestConfig, Tester, parse_options, test, test_fixture};
 use testing::NormalizedOutput;
 
 use super::*;
@@ -1399,13 +1399,13 @@ test!(
     "#
 );
 
-fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> impl Pass {
+fn tr(t: &mut Tester, options: Options, top_level_mark: Mark) -> Box<dyn Pass> {
     let unresolved_mark = Mark::new();
 
-    (
+    Box::new((
         resolver(unresolved_mark, top_level_mark, false),
         jsx(Some(t.comments.clone()), options, unresolved_mark),
-    )
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -1428,11 +1428,11 @@ fn true_by_default() -> bool {
     true
 }
 
-fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
+fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    (
+    Box::new((
         resolver(unresolved_mark, top_level_mark, false),
         inferno(
             t.cm.clone(),
@@ -1442,14 +1442,14 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
             unresolved_mark,
         ),
         pure_annotations(Some(t.comments.clone())),
-    )
+    ))
 }
 
-fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
+fn integration_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
     let unresolved_mark = Mark::new();
     let top_level_mark = Mark::new();
 
-    (
+    Box::new((
         resolver(unresolved_mark, top_level_mark, false),
         inferno(
             t.cm.clone(),
@@ -1458,7 +1458,7 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> impl Pass {
             top_level_mark,
             unresolved_mark,
         ),
-    )
+    ))
 }
 
 test!(
@@ -2288,6 +2288,94 @@ test!(
     "
     <div title=\"\u{2028}\"/>
     "
+);
+
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    visit_mut_module_items_should_transform_export_default_jsx,
+    r#"
+export default function Foo() {
+    return <div>Hello</div>;
+}
+"#
+);
+
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    visit_mut_module_items_should_transform_export_const_jsx,
+    r#"
+export const Bar = () => <span>World</span>;
+"#
+);
+
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    visit_mut_module_items_should_transform_module_level_jsx,
+    r#"
+const element = <div className="test">Hello</div>;
+export { element };
+"#
+);
+
+test!(
+    module,
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    visit_mut_module_items_should_transform_jsx_in_mixed_exports,
+    r#"
+import { Component } from "inferno";
+
+export default class App extends Component {
+    render() {
+        return <Main />;
+    }
+}
+
+export const Title = () => <h1>App</h1>;
+"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    visit_mut_stmts_should_transform_jsx_in_script,
+    r#"
+const { createVNode } = require("inferno");
+var x = <div>Hello</div>;
+"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
+    visit_mut_stmts_should_transform_jsx_in_script_without_existing_import,
+    r#"
+var x = <div>Hello</div>;
+"#
 );
 
 #[testing::fixture("tests/jsx/fixture/**/input.js")]

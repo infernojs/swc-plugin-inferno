@@ -1,9 +1,9 @@
 use rustc_hash::FxHashMap;
-use swc_core::atoms::{atom, Atom, Wtf8Atom};
-use swc_core::common::comments::Comments;
+use swc_core::atoms::{Atom, Wtf8Atom, atom};
 use swc_core::common::Span;
+use swc_core::common::comments::Comments;
 use swc_core::ecma::ast::*;
-use swc_core::ecma::visit::{noop_visit_mut_type, visit_mut_pass, VisitMut, VisitMutWith};
+use swc_core::ecma::visit::{VisitMut, VisitMutWith, noop_visit_mut_type, visit_mut_pass};
 
 #[cfg(test)]
 mod tests;
@@ -115,15 +115,14 @@ where
             _ => false,
         };
 
-        if is_inferno_call {
-            if let Some(comments) = &self.comments {
+        if is_inferno_call
+            && let Some(comments) = &self.comments {
                 if call.span.lo.is_dummy() {
                     call.span.lo = Span::dummy_with_cmt().lo;
                 }
 
                 comments.add_pure_comment(call.span.lo);
             }
-        }
 
         call.visit_mut_children_with(self);
     }
