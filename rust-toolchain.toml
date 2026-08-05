@@ -1,0 +1,17 @@
+# The toolchain used to build the `.wasm` plugin is part of this project's ABI
+# surface, not a developer preference.
+#
+# swc wasm plugins are compiled to `wasm32-wasip1` and executed by @swc/core's
+# embedded wasmer runtime. A miscompiled guest does not fail loudly - it can
+# spin forever inside the host<->guest CBOR bridge, which is what happened with
+# 2.16.0 - 2.16.2: those artifacts were built with a nightly toolchain and hang
+# before the transform function is ever entered.
+#
+# Keep this pinned to a toolchain that has been verified against the e2e test in
+# `e2e/` (`npm run test:e2e`). The upstream swc plugins repo pins its toolchain
+# for the same reason.
+[toolchain]
+channel    = "1.97.1"
+profile    = "minimal"
+components = ["rustfmt", "clippy"]
+targets    = ["wasm32-wasip1"]

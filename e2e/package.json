@@ -1,0 +1,17 @@
+{
+  "name": "swc-plugin-inferno-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end test: bundle JSX with webpack + swc-loader using the locally built swc-plugin-inferno wasm.",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.15.47",
+    "inferno": "^9.1.0",
+    "swc-loader": "^0.2.7",
+    "webpack": "^5.109.2",
+    "webpack-cli": "^7.2.2"
+  }
+}

@@ -16,7 +16,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    # rust-toolchain.toml pins the toolchain and the wasm32-wasip1 target.
+    # Do not override it here: the .wasm is only known-good for a verified
+    # toolchain, and a miscompiled guest hangs instead of failing.
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+
+  e2e:
+    # Bundles real JSX through webpack + swc-loader using the wasm artifact.
+    # `cargo test` exercises the transform as a native rlib, so it cannot catch
+    # a broken wasm guest - which is how 2.16.0-2.16.2 shipped hanging.
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - name: Build wasm plugin and run e2e
+      run: npm run test:e2e
