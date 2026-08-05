@@ -115,14 +115,13 @@ where
             _ => false,
         };
 
-        if is_inferno_call
-            && let Some(comments) = &self.comments {
-                if call.span.lo.is_dummy() {
-                    call.span.lo = Span::dummy_with_cmt().lo;
-                }
-
-                comments.add_pure_comment(call.span.lo);
+        if is_inferno_call && let Some(comments) = &self.comments {
+            if call.span.lo.is_dummy() {
+                call.span.lo = Span::dummy_with_cmt().lo;
             }
+
+            comments.add_pure_comment(call.span.lo);
+        }
 
         call.visit_mut_children_with(self);
     }

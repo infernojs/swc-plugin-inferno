@@ -307,18 +307,20 @@ impl<'a> VisitMut for HookRegister<'a> {
             function: f,
         }) = d
             && let Some(body) = &mut f.body
-                && let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
-                    self.gen_hook_register_stmt(ident.clone(), sig);
-                }
+            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm)
+        {
+            self.gen_hook_register_stmt(ident.clone(), sig);
+        }
     }
 
     fn visit_mut_fn_decl(&mut self, f: &mut FnDecl) {
         f.visit_mut_children_with(self);
 
         if let Some(body) = &mut f.function.body
-            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
-                self.gen_hook_register_stmt(f.ident.clone(), sig);
-            }
+            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm)
+        {
+            self.gen_hook_register_stmt(f.ident.clone(), sig);
+        }
     }
 }
 
@@ -464,9 +466,10 @@ impl<'a> Visit for HookCollector<'a> {
         expr.visit_children_with(self);
 
         if let Expr::Call(call) = expr
-            && let Some(hook) = self.get_hook_from_call_expr(call, None) {
-                self.state.push(hook)
-            }
+            && let Some(hook) = self.get_hook_from_call_expr(call, None)
+        {
+            self.state.push(hook)
+        }
     }
 
     fn visit_stmt(&mut self, stmt: &Stmt) {

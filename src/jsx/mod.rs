@@ -122,31 +122,32 @@ fn merge_imports(
 ) -> bool {
     for stmt in stmts {
         if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt
-            && import.src.value == *default_import_src {
-                for specifier in &import.specifiers {
-                    if let ImportSpecifier::Namespace(_) = specifier {
-                        // Do not try to merge with * As FooBar import statements
-                        return false;
-                    }
+            && import.src.value == *default_import_src
+        {
+            for specifier in &import.specifiers {
+                if let ImportSpecifier::Namespace(_) = specifier {
+                    // Do not try to merge with * As FooBar import statements
+                    return false;
                 }
-
-                for import_to_add in imports {
-                    let import_exists = named_import_exists(import_to_add, import);
-
-                    if !import_exists {
-                        import
-                            .specifiers
-                            .push(ImportSpecifier::Named(ImportNamedSpecifier {
-                                span: DUMMY_SP,
-                                local: import_to_add.clone(),
-                                imported: None,
-                                is_type_only: false,
-                            }))
-                    }
-                }
-
-                return true;
             }
+
+            for import_to_add in imports {
+                let import_exists = named_import_exists(import_to_add, import);
+
+                if !import_exists {
+                    import
+                        .specifiers
+                        .push(ImportSpecifier::Named(ImportNamedSpecifier {
+                            span: DUMMY_SP,
+                            local: import_to_add.clone(),
+                            imported: None,
+                            is_type_only: false,
+                        }))
+                }
+            }
+
+            return true;
+        }
     }
 
     false
@@ -244,33 +245,34 @@ where
     fn set_local_import_refs(&mut self, stmts: &mut Vec<ModuleItem>) {
         for stmt in stmts {
             if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt
-                && import.src.value == self.import_source {
-                    for specifier in import.specifiers.iter_mut() {
-                        match specifier {
-                            ImportSpecifier::Named(named_import) => {
-                                if named_import.local.sym == "createVNode" {
-                                    self.import_create_vnode
-                                        .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == "createComponentVNode" {
-                                    self.import_create_component
-                                        .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == "createTextVNode" {
-                                    self.import_create_text_vnode
-                                        .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == "createFragment" {
-                                    self.import_create_fragment
-                                        .get_or_insert(named_import.local.clone());
-                                } else if named_import.local.sym == "normalizeProps" {
-                                    self.import_normalize_props
-                                        .get_or_insert(named_import.local.clone());
-                                }
+                && import.src.value == self.import_source
+            {
+                for specifier in &import.specifiers {
+                    match specifier {
+                        ImportSpecifier::Named(named_import) => {
+                            if named_import.local.sym == "createVNode" {
+                                self.import_create_vnode
+                                    .get_or_insert(named_import.local.clone());
+                            } else if named_import.local.sym == "createComponentVNode" {
+                                self.import_create_component
+                                    .get_or_insert(named_import.local.clone());
+                            } else if named_import.local.sym == "createTextVNode" {
+                                self.import_create_text_vnode
+                                    .get_or_insert(named_import.local.clone());
+                            } else if named_import.local.sym == "createFragment" {
+                                self.import_create_fragment
+                                    .get_or_insert(named_import.local.clone());
+                            } else if named_import.local.sym == "normalizeProps" {
+                                self.import_normalize_props
+                                    .get_or_insert(named_import.local.clone());
                             }
-                            _ => continue,
                         }
+                        _ => continue,
                     }
-
-                    return;
                 }
+
+                return;
+            }
         }
     }
 

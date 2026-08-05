@@ -429,18 +429,19 @@ impl<C: Comments> VisitMut for Refresh<C> {
                 Persist::Hoc(mut hoc) => {
                     hoc.reg.reverse();
                     if hoc.insert
-                        && let Some((ident, name)) = hoc.reg.last() {
-                            items.push(
-                                ExprStmt {
-                                    span: DUMMY_SP,
-                                    expr: Box::new(make_assign_stmt(
-                                        ident.clone(),
-                                        Ident::new(name.0.clone(), DUMMY_SP, name.1).into(),
-                                    )),
-                                }
-                                .into(),
-                            )
-                        }
+                        && let Some((ident, name)) = hoc.reg.last()
+                    {
+                        items.push(
+                            ExprStmt {
+                                span: DUMMY_SP,
+                                expr: Box::new(make_assign_stmt(
+                                    ident.clone(),
+                                    Ident::new(name.0.clone(), DUMMY_SP, name.1).into(),
+                                )),
+                            }
+                            .into(),
+                        )
+                    }
                     refresh_regs.append(&mut hoc.reg);
                 }
             }

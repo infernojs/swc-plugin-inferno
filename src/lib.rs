@@ -57,17 +57,29 @@ where
 }
 
 #[plugin_transform]
-fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata) -> Program {
+fn inferno_jsx_plugin(mut program: Program, metadata: TransformPluginProgramMetadata) -> Program {
     let top_level_mark = Mark::new();
-
-    // TODO: Where to get source map
     let cm = Lrc::new(SourceMap::default());
+    let unresolved_mark = metadata.unresolved_mark;
 
-    program.apply(&mut inferno(
-        cm,
-        Some(&metadata.comments),
-        Default::default(),
-        top_level_mark,
-        metadata.unresolved_mark,
-    ))
+    let options: Options = Default::default();
+    let development = options.development.unwrap_or(false);
+
+    if development {
+        let refresh_options = options.clone().refresh;
+        let mut refresh_pass = refresh(
+            development,
+            refresh_options,
+            cm.clone(),
+            Some(&metadata.comments),
+            top_level_mark,
+        );
+        program = program.apply(&mut refresh_pass);
+    }
+
+    let mut jsx_pass = jsx(Some(&metadata.comments), options, unresolved_mark);
+    program = program.apply(&mut jsx_pass);
+
+    let mut pure_pass = pure_annotations(Some(&metadata.comments));
+    program.apply(&mut pure_pass)
 }

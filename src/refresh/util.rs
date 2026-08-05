@@ -109,11 +109,11 @@ impl Visit for UsedInJsx {
             if matches!(
                 ident.0.as_ref(),
                 "createElement" | "jsx" | "jsxDEV" | "jsxs"
-            )
-                && let Some(ExprOrSpread { expr, .. }) = n.args.first()
-                    && let Expr::Ident(ident) = expr.as_ref() {
-                        self.0.insert(ident.to_id());
-                    }
+            ) && let Some(ExprOrSpread { expr, .. }) = n.args.first()
+                && let Expr::Ident(ident) = expr.as_ref()
+            {
+                self.0.insert(ident.to_id());
+            }
         }
     }
 
