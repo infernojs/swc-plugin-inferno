@@ -8,7 +8,7 @@
     "test": "node run.mjs"
   },
   "devDependencies": {
-    "@swc/core": "^1.15.47",
+    "@swc/core": "^1.16.0",
     "inferno": "^9.1.0",
     "swc-loader": "^0.2.7",
     "webpack": "^5.109.2",
