@@ -1233,7 +1233,7 @@ dependencies = [
 
 [[package]]
 name = "swc-plugin-inferno"
-version = "2.16.3"
+version = "2.17.0"
 dependencies = [
  "base64 0.23.1",
  "rayon",
