@@ -733,15 +733,16 @@ var foo = createVNode(1, "div");"#,
         );
     }
 
-    // babel-plugin-inferno adds a separate import declaration.
     #[test]
-    fn should_add_create_component_vnode_to_an_existing_create_vnode_import() {
+    fn should_add_import_to_create_vnode_component_but_not_to_create_vnode_if_create_vnode_is_already_delcared()
+     {
         assert_js_eq(
             &transform_with(
                 "{}",
                 r#"import {createVNode} from "inferno"; var foo = <FooBar/>;"#,
             ),
-            r#"import { createVNode, createComponentVNode } from "inferno";
+            r#"import { createComponentVNode } from "inferno";
+import { createVNode } from "inferno";
 var foo = createComponentVNode(2, FooBar);"#,
         );
     }
@@ -760,7 +761,6 @@ mod children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn element_should_prefer_prop_over_empty_children() {
         assert_transform(
             r#"<div children="ab"></div>"#,
@@ -769,7 +769,6 @@ mod children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn element_should_use_prop_if_no_children_exists() {
         assert_transform(
             r#"<div children="ab"/>"#,
@@ -808,7 +807,6 @@ mod children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno passes an empty array literal child as children"]
     fn component_array_empty_children() {
         assert_transform("<Com>{[]}</Com>", "createComponentVNode(2, Com);");
     }
@@ -824,7 +822,6 @@ mod children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_prefer_xml_children_over_props() {
         assert_transform(
             "<foo children={<span>b</span>}></foo>",
@@ -832,13 +829,9 @@ mod children {
         );
     }
 
-    // babel-plugin-inferno leaves the null children out; without childFlags Inferno ignores them too.
     #[test]
     fn should_prefer_xml_children_over_props_null() {
-        assert_transform(
-            "<foo children={null}></foo>",
-            r#"createVNode(1, "foo", null, null);"#,
-        );
+        assert_transform("<foo children={null}></foo>", r#"createVNode(1, "foo");"#);
     }
 }
 
@@ -961,7 +954,6 @@ mod fragments {
             use super::*;
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment() {
                 assert_transform(
                     "<Inferno.Fragment>Test</Inferno.Fragment>",
@@ -970,7 +962,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_dynamic_children() {
                 assert_transform(
                     "<Inferno.Fragment>{dynamic}</Inferno.Fragment>",
@@ -979,7 +970,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_keyed_children() {
                 assert_transform(
                     r#"<Inferno.Fragment><span key="ok">kk</span><div key="ok2">ok</div></Inferno.Fragment>"#,
@@ -988,7 +978,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children() {
                 assert_transform(
                     "<Inferno.Fragment><div>1</div><span>foo</span></Inferno.Fragment>",
@@ -997,7 +986,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children_2() {
                 assert_transform(
                     r#"<Inferno.Fragment key="foo"><div>1</div><span>foo</span></Inferno.Fragment>"#,
@@ -1006,7 +994,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_ignore_all_other_props() {
                 assert_transform(
                     r#"<Inferno.Fragment abc="foobar" id="test" key="foo"><div>1</div><span>foo</span></Inferno.Fragment>"#,
@@ -1015,7 +1002,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children_3() {
                 assert_transform(
                     r#"<Inferno.Fragment key="foo" $HasKeyedChildren>{magic}</Inferno.Fragment>"#,
@@ -1024,7 +1010,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children_4() {
                 assert_transform(
                     r#"<Inferno.Fragment key="foo" $HasNonKeyedChildren>{magic}</Inferno.Fragment>"#,
@@ -1038,7 +1023,6 @@ mod fragments {
             use super::*;
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment() {
                 assert_transform(
                     "<React.Fragment>Test</React.Fragment>",
@@ -1047,7 +1031,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_dynamic_children() {
                 assert_transform(
                     "<React.Fragment>{dynamic}</React.Fragment>",
@@ -1056,7 +1039,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_keyed_children() {
                 assert_transform(
                     r#"<React.Fragment><span key="ok">kk</span><div key="ok2">ok</div></React.Fragment>"#,
@@ -1065,7 +1047,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children() {
                 assert_transform(
                     "<React.Fragment><div>1</div><span>foo</span></React.Fragment>",
@@ -1074,7 +1055,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children_2() {
                 assert_transform(
                     r#"<React.Fragment key="foo"><div>1</div><span>foo</span></React.Fragment>"#,
@@ -1083,7 +1063,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_ignore_all_other_props() {
                 assert_transform(
                     r#"<React.Fragment abc="foobar" id="test" key="foo"><div>1</div><span>foo</span></React.Fragment>"#,
@@ -1092,7 +1071,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children_3() {
                 assert_transform(
                     r#"<React.Fragment key="foo" $HasKeyedChildren>{magic}</React.Fragment>"#,
@@ -1101,7 +1079,6 @@ mod fragments {
             }
 
             #[test]
-            #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
             fn should_create_fragment_non_keyed_children_4() {
                 assert_transform(
                     r#"<React.Fragment key="foo" $HasNonKeyedChildren>{magic}</React.Fragment>"#,

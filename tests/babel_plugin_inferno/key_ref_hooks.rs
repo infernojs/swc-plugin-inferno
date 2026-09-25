@@ -115,34 +115,30 @@ mod key_values {
         );
     }
 
-    // babel-plugin-inferno reports: Please provide an explicit key value.
     #[test]
     fn should_reject_a_valueless_key_on_an_element() {
         assert_transform_error(
             "<div key />",
-            "The value of property 'key' should not be empty",
+            r#"Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed."#,
         );
     }
 
-    // babel-plugin-inferno reports: Please provide an explicit key value.
     #[test]
     fn should_reject_a_valueless_key_on_a_component() {
         assert_transform_error(
             "<Foo key />",
-            "The value of property 'key' should not be empty",
+            r#"Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed."#,
         );
     }
 
-    // babel-plugin-inferno reports: Please provide an explicit key value.
     #[test]
     fn should_reject_a_valueless_key_inside_an_array_babel_should_disallow_valueless_key() {
         assert_transform_error(
             "[<div key></div>]",
-            "The value of property 'key' should not be empty",
+            r#"Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed."#,
         );
     }
 
-    // babel-plugin-inferno reports: Please provide an explicit key value.
     #[test]
     fn should_point_the_valueless_key_error_at_the_key() {
         assert_transform_error(
@@ -201,20 +197,19 @@ mod keyed_children {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn should_not_detect_keys_passed_through_spread() {
         assert_transform(
             r#"<div><Foo {...{key: "k"}}/><Foo {...{key: "j"}}/></div>"#,
-            r#"createVNode(1, "div", null, [
-    normalizeProps(createComponentVNode(2, Foo, {
-        key: "k"
-    })),
-    normalizeProps(createComponentVNode(2, Foo, {
-        key: "j"
-    }))
-], 4);"#,
+            r#"createVNode(1, "div", null, [normalizeProps(createComponentVNode(2, Foo, {
+  ...{
+    key: "k"
+  }
+})), normalizeProps(createComponentVNode(2, Foo, {
+  ...{
+    key: "j"
+  }
+}))], 4);"#,
         );
     }
 }
@@ -258,7 +253,6 @@ mod on_component_hooks {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops ref when a component also has onComponent hooks"]
     fn should_merge_ref_into_the_hooks_when_ref_comes_before_a_hook() {
         assert_transform(
             "<Foo ref={r} onComponentDidMount={m} />",
@@ -270,7 +264,6 @@ mod on_component_hooks {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops ref when a component also has onComponent hooks"]
     fn should_merge_ref_into_the_hooks_when_ref_comes_after_the_hooks() {
         assert_transform(
             "<Foo onComponentDidMount={m} ref={r} />",
@@ -290,7 +283,6 @@ mod on_component_hooks {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops ref when a component also has onComponent hooks"]
     fn should_merge_ref_with_several_hooks_key_and_children() {
         assert_transform(
             "<Foo key={i} ref={r} onComponentDidAppear={a} onComponentDidMount={b}>{i}</Foo>",
@@ -321,12 +313,11 @@ mod on_component_hooks {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno passes true as ref.
     #[test]
-    fn should_reject_a_valueless_ref() {
-        assert_transform_error(
+    fn should_pass_true_as_ref_for_a_valueless_ref() {
+        assert_transform(
             "<div ref />",
-            "The value of property 'ref' should not be empty",
+            r#"createVNode(1, "div", null, null, 1, null, null, true);"#,
         );
     }
 }

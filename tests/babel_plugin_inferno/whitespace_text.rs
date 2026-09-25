@@ -106,7 +106,6 @@ mod single_line_text {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not convert tabs in JSX text to spaces"]
     fn should_convert_tabs_inside_single_line_text_to_spaces() {
         assert_transform(
             "<div>\ta\tb\t</div>",

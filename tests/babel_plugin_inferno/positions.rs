@@ -146,7 +146,6 @@ mod jsx_created_by_other_plugins {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno panics when it adds a pure annotation to a call without a span"]
     fn should_compile_jsx_nodes_built_without_source_locations() {
         let compiled = compile_with(
             Setup::default(),

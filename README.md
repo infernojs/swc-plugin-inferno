@@ -12,6 +12,9 @@
 This plugin transforms JSX and TSX code in your projects to [Inferno](https://github.com/trueadm/inferno) compatible virtual DOM.
 It is recommended to use this plugin for compiling JSX for inferno. It is different to other JSX plugins, because it outputs highly optimized inferno specific `createVNode` calls. This plugin also checks children shape during compilation stage to reduce overhead from runtime application.
 
+The plugin generates the same code as [babel-plugin-inferno](https://github.com/infernojs/babel-plugin-inferno), and its
+test suite is ported to this repository (`tests/babel_plugin_inferno`).
+
 ## How to install
 
 ```bash
@@ -127,6 +130,16 @@ import {render} from 'inferno'; // only import 'render'
 
 // The plugin will automatically import 'createVNode'
 render(<div>1</div>, document.getElementById('root'));
+```
+
+A helper that the file already declares at the top level, for example with `import { createVNode } from 'inferno'`, is
+used instead of importing it again. In scripts (files without `import` or `export`) the helpers are read from
+`require('inferno')`.
+
+Set `importSource` to import the helpers from another module, like the `imports` option of babel-plugin-inferno:
+
+```json
+["swc-plugin-inferno", { "importSource": "inferno-compat" }]
 ```
 
 ### Troubleshoot

@@ -1,4 +1,4 @@
-import { createVNode, normalizeProps, createFragment } from "inferno";
+import { createVNode, createFragment, normalizeProps } from "inferno";
 var x = /*#__PURE__*/ createFragment([
     /*#__PURE__*/ createVNode(1, "div", null, [
         /*#__PURE__*/ createVNode(1, "div", null, null, 1, null, "1"),

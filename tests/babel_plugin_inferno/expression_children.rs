@@ -205,7 +205,6 @@ mod spread_children {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_children_of_an_element() {
         assert_transform(
             "<div>{...children}</div>",
@@ -224,13 +223,11 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_children_of_a_fragment() {
         assert_transform("<>{...children}</>", "createFragment([...children], 0);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_children_of_a_keyed_fragment() {
         assert_transform(
             r#"<Fragment key="k">{...a}</Fragment>"#,
@@ -239,7 +236,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_several_children_in_order_oxc_spread_children_multiple_automatic() {
         assert_transform(
             "<div>{...[1, 2]}{...[3, 4]}</div>",
@@ -248,7 +244,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_children_around_a_static_element_oxc_spread_children_mixed_automatic() {
         assert_transform(
             "<div>{...a}<span/>{...b}</div>",
@@ -257,7 +252,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_a_jsx_element_child_babel_constant_elements() {
         assert_transform(
             "<div>{...<span/>}</div>",
@@ -266,7 +260,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_spread_children_next_to_text() {
         assert_transform(
             "<div>text{...a}</div>",
@@ -275,7 +268,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno wraps text in createTextVNode inside component children"]
     fn should_spread_component_children_next_to_text() {
         assert_transform(
             "<Foo>text{...a}</Foo>",
@@ -286,7 +278,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_normalize_spread_children_next_to_a_keyed_child() {
         assert_transform(
             r#"<div><span key="k"/>{...a}</div>"#,
@@ -295,7 +286,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_use_the_child_flag_given_for_spread_children() {
         assert_transform(
             "<div $HasNonKeyedChildren>{...a}</div>",
@@ -304,7 +294,6 @@ mod spread_children {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not compile spread children as unknown children"]
     fn should_compile_spread_children_for_es5_targets() {
         assert_js_eq(
             &transform_with("{}", "<div>{...a}</div>"),
@@ -319,7 +308,6 @@ mod children_prop {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_normalize_a_string_children_prop() {
         assert_transform(
             r#"<div children={"txt"} />"#,
@@ -328,7 +316,6 @@ mod children_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_normalize_an_array_children_prop() {
         assert_transform(
             "<div children={[a, b]} />",
@@ -337,7 +324,6 @@ mod children_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_normalize_an_unknown_children_prop_expression() {
         assert_transform(
             "<div children={a} />",
@@ -346,7 +332,6 @@ mod children_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_use_a_jsx_element_children_prop_given_without_braces() {
         assert_transform(
             "<div children=<span/> />",
@@ -355,7 +340,6 @@ mod children_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_use_a_jsx_fragment_children_prop_given_without_braces() {
         assert_transform(
             "<div children=<>{a}</> />",
@@ -364,7 +348,6 @@ mod children_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_trust_has_vnode_children_for_a_children_prop_expression() {
         assert_transform(
             "<div $HasVNodeChildren children={a} />",
@@ -373,13 +356,11 @@ mod children_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_normalize_a_fragment_children_prop_like_fragment_children() {
         assert_transform("<Fragment children={a} />", "createFragment(a, 0);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_normalize_a_jsx_fragment_children_prop() {
         assert_transform(
             "<Fragment children={<span/>} />",
@@ -392,36 +373,32 @@ mod children_prop {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno passes null children with unknown childFlags; both render nothing.
     #[test]
-    fn should_drop_a_comment_child() {
-        assert_transform("<div>{/* comment */}</div>", r#"createVNode(1, "div");"#);
-    }
-
-    // babel-plugin-inferno passes null children with unknown childFlags; both render nothing.
-    #[test]
-    fn should_drop_an_empty_expression_child() {
-        assert_transform("<div>{}</div>", r#"createVNode(1, "div");"#);
-    }
-
-    // babel-plugin-inferno wraps the text in createTextVNode and marks it as unknown children.
-    #[test]
-    fn should_compile_text_next_to_a_comment_as_text_children() {
+    fn should_mark_an_element_with_only_a_comment_child_as_unknown_children() {
         assert_transform(
-            "<div>{/* c */}text</div>",
-            r#"createVNode(1, "div", null, "text", 16);"#,
+            "<div>{/* comment */}</div>",
+            r#"createVNode(1, "div", null, null, 0);"#,
         );
     }
 
-    // babel-plugin-inferno marks the children as unknown, which Inferno normalizes at runtime.
     #[test]
-    fn should_mark_static_siblings_around_a_comment_as_non_keyed_children() {
+    fn should_mark_an_element_with_an_empty_expression_as_unknown_children() {
+        assert_transform("<div>{}</div>", r#"createVNode(1, "div", null, null, 0);"#);
+    }
+
+    #[test]
+    fn should_wrap_text_next_to_a_comment_in_create_text_vnode_with_unknown_children() {
+        assert_transform(
+            "<div>{/* c */}text</div>",
+            r#"createVNode(1, "div", null, createTextVNode("text"), 0);"#,
+        );
+    }
+
+    #[test]
+    fn should_mark_static_siblings_around_a_comment_as_unknown_children() {
         assert_transform(
             "<div><span/>{/* c */}<span/></div>",
-            r#"createVNode(1, "div", null, [
-    createVNode(1, "span"),
-    createVNode(1, "span")
-], 4);"#,
+            r#"createVNode(1, "div", null, [createVNode(1, "span"), createVNode(1, "span")], 0);"#,
         );
     }
 }

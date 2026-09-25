@@ -168,15 +168,6 @@ const ATTRIBUTE_TRANSFORMS: &[(&str, &str)] = &[
     ("htmlFor", "for"),
 ];
 
-/// Entries of the tables above that swc-plugin-inferno does not map
-const NOT_MAPPED: &[&str] = &[
-    "fontWidth",
-    "maskType",
-    "textOverflow",
-    "whiteSpace",
-    "textAnchor",
-];
-
 fn element_props(flags: u32, tag: &str, name: &str) -> String {
     format!("createVNode({flags}, \"{tag}\", null, null, 1, {{\n  \"{name}\": \"v\"\n}});")
 }
@@ -185,18 +176,13 @@ fn component_props(name: &str) -> String {
     format!("createComponentVNode(2, Foo, {{\n  \"{name}\": \"v\"\n}});")
 }
 
-fn assert_mapped_on_elements(flags: u32, tag: &str, table: &[(&str, &str)], mapped: bool) {
-    assert_all(
-        table
-            .iter()
-            .filter(|(name, _)| NOT_MAPPED.contains(name) != mapped),
-        |(name, to)| {
-            assert_transform(
-                &format!("<{tag} {name}=\"v\" />"),
-                &element_props(flags, tag, to),
-            )
-        },
-    );
+fn assert_mapped_on_elements(flags: u32, tag: &str, table: &[(&str, &str)]) {
+    assert_all(table, |(name, to)| {
+        assert_transform(
+            &format!("<{tag} {name}=\"v\" />"),
+            &element_props(flags, tag, to),
+        )
+    });
 }
 
 fn assert_kept_on_components<'a>(names: impl IntoIterator<Item = &'a str>) {
@@ -231,13 +217,7 @@ mod attrs_svg {
 
     #[test]
     fn should_map_on_elements() {
-        assert_mapped_on_elements(32, "rect", SVG_ATTRIBUTES, true);
-    }
-
-    #[test]
-    #[ignore = "swc-plugin-inferno does not map these SVG attributes"]
-    fn should_map_on_elements_not_mapped_by_swc_plugin_inferno() {
-        assert_mapped_on_elements(32, "rect", SVG_ATTRIBUTES, false);
+        assert_mapped_on_elements(32, "rect", SVG_ATTRIBUTES);
     }
 
     #[test]
@@ -252,13 +232,7 @@ mod attribute_transforms {
 
     #[test]
     fn should_map_on_elements() {
-        assert_mapped_on_elements(1, "div", ATTRIBUTE_TRANSFORMS, true);
-    }
-
-    #[test]
-    #[ignore = "swc-plugin-inferno does not map these SVG attributes"]
-    fn should_map_on_elements_not_mapped_by_swc_plugin_inferno() {
-        assert_mapped_on_elements(1, "div", ATTRIBUTE_TRANSFORMS, false);
+        assert_mapped_on_elements(1, "div", ATTRIBUTE_TRANSFORMS);
     }
 
     #[test]

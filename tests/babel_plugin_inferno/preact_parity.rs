@@ -125,16 +125,16 @@ mod spread_compat_tests {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn should_keep_a_key_after_a_spread_of_an_object_with_a_nested_spread() {
         assert_transform(
             "<ListItem {...{ isSelected, setSelected, ...item }} key={item.name} />",
             r"normalizeProps(createComponentVNode(2, ListItem, {
-    isSelected: isSelected,
-    setSelected: setSelected,
+  ...{
+    isSelected,
+    setSelected,
     ...item
+  }
 }, item.name));",
         );
     }

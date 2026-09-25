@@ -1,4 +1,5 @@
-import Inferno, { createVNode, createComponentVNode } from "inferno";
+import { createVNode, createComponentVNode } from "inferno";
+import Inferno from "inferno";
 import Inferno from "inferno";
 import { Button, Input } from "antd";
 import Child from "./component/Child";

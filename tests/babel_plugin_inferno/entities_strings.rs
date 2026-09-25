@@ -179,7 +179,6 @@ mod attribute_strings_with_line_breaks {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not normalize line breaks in attribute strings like babel"]
     fn should_compile_a_multi_line_svg_path_babel_parser_regression_7() {
         assert_transform(
             "<path d=\"M230 80\n\t\tA 45 45, 0, 1, 0, 275 125\n    L 275 80 Z\"/>",
@@ -214,7 +213,6 @@ mod attribute_strings_with_line_breaks {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not normalize line breaks in attribute strings like babel"]
     fn should_compile_a_line_break_that_is_not_followed_by_whitespace() {
         assert_transform(
             r#"<div title="a
@@ -380,7 +378,6 @@ mod attribute_strings_with_entities {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno escapes the decoded form feed twice"]
     fn should_decode_numeric_entities_oxc_attribute_escapes() {
         assert_transform(
             r#"<Foo bar="&#xC; &#x41;" />"#,
@@ -407,7 +404,6 @@ mod children_prop_strings {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_decode_entities_in_an_element_children_prop_string() {
         assert_transform(
             r#"<div children="a&amp;b" />"#,
@@ -416,7 +412,6 @@ mod children_prop_strings {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno omits childFlags for a children prop, so Inferno ignores the children"]
     fn should_keep_a_whitespace_only_element_children_prop_string() {
         assert_transform(
             r#"<div children="   " />"#,
@@ -424,12 +419,8 @@ mod children_prop_strings {
         );
     }
 
-    // babel-plugin-inferno leaves the children out; without childFlags Inferno ignores them too.
     #[test]
     fn should_create_no_children_for_an_empty_element_children_prop_string() {
-        assert_transform(
-            r#"<div children="" />"#,
-            r#"createVNode(1, "div", null, "");"#,
-        );
+        assert_transform(r#"<div children="" />"#, r#"createVNode(1, "div");"#);
     }
 }

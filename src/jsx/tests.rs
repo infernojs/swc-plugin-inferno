@@ -14,8 +14,10 @@ use swc_ecma_transforms_compat::es3::property_literals;
 use swc_ecma_transforms_testing::{FixtureTestConfig, Tester, parse_options, test, test_fixture};
 use testing::NormalizedOutput;
 
+use super::text::handle_white_space;
 use super::*;
 use crate::{inferno, pure_annotations};
+use swc_core::atoms::wtf8::Wtf8;
 
 test!(
     Syntax::Typescript(TsSyntax {
@@ -2200,49 +2202,56 @@ test!(
 <div style='white-space: pre'>Hello World</div>;"
 );
 
+/// `handleWhiteSpace` of babel-plugin-inferno
+fn jsx_text_to_str(text: &str) -> String {
+    handle_white_space(Wtf8::from_str(text))
+        .to_string_lossy()
+        .into_owned()
+}
+
 #[test]
 fn jsx_text() {
     // Basic cases
-    assert_eq!(jsx_text_to_str(" "), *" ");
-    assert_eq!(jsx_text_to_str("Hello world"), *"Hello world");
+    assert_eq!(jsx_text_to_str(" "), " ");
+    assert_eq!(jsx_text_to_str("Hello world"), "Hello world");
 
     // Single line with whitespace at edges (should keep as-is)
-    assert_eq!(jsx_text_to_str("  Hello world  "), *"  Hello world  ");
+    assert_eq!(jsx_text_to_str("  Hello world  "), "  Hello world  ");
 
     // Empty string
-    assert_eq!(jsx_text_to_str(""), *"");
+    assert_eq!(jsx_text_to_str(""), "");
 
-    // Only whitespace (single line)
-    assert_eq!(jsx_text_to_str("   "), *"   ");
-    assert_eq!(jsx_text_to_str("\t\t"), *"\t\t");
+    // Only whitespace (single line); tabs become spaces
+    assert_eq!(jsx_text_to_str("   "), "   ");
+    assert_eq!(jsx_text_to_str("\t\t"), "  ");
 
     // Multi-line cases
-    assert_eq!(jsx_text_to_str("Hello\nworld"), *"Hello world");
-    assert_eq!(jsx_text_to_str("  Hello  \n  world  "), *"  Hello world  ");
+    assert_eq!(jsx_text_to_str("Hello\nworld"), "Hello world");
+    assert_eq!(jsx_text_to_str("  Hello  \n  world  "), "  Hello world  ");
 
     // Multi-line with empty lines
-    assert_eq!(jsx_text_to_str("Hello\n\nworld"), *"Hello world");
-    assert_eq!(jsx_text_to_str("Hello\n  \n  world"), *"Hello world");
+    assert_eq!(jsx_text_to_str("Hello\n\nworld"), "Hello world");
+    assert_eq!(jsx_text_to_str("Hello\n  \n  world"), "Hello world");
 
     // Leading/trailing whitespace on multiple lines
     assert_eq!(
         jsx_text_to_str("  Hello  \n  world  \n  test  "),
-        *"  Hello world test  "
+        "  Hello world test  "
     );
 
     // Only whitespace (multi-line) should return empty
-    assert_eq!(jsx_text_to_str(" \n "), *"");
-    assert_eq!(jsx_text_to_str("\n\n\n"), *"");
-    assert_eq!(jsx_text_to_str("  \n  \n  "), *"");
+    assert_eq!(jsx_text_to_str(" \n "), "");
+    assert_eq!(jsx_text_to_str("\n\n\n"), "");
+    assert_eq!(jsx_text_to_str("  \n  \n  "), "");
 
     // Different line endings
-    assert_eq!(jsx_text_to_str("Hello\rworld"), *"Hello world");
-    assert_eq!(jsx_text_to_str("Hello\r\nworld"), *"Hello world");
+    assert_eq!(jsx_text_to_str("Hello\rworld"), "Hello world");
+    assert_eq!(jsx_text_to_str("Hello\r\nworld"), "Hello world");
 
     // Mixed whitespace types
     assert_eq!(
         jsx_text_to_str("\t Hello \t\n\t world \t"),
-        *"\t Hello world \t"
+        "  Hello world  "
     );
 }
 

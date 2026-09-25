@@ -91,10 +91,12 @@ mod re_create {
 mod other_combinations {
     use super::*;
 
-    // babel-plugin-inferno passes null children with $HasTextChildren.
     #[test]
-    fn should_drop_text_children_flag_without_children() {
-        assert_transform("<div $HasTextChildren />", r#"createVNode(1, "div");"#);
+    fn should_set_text_children_flag_without_children() {
+        assert_transform(
+            "<div $HasTextChildren />",
+            r#"createVNode(1, "div", null, null, 16);"#,
+        );
     }
 
     #[test]

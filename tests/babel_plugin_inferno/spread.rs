@@ -92,7 +92,6 @@ mod spread_position {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno flattens an object literal spread containing __proto__, which sets the prototype of the props"]
     fn should_keep_an_object_literal_spread_containing_proto() {
         assert_transform(
             r#"<Foo {...{__proto__: a}} b="1" />"#,
@@ -105,14 +104,14 @@ mod spread_position {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn should_keep_a_comment_inside_a_spread() {
         assert_transform(
             r#"<div {.../*i18n*/{ id: "hello" }} />"#,
             r#"normalizeProps(createVNode(1, "div", null, null, 1, {
+  ... /*i18n*/{
     id: "hello"
+  }
 }));"#,
         );
     }
@@ -154,7 +153,6 @@ mod spread_with_special_props {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno marks a children prop next to a spread as invalid children"]
     fn should_keep_a_children_prop_next_to_a_spread_on_an_element() {
         assert_transform(
             r#"<div {...p} children="x"/>"#,
@@ -175,7 +173,6 @@ mod spread_with_special_props {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno moves the children prop after the spread, so the spread cannot override it"]
     fn should_keep_a_component_children_prop_next_to_a_spread() {
         assert_transform(
             "<Foo children={a} {...p} />",
@@ -253,14 +250,14 @@ normalizeProps(createVNode(1, "div", null, null, 1, {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
-    fn should_flatten_an_object_literal_spread() {
+    fn should_not_flatten_an_object_literal_spread() {
         assert_transform(
             "<Foo {...{a: 1}} />",
             r"normalizeProps(createComponentVNode(2, Foo, {
+  ...{
     a: 1
+  }
 }));",
         );
     }

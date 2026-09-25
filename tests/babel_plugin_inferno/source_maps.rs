@@ -41,7 +41,6 @@ fn should_map_a_component_call_to_its_opening_tag() {
 }
 
 #[test]
-#[ignore = "swc-plugin-inferno creates createTextVNode calls without the span of the JSX text"]
 fn should_map_a_text_vnode_to_its_jsx_text() {
     assert_eq!(original_position(&compile(), "createTextVNode("), at(5, 19));
 }

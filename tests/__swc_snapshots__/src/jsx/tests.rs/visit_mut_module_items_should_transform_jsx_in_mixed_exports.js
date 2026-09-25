@@ -1,4 +1,5 @@
-import { Component, createVNode, createComponentVNode } from "inferno";
+import { createVNode, createComponentVNode } from "inferno";
+import { Component } from "inferno";
 export default class App extends Component {
     render() {
         return /*#__PURE__*/ createComponentVNode(2, Main);

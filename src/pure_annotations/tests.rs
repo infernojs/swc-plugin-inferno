@@ -135,7 +135,8 @@ test!(
   const x = <div />;
   "#,
     r#"
-import Inferno, { createVNode } from 'inferno';
+import { createVNode } from "inferno";
+import Inferno from 'inferno';
 const x = /*#__PURE__*/ createVNode(1, "div");
   "#
 );
@@ -147,7 +148,8 @@ test!(
   const x = <><div /></>;
   "#,
     r#"
-    import Inferno, { createVNode, createFragment } from 'inferno';
+    import { createVNode, createFragment } from "inferno";
+    import Inferno from 'inferno';
     const x = /*#__PURE__*/ createFragment([
         /*#__PURE__*/ createVNode(1, "div")
     ], 4);
@@ -315,7 +317,8 @@ fn pure_false_disables_annotations() {
   const x = <><span /></>;
   "#,
         r#"
-  import { forwardRef, createVNode, normalizeProps, createFragment } from 'inferno';
+  import { createVNode, createFragment, normalizeProps } from "inferno";
+  import { forwardRef } from 'inferno';
   const Comp = forwardRef((props, ref) => normalizeProps(createVNode(1, "div", null, null, 1, {
     ...props
   })));

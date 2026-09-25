@@ -2,7 +2,8 @@
 
 use crate::helpers::*;
 
-// @babel/parser reports: Adjacent JSX elements must be wrapped in an enclosing tag
+// @babel/parser and swc_ecma_parser report this differently. @babel/parser reports:
+// Adjacent JSX elements must be wrapped in an enclosing tag
 #[test]
 fn should_reject_adjacent_root_elements() {
     assert_transform_error(
@@ -11,7 +12,8 @@ fn should_reject_adjacent_root_elements() {
     );
 }
 
-// @babel/parser reports: Unexpected token `>`. Did you mean `&gt;` or `{'>'}`?
+// @babel/parser and swc_ecma_parser report this differently. @babel/parser reports:
+// Unexpected token `>`. Did you mean `&gt;` or `{'>'}`?
 #[test]
 fn should_reject_gt_in_jsx_text() {
     assert_transform_error(
@@ -20,7 +22,8 @@ fn should_reject_gt_in_jsx_text() {
     );
 }
 
-// @babel/parser reports: Unexpected token `}`. Did you mean `&rbrace;` or `{'}'}`?
+// @babel/parser and swc_ecma_parser report this differently. @babel/parser reports:
+// Unexpected token `}`. Did you mean `&rbrace;` or `{'}'}`?
 #[test]
 fn should_reject_rbrace_in_jsx_text() {
     assert_transform_error(
@@ -37,7 +40,8 @@ fn should_reject_mismatched_closing_tags() {
     );
 }
 
-// @babel/parser reports: Expected corresponding JSX closing tag for <>
+// @babel/parser and swc_ecma_parser report this differently. @babel/parser reports:
+// Expected corresponding JSX closing tag for <>
 #[test]
 fn should_reject_a_fragment_closed_by_an_element_tag() {
     assert_transform_error("<></something>", "Expected '>', got 'ident'");
@@ -48,7 +52,8 @@ fn should_reject_a_namespace_inside_a_member_expression() {
     assert_transform_error("<a.b:c />", "Unexpected token");
 }
 
-// @babel/parser rejects this: Sequence expressions cannot be directly nested inside JSX.
+// swc_ecma_parser accepts this. @babel/parser reports:
+// Sequence expressions cannot be directly nested inside JSX
 #[test]
 fn should_compile_an_unparenthesized_sequence_expression() {
     assert_transform(
@@ -65,7 +70,8 @@ fn should_reject_an_unquoted_call_as_attribute_value() {
     );
 }
 
-// @babel/parser reports: Unterminated JSX contents
+// @babel/parser and swc_ecma_parser report this differently. @babel/parser reports:
+// Unterminated JSX contents
 #[test]
 fn should_reject_unterminated_jsx_contents() {
     assert_transform_error("<foo>yes", "Expected '</', got '<eof>'");

@@ -131,8 +131,6 @@ React.render(createComponentVNode(2, HelloMessage, {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn duplicate_props_spread_variants() {
         assert_transform(
@@ -140,22 +138,27 @@ React.render(createComponentVNode(2, HelloMessage, {
 <p prop {...{prop}}></p>;
 <p {...{prop}} prop></p>;",
             r#"normalizeProps(createVNode(1, "p", null, null, 1, {
-    prop: prop,
-    prop: prop
+  ...{
+    prop,
+    prop
+  }
 }));
 normalizeProps(createVNode(1, "p", null, null, 1, {
-    prop: true,
-    prop: prop
+  "prop": true,
+  ...{
+    prop
+  }
 }));
 normalizeProps(createVNode(1, "p", null, null, 1, {
-    prop: prop,
-    prop: true
+  ...{
+    prop
+  },
+  "prop": true
 }));"#,
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn duplicate_props_repeated_attribute() {
         assert_transform_error(
             "<p prop prop></p>;",
@@ -163,8 +166,6 @@ normalizeProps(createVNode(1, "p", null, null, 1, {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn flattens_spread() {
         assert_transform(
@@ -173,24 +174,27 @@ normalizeProps(createVNode(1, "p", null, null, 1, {
 <img alt="" {...{src, title}} />;
 <blockquote {...{cite}}>{items}</blockquote>;"#,
             r#"normalizeProps(createVNode(1, "p", null, "text", 16, {
-    ...props
+  ...props
 }));
 normalizeProps(createVNode(1, "div", null, contents, 0, {
-    ...props
+  ...props
 }));
 normalizeProps(createVNode(1, "img", null, null, 1, {
-    alt: "",
-    src: src,
-    title: title
+  "alt": "",
+  ...{
+    src,
+    title
+  }
 }));
 normalizeProps(createVNode(1, "blockquote", null, items, 0, {
-    cite: cite
+  ...{
+    cite
+  }
 }));"#,
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno flattens an object literal spread containing __proto__, which sets the prototype of the props"]
     fn handle_spread_with_proto() {
         assert_transform(
             r#"<p {...{__proto__: null}}>text</p>;
@@ -270,7 +274,6 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno wraps text in createTextVNode inside component children"]
     fn weird_symbols() {
         assert_transform(
             r"class MobileHomeActivityTaskPriorityIcon extends React.PureComponent {
@@ -289,7 +292,6 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno wraps text in createTextVNode inside component children"]
     fn dont_coerce_expression_containers() {
         assert_transform(
             r#"<Text>
@@ -415,19 +417,19 @@ var x = createComponentVNode(2, Composite, {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn comments() {
         assert_transform(
             r#"<div {.../*i18n*/{ id: "hello" }} />;
 <Trans /*test1 */a="1"/**test2 */b="2"/**test3 */ />;"#,
             r#"normalizeProps(createVNode(1, "div", null, null, 1, {
+  ... /*i18n*/{
     id: "hello"
+  }
 }));
 createComponentVNode(2, Trans, {
-    a: "1",
-    b: "2"
+  "a": "1",
+  "b": "2"
 });"#,
         );
     }
@@ -448,7 +450,6 @@ mod babel_parser_jsx_fixtures {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles tags that do not start with an uppercase letter as elements"]
     fn basic_6() {
         assert_transform("<日本語></日本語>", "createComponentVNode(2, 日本語);");
     }
@@ -544,17 +545,11 @@ createVNode(1, "div");"#,
         );
     }
 
-    // babel-plugin-inferno wraps the string in createTextVNode; Inferno normalizes the unknown
-    // children to the same vNodes.
     #[test]
     fn fragment_6() {
         assert_transform(
             r#"<><div>JSXElement</div>JSXText{"JSXExpressionContainer"}</>"#,
-            r#"createFragment([
-    createVNode(1, "div", null, "JSXElement", 16),
-    createTextVNode("JSXText"),
-    "JSXExpressionContainer"
-], 0);"#,
+            r#"createFragment([createVNode(1, "div", null, "JSXElement", 16), createTextVNode("JSXText"), createTextVNode("JSXExpressionContainer")], 0);"#,
         );
     }
 
@@ -662,9 +657,8 @@ mod transform_react_constant_elements_fixtures {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno compiles <this /> to an element named "this".
     #[test]
-    fn arrow_functions_compiles_this_to_a_component() {
+    fn arrow_functions_compiles_this_to_an_element() {
         assert_transform(
             r"var foo = function () {
   return () => <this />;
@@ -673,12 +667,12 @@ mod current_behaviour_questionable {
 var bar = function () {
   return () => <this.foo />;
 };",
-            r"var foo = function() {
-    return ()=>createComponentVNode(2, this);
+            r#"var foo = function () {
+  return () => createVNode(1, "this");
 };
-var bar = function() {
-    return ()=>createComponentVNode(2, this.foo);
-};",
+var bar = function () {
+  return () => createComponentVNode(2, this.foo);
+};"#,
         );
     }
 }

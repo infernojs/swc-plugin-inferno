@@ -1,12 +1,86 @@
-pub fn transform_attribute(sym: &str) -> &str {
-    match sym {
-        // React attributes
-        "acceptCharset" => "accept-charset",
-        "httpEquiv" => "http-equiv",
-        "transformOrigin" => "transform-origin",
-        "htmlFor" => "for",
+//! Attribute tables of babel-plugin-inferno (`lib/attributeTransforms.js`, `lib/lowerCaseAttributes.js`
+//! and `lib/attrsSVG.js`). They only apply to elements, never to components.
 
-        // SVG attributes
+/// React attribute names that Inferno spells differently
+pub fn react_attribute(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "acceptCharset" => "accept-charset",
+        "transformOrigin" => "transform-origin",
+        "textAnchor" => "text-anchor",
+        "httpEquiv" => "http-equiv",
+        "htmlFor" => "for",
+        _ => return None,
+    })
+}
+
+/// React-style camelCase names of lowercase attributes
+pub fn is_lowercase_attribute(name: &str) -> bool {
+    matches!(
+        name,
+        "accessKey"
+            | "autoComplete"
+            | "autoCorrect"
+            | "autoPictureInPicture"
+            | "autoPlay"
+            | "autoCapitalize"
+            | "autoFocus"
+            | "autoSave"
+            | "cellPadding"
+            | "cellSpacing"
+            | "charSet"
+            | "classID"
+            | "codeBase"
+            | "colSpan"
+            | "contextMenu"
+            | "controlsList"
+            | "crossOrigin"
+            | "dateTime"
+            | "encType"
+            | "enterKeyHint"
+            | "exportParts"
+            | "fetchPriority"
+            | "formAction"
+            | "formEncType"
+            | "formMethod"
+            | "formNoValidate"
+            | "formTarget"
+            | "frameBorder"
+            | "hrefLang"
+            | "imageSizes"
+            | "imageSrcSet"
+            | "inputMode"
+            | "isMap"
+            | "itemID"
+            | "itemProp"
+            | "itemRef"
+            | "itemScope"
+            | "itemType"
+            | "keyParams"
+            | "keyType"
+            | "marginHeight"
+            | "maxLength"
+            | "mediaGroup"
+            | "minLength"
+            | "noModule"
+            | "noValidate"
+            | "popoverTarget"
+            | "popoverTargetAction"
+            | "radioGroup"
+            | "readOnly"
+            | "referrerPolicy"
+            | "rowSpan"
+            | "spellCheck"
+            | "srcDoc"
+            | "srcLang"
+            | "srcSet"
+            | "tabIndex"
+            | "useMap"
+    )
+}
+
+/// React-style camelCase names of hyphenated and namespaced SVG attributes
+pub fn svg_attribute(name: &str) -> Option<&'static str> {
+    Some(match name {
         "accentHeight" => "accent-height",
         "alignmentBaseline" => "alignment-baseline",
         "arabicForm" => "arabic-form",
@@ -31,6 +105,7 @@ pub fn transform_attribute(sym: &str) -> &str {
         "fontStyle" => "font-style",
         "fontVariant" => "font-variant",
         "fontWeight" => "font-weight",
+        "fontWidth" => "font-width",
         "glyphName" => "glyph-name",
         "glyphOrientationHorizontal" => "glyph-orientation-horizontal",
         "glyphOrientationVertical" => "glyph-orientation-vertical",
@@ -43,6 +118,7 @@ pub fn transform_attribute(sym: &str) -> &str {
         "markerMid" => "marker-mid",
         "markerStart" => "marker-start",
         "markerHeight" => "markerHeight",
+        "maskType" => "mask-type",
         "overlinePosition" => "overline-position",
         "overlineThickness" => "overline-thickness",
         "paintOrder" => "paint-order",
@@ -62,6 +138,7 @@ pub fn transform_attribute(sym: &str) -> &str {
         "strokeOpacity" => "stroke-opacity",
         "strokeWidth" => "stroke-width",
         "textDecoration" => "text-decoration",
+        "textOverflow" => "text-overflow",
         "textRendering" => "text-rendering",
         "underlinePosition" => "underline-position",
         "underlineThickness" => "underline-thickness",
@@ -76,6 +153,7 @@ pub fn transform_attribute(sym: &str) -> &str {
         "vertAdvY" => "vert-adv-y",
         "vertOriginX" => "vert-origin-x",
         "vertOriginY" => "vert-origin-y",
+        "whiteSpace" => "white-space",
         "wordSpacing" => "word-spacing",
         "writingMode" => "writing-mode",
         "xHeight" => "x-height",
@@ -90,6 +168,6 @@ pub fn transform_attribute(sym: &str) -> &str {
         "xmlnsXlink" => "xmlns:xlink",
         "xmlLang" => "xml:lang",
         "xmlSpace" => "xml:space",
-        _ => sym,
-    }
+        _ => return None,
+    })
 }

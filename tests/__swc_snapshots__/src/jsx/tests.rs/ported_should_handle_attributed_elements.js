@@ -2,7 +2,7 @@ import { createVNode, createComponentVNode, createTextVNode } from "inferno";
 var HelloMessage = Inferno.createClass({
     render: function() {
         return /*#__PURE__*/ createVNode(1, "div", null, [
-            createTextVNode("Hello "),
+            /*#__PURE__*/ createTextVNode("Hello "),
             this.props.name
         ], 0);
     }

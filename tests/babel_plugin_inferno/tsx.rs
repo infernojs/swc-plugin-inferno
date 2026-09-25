@@ -97,7 +97,7 @@ createComponentVNode(2, C);",
         );
     }
 
-    // swc inlines the enum member.
+    // @babel/preset-typescript and swc strip types differently. swc inlines the enum member.
     #[test]
     fn should_compile_jsx_next_to_an_enum() {
         assert_js_eq(
@@ -116,7 +116,7 @@ export const a = createVNode(1, "div", null, null, 1, {
         );
     }
 
-    // @babel/preset-typescript compiles the namespace differently.
+    // @babel/preset-typescript and swc strip types differently. swc compiles the namespace differently.
     #[test]
     fn should_compile_jsx_inside_a_namespace() {
         assert_js_eq(
@@ -216,7 +216,8 @@ export const a = createVNode(1, "div");"#,
         );
     }
 
-    // @babel/preset-typescript keeps the import because React is its default JSX pragma.
+    // @babel/preset-typescript and swc strip types differently. @babel/preset-typescript keeps the import because React is its default
+    // JSX pragma.
     #[test]
     fn should_drop_an_unused_react_namespace_import() {
         assert_js_eq(
@@ -230,8 +231,8 @@ export const a = createVNode(1, "div");"#,
         );
     }
 
-    // @babel/preset-typescript keeps imports of the jsxPragma. swc runs its TypeScript transform after
-    // the plugin, when no JSX is left to use the pragma.
+    // @babel/preset-typescript and swc strip types differently. @babel/preset-typescript keeps imports of the jsxPragma. swc runs its
+    // TypeScript transform after the plugin, when no JSX is left to use the pragma.
     #[test]
     fn should_drop_an_unused_jsx_pragma_import() {
         assert_js_eq(

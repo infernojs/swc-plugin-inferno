@@ -110,7 +110,6 @@ mod text_whitespace {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not convert tabs in JSX text to spaces"]
     fn should_keep_single_line_whitespace() {
         assert_transform(
             "<div> \t angry \t </div>",
@@ -119,7 +118,6 @@ mod text_whitespace {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not convert tabs in JSX text to spaces"]
     fn should_keep_whitespace_of_the_first_and_last_lines() {
         assert_transform(
             "<div> \t boris\ncod\ndante \t </div>",
@@ -136,7 +134,6 @@ mod text_whitespace {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not convert tabs in JSX text to spaces"]
     fn should_keep_whitespace_inside_a_line() {
         assert_transform(
             "<div>\n \t bark \t club \t devil \t \n</div>",
@@ -169,7 +166,6 @@ mod text_newline_entities {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not convert tabs in JSX text to spaces"]
     fn should_convert_encoded_tabs_to_spaces() {
         assert_transform(
             "<div>&#9;x&#9;</div>",
@@ -276,12 +272,11 @@ const f = function () {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno marks the children as unknown, which Inferno normalizes at runtime.
     #[test]
-    fn static_children_should_mark_a_comment_and_an_element_as_vnode_children() {
+    fn static_children_should_mark_a_comment_and_an_element_as_unknown_children() {
         assert_transform(
             "<div>{ /* comment only */ }<span/></div>",
-            r#"createVNode(1, "div", null, createVNode(1, "span"), 2);"#,
+            r#"createVNode(1, "div", null, createVNode(1, "span"), 0);"#,
         );
     }
 }

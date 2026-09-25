@@ -292,25 +292,6 @@ const LOWERCASE_ALIASES: &[(&str, &str)] = &[
     ("tabIndex", "tabindex"),
 ];
 
-/// Mixed-case attributes that swc-plugin-inferno lowercases
-const LOWERCASED_MIXED_CASE: &[&str] = &[
-    "lengthAdjust",
-    "specularConstant",
-    "specularExponent",
-    "spreadMethod",
-    "xChannelSelector",
-    "yChannelSelector",
-];
-
-/// Hyphenated attributes whose camelCase names swc-plugin-inferno does not map
-const NOT_MAPPED: &[&str] = &[
-    "font-width",
-    "mask-type",
-    "text-anchor",
-    "text-overflow",
-    "white-space",
-];
-
 fn camel_case(name: &str) -> String {
     let mut out = String::new();
     let mut chars = name.chars().peekable();
@@ -331,11 +312,11 @@ fn rect_props(name: &str) -> String {
     format!("createVNode(32, \"rect\", null, null, 1, {{\n  \"{name}\": \"v\"\n}});")
 }
 
-fn assert_camel_case_mapped(mapped: bool) {
+fn assert_camel_case_mapped() {
     assert_all(
         MDN_ATTRIBUTES
             .iter()
-            .filter(|name| name.contains(['-', ':']) && NOT_MAPPED.contains(name) != mapped),
+            .filter(|name| name.contains(['-', ':'])),
         |name| {
             assert_transform(
                 &format!("<rect {}=\"v\" />", camel_case(name)),
@@ -380,7 +361,6 @@ mod mixed_case_attributes_from_the_html_spec {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno lowercases this case-sensitive SVG attribute"]
     fn should_keep_length_adjust_in_camel_case_on_svg_text() {
         assert_transform(
             r#"<svg><text lengthAdjust="spacing" /></svg>"#,
@@ -391,7 +371,6 @@ mod mixed_case_attributes_from_the_html_spec {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno lowercases this case-sensitive SVG attribute"]
     fn should_keep_x_channel_selector_and_y_channel_selector_in_camel_case_on_fe_displacement_map()
     {
         assert_transform(
@@ -405,18 +384,7 @@ mod mixed_case_attributes_from_the_html_spec {
 
     #[test]
     fn should_keep_mixed_case_attributes_in_camel_case() {
-        assert_all(
-            MIXED_CASE_ATTRIBUTES
-                .iter()
-                .filter(|name| !LOWERCASED_MIXED_CASE.contains(name)),
-            |name| assert_transform(&format!("<rect {name}=\"v\" />"), &rect_props(name)),
-        );
-    }
-
-    #[test]
-    #[ignore = "swc-plugin-inferno lowercases these case-sensitive SVG attributes"]
-    fn should_keep_mixed_case_attributes_lowercased_by_swc_plugin_inferno_in_camel_case() {
-        assert_all(LOWERCASED_MIXED_CASE, |name| {
+        assert_all(MIXED_CASE_ATTRIBUTES, |name| {
             assert_transform(&format!("<rect {name}=\"v\" />"), &rect_props(name))
         });
     }
@@ -428,13 +396,7 @@ mod camel_case_names_of_hyphenated_and_namespaced_attributes {
 
     #[test]
     fn should_map_camel_case_names() {
-        assert_camel_case_mapped(true);
-    }
-
-    #[test]
-    #[ignore = "swc-plugin-inferno does not map these SVG attributes"]
-    fn should_map_camel_case_names_not_mapped_by_swc_plugin_inferno() {
-        assert_camel_case_mapped(false);
+        assert_camel_case_mapped();
     }
 }
 
@@ -443,7 +405,6 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not map this SVG attribute"]
     fn should_map_mask_type_to_mask_type_on_mask() {
         assert_transform(
             r#"<mask maskType="alpha" />"#,
@@ -454,7 +415,6 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not map this SVG attribute"]
     fn should_map_text_overflow_to_text_overflow_on_text() {
         assert_transform(
             r#"<text textOverflow="ellipsis" />"#,
@@ -465,7 +425,6 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not map this SVG attribute"]
     fn should_map_white_space_to_white_space_on_text() {
         assert_transform(
             r#"<text whiteSpace="nowrap" />"#,
@@ -476,7 +435,6 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not map this SVG attribute"]
     fn should_map_font_width_to_font_width_on_text() {
         assert_transform(
             r#"<text fontWidth="condensed" />"#,

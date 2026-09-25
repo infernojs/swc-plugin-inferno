@@ -1,26 +1,21 @@
-#![allow(clippy::redundant_allocation)]
+//! Turns JSX into Inferno function calls.
+//!
+//! This is a port of babel-plugin-inferno (`lib/index.js`), and generates the
+//! same calls. The comments name the babel-plugin-inferno functions that the
+//! code corresponds to.
 
-use crate::VNodeType::Component;
-use crate::transformations::lowercase_attrs::requires_lowercasing;
+use crate::inferno_flags::{ChildFlags, VNodeFlags};
+use crate::refresh::options::{RefreshOptions, deserialize_refresh};
 use crate::transformations::parse_vnode_flag::parse_vnode_flag;
-use crate::transformations::transform_attribute::transform_attribute;
-use crate::{
-    inferno_flags::{ChildFlags, VNodeFlags},
-    refresh::options::{RefreshOptions, deserialize_refresh},
-};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use swc_atoms::Wtf8Atom;
 use swc_config::merge::Merge;
-use swc_core::atoms::atom;
+use swc_core::atoms::{Atom, Wtf8Atom, atom};
 use swc_core::common::comments::Comments;
 use swc_core::common::util::take::Take;
 use swc_core::common::{DUMMY_SP, FileName, Mark, SourceMap, Span, Spanned, SyntaxContext};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::atoms::Atom;
-use swc_core::ecma::utils::{
-    ExprFactory, StmtLike, drop_span, prepend_stmt, quote_ident, swc_atoms,
-};
+use swc_core::ecma::utils::{ExprFactory, drop_span, prepend_stmt};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith, noop_visit_mut_type, visit_mut_pass};
 use swc_core::plugin::errors::HANDLER;
 use swc_ecma_parser::{Syntax, parse_file_as_expr};
@@ -28,13 +23,19 @@ use swc_ecma_parser::{Syntax, parse_file_as_expr};
 #[cfg(test)]
 mod tests;
 
-mod attr;
+mod bindings;
+mod props;
 mod text;
 mod vnode_args;
 
-use self::attr::{jsx_attr_value_to_expr, jsx_attr_value_to_expr_or_invalid};
-use self::text::jsx_text_to_str;
-use self::vnode_args::{CreateVNodeArgs, create_component_vnode_args, create_fragment_vnode_args};
+use self::bindings::{generate_uid, module_bindings, script_bindings, used_names};
+use self::props::{
+    PropChildren, PropItem, VNodeProps, emit_error, get_vnode_props, key_value, unparen,
+};
+use self::text::handle_white_space;
+use self::vnode_args::{
+    CreateVNodeArgs, Flag, create_component_vnode_args, create_fragment_vnode_args, is_empty_array,
+};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, Merge)]
 #[serde(rename_all = "camelCase")]
@@ -110,58 +111,46 @@ fn apply_mark(e: &mut Expr, mark: Mark) {
     }
 }
 
-fn named_import_exists(import_name: &Ident, import: &ImportDecl) -> bool {
-    import.specifiers.iter().any(|specifier| {
-        matches!(
-            specifier,
-            ImportSpecifier::Named(named) if import_name.sym == named.local.sym
-        )
-    })
-}
-
-fn merge_imports(
-    imports: &[Ident],
-    default_import_src: &Wtf8Atom,
-    stmts: &mut Vec<ModuleItem>,
-) -> bool {
-    for stmt in stmts {
-        if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt
-            && import.src.value == *default_import_src
-        {
-            for specifier in &import.specifiers {
-                if let ImportSpecifier::Namespace(_) = specifier {
-                    // Do not try to merge with * As FooBar import statements
-                    return false;
-                }
-            }
-
-            for import_to_add in imports {
-                let import_exists = named_import_exists(import_to_add, import);
-
-                if !import_exists {
-                    import
-                        .specifiers
-                        .push(ImportSpecifier::Named(ImportNamedSpecifier {
-                            span: DUMMY_SP,
-                            local: import_to_add.clone(),
-                            imported: None,
-                            is_type_only: false,
-                        }))
-                }
-            }
-
-            return true;
-        }
-    }
-
-    false
-}
-
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum VNodeType {
     Element = 0,
     Component = 1,
     Fragment = 2,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct JsxDirectives {
+    pub import_source: Option<Atom>,
+}
+
+/// The Inferno functions that the generated code calls, in the order they are imported
+#[derive(Clone, Copy)]
+enum Helper {
+    CreateVNode,
+    CreateFragment,
+    CreateComponentVNode,
+    NormalizeProps,
+    CreateTextVNode,
+}
+
+const HELPERS: [Helper; 5] = [
+    Helper::CreateVNode,
+    Helper::CreateFragment,
+    Helper::CreateComponentVNode,
+    Helper::NormalizeProps,
+    Helper::CreateTextVNode,
+];
+
+impl Helper {
+    fn name(self) -> Atom {
+        match self {
+            Helper::CreateVNode => atom!("createVNode"),
+            Helper::CreateFragment => atom!("createFragment"),
+            Helper::CreateComponentVNode => atom!("createComponentVNode"),
+            Helper::NormalizeProps => atom!("normalizeProps"),
+            Helper::CreateTextVNode => atom!("createTextVNode"),
+        }
+    }
 }
 
 ///
@@ -180,15 +169,10 @@ where
             .import_source
             .unwrap_or_else(default_import_source)
             .into(),
-        import_create_vnode: None,
-        import_create_component: None,
-        import_create_text_vnode: None,
-        import_create_fragment: None,
-        import_normalize_props: None,
-
         pure: options.pure.unwrap_or(true),
         comments,
-        top_level_node: true,
+        used: [false; 5],
+        bindings: [None; 5],
     })
 }
 
@@ -197,890 +181,640 @@ where
     C: Comments,
 {
     unresolved_mark: Mark,
-
     import_source: Wtf8Atom,
-
-    import_create_vnode: Option<Ident>,
-    import_create_component: Option<Ident>,
-    import_create_text_vnode: Option<Ident>,
-    import_create_fragment: Option<Ident>,
-    import_normalize_props: Option<Ident>,
-    top_level_node: bool,
-
     pure: bool,
     comments: Option<C>,
+    /// Helpers called by the generated code
+    used: [bool; 5],
+    /// Helpers the program declares itself, which are called instead of importing them
+    bindings: [Option<SyntaxContext>; 5],
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct JsxDirectives {
-    pub import_source: Option<Atom>,
+/// `getVNodeType` of babel-plugin-inferno
+struct VType {
+    kind: VNodeType,
+    tag: Option<Box<Expr>>,
+    flags: u16,
+}
+
+/// `getVNodeChildren` of babel-plugin-inferno
+struct ChildrenResult {
+    parent_can_be_keyed: bool,
+    children: Box<Expr>,
+    found_text: bool,
+    parent_can_be_non_keyed: bool,
+    requires_normalization: bool,
+    has_single_child: bool,
+}
+
+/// `isComponent` of babel-plugin-inferno: the first letter is not changed by uppercasing
+fn is_component(name: &str) -> bool {
+    let Some(first) = name.chars().next() else {
+        return false;
+    };
+    // JavaScript uppercases the first UTF-16 code unit, which leaves a lone surrogate unchanged
+    if first as u32 > 0xffff {
+        return true;
+    }
+
+    let mut upper = first.to_uppercase();
+    upper.next() == Some(first) && upper.next().is_none()
+}
+
+/// `t.isValidIdentifier(name, false)`: an identifier name, reserved words included
+fn is_valid_identifier(name: &str) -> bool {
+    let mut chars = name.chars();
+
+    chars.next().is_some_and(Ident::is_valid_start) && chars.all(Ident::is_valid_continue)
+}
+
+fn has_key_attr(el: &JSXElement) -> bool {
+    el.opening.attrs.iter().any(|attr| {
+        matches!(
+            attr,
+            JSXAttrOrSpread::JSXAttr(JSXAttr {
+                name: JSXAttrName::Ident(name),
+                ..
+            }) if name.sym == "key"
+        )
+    })
+}
+
+fn null_expr() -> Box<Expr> {
+    Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP })))
+}
+
+fn array(elems: Vec<ExprOrSpread>) -> Box<Expr> {
+    Box::new(Expr::Array(ArrayLit {
+        span: DUMMY_SP,
+        elems: elems.into_iter().map(Some).collect(),
+    }))
+}
+
+/// `mayHaveSideEffects` of babel-plugin-inferno
+fn may_have_side_effects(expr: &Expr) -> bool {
+    match expr {
+        Expr::Paren(paren) => may_have_side_effects(&paren.expr),
+        Expr::Ident(_) | Expr::Fn(_) | Expr::Arrow(_) => false,
+        Expr::Tpl(tpl) => tpl.exprs.iter().any(|expr| may_have_side_effects(expr)),
+        Expr::Lit(_) => false,
+        Expr::Array(array) => array
+            .elems
+            .iter()
+            .flatten()
+            .any(|element| element.spread.is_some() || may_have_side_effects(&element.expr)),
+        Expr::Object(object) => object.props.iter().any(|prop| match prop {
+            PropOrSpread::Prop(prop) => match &**prop {
+                Prop::Shorthand(_) => false,
+                Prop::KeyValue(KeyValueProp { key, value }) => {
+                    matches!(key, PropName::Computed(_)) || may_have_side_effects(value)
+                }
+                _ => true,
+            },
+            _ => true,
+        }),
+        Expr::Unary(unary) if unary.op != UnaryOp::Delete => may_have_side_effects(&unary.arg),
+        _ => true,
+    }
+}
+
+/// `withOverridden` of babel-plugin-inferno: a children prop replaced by JSX children is still
+/// evaluated before them, like in React's JSX transform
+fn with_overridden(overridden: Vec<Expr>, value: Option<Box<Expr>>) -> Option<Box<Expr>> {
+    let mut exprs = vec![];
+
+    for node in overridden {
+        match *unparen(Box::new(node)) {
+            Expr::Seq(seq) => exprs.extend(
+                seq.exprs
+                    .into_iter()
+                    .filter(|expr| may_have_side_effects(expr)),
+            ),
+            node if may_have_side_effects(&node) => exprs.push(Box::new(node)),
+            _ => {}
+        }
+    }
+
+    if exprs.is_empty() {
+        return value;
+    }
+    exprs.push(value.unwrap_or_else(null_expr));
+
+    Some(Box::new(Expr::Seq(SeqExpr {
+        span: DUMMY_SP,
+        exprs,
+    })))
+}
+
+/// `jsxMemberExpressionReference` of babel-plugin-inferno
+fn member_object(object: JSXObject) -> Option<Box<Expr>> {
+    match object {
+        JSXObject::Ident(ident) => {
+            // The object of a member expression tag must be a variable, which a-b in
+            // <a-b.c /> cannot be
+            if !is_valid_identifier(&ident.sym) {
+                emit_error(
+                    ident.span,
+                    &format!(
+                        "{} is not a valid variable name for a member expression tag.",
+                        ident.sym
+                    ),
+                );
+                return None;
+            }
+            if ident.sym == "this" {
+                return Some(Box::new(Expr::This(ThisExpr { span: ident.span })));
+            }
+            Some(Box::new(Expr::Ident(ident)))
+        }
+        JSXObject::JSXMemberExpr(member) => {
+            let object = member_object(member.obj)?;
+
+            Some(member_expr(member.span, object, member.prop))
+        }
+        #[cfg(swc_ast_unknown)]
+        _ => panic!("unable to access unknown nodes"),
+    }
+}
+
+fn member_expr(span: Span, object: Box<Expr>, property: IdentName) -> Box<Expr> {
+    // A property that is not an identifier, like bar-baz in <Foo.bar-baz />, needs a
+    // computed member access
+    let prop = if is_valid_identifier(&property.sym) {
+        MemberProp::Ident(property)
+    } else {
+        MemberProp::Computed(ComputedPropName {
+            span: property.span,
+            expr: Box::new(Expr::Lit(Lit::Str(Str {
+                span: property.span,
+                value: property.sym.into(),
+                raw: None,
+            }))),
+        })
+    };
+
+    Box::new(Expr::Member(MemberExpr {
+        span,
+        obj: object,
+        prop,
+    }))
+}
+
+/// `getVNodeType` of babel-plugin-inferno
+fn get_vnode_type(name: JSXElementName) -> Option<VType> {
+    match name {
+        JSXElementName::Ident(ident) => {
+            if ident.sym == "Fragment" {
+                Some(VType {
+                    kind: VNodeType::Fragment,
+                    tag: None,
+                    flags: VNodeFlags::ComponentUnknown as u16,
+                })
+            } else if is_component(&ident.sym) && is_valid_identifier(&ident.sym) {
+                // Names that are not identifiers, like Foo-bar, can only be elements
+                Some(VType {
+                    kind: VNodeType::Component,
+                    tag: Some(Box::new(Expr::Ident(ident))),
+                    flags: VNodeFlags::ComponentUnknown as u16,
+                })
+            } else {
+                Some(VType {
+                    kind: VNodeType::Element,
+                    flags: parse_vnode_flag(&ident.sym),
+                    tag: Some(Box::new(Expr::Lit(Lit::Str(Str {
+                        span: ident.span,
+                        value: ident.sym.into(),
+                        raw: None,
+                    })))),
+                })
+            }
+        }
+        JSXElementName::JSXMemberExpr(member) => {
+            if member.prop.sym == "Fragment" {
+                return Some(VType {
+                    kind: VNodeType::Fragment,
+                    tag: None,
+                    flags: VNodeFlags::ComponentUnknown as u16,
+                });
+            }
+            let object = member_object(member.obj)?;
+
+            Some(VType {
+                kind: VNodeType::Component,
+                tag: Some(member_expr(member.span, object, member.prop)),
+                flags: VNodeFlags::ComponentUnknown as u16,
+            })
+        }
+        JSXElementName::JSXNamespacedName(name) => {
+            emit_error(
+                name.span,
+                &format!(
+                    "Namespace tags like <{}:{}> are not supported.",
+                    name.ns.sym, name.name.sym
+                ),
+            );
+            None
+        }
+        #[cfg(swc_ast_unknown)]
+        _ => panic!("unable to access unknown nodes"),
+    }
 }
 
 impl<C> Jsx<C>
 where
     C: Comments,
 {
-    fn inject_runtime<T, F>(&mut self, body: &mut Vec<T>, inject: F)
-    where
-        T: StmtLike,
-        F: Fn(Vec<Ident>, Wtf8Atom, &mut Vec<T>),
-    {
-        let mut import_specifiers: Vec<Ident> = Vec::with_capacity(5);
+    fn helper(&mut self, helper: Helper) -> Ident {
+        self.used[helper as usize] = true;
 
-        if let Some(_local) = self.import_create_vnode.take() {
-            import_specifiers.push(quote_ident!("createVNode").into())
-        }
-        if let Some(_local) = self.import_create_component.take() {
-            import_specifiers.push(quote_ident!("createComponentVNode").into())
-        }
-        if let Some(_local) = self.import_create_text_vnode.take() {
-            import_specifiers.push(quote_ident!("createTextVNode").into())
-        }
-        if let Some(_local) = self.import_normalize_props.take() {
-            import_specifiers.push(quote_ident!("normalizeProps").into())
-        }
-        if let Some(_local) = self.import_create_fragment.take() {
-            import_specifiers.push(quote_ident!("createFragment").into())
-        }
-
-        if !import_specifiers.is_empty() {
-            inject(import_specifiers, self.import_source.clone(), body);
-        }
+        Ident::new(
+            helper.name(),
+            DUMMY_SP,
+            self.bindings[helper as usize].unwrap_or_default(),
+        )
     }
 
-    fn set_local_import_refs(&mut self, stmts: &mut Vec<ModuleItem>) {
-        for stmt in stmts {
-            if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = stmt
-                && import.src.value == self.import_source
-            {
-                for specifier in &import.specifiers {
-                    match specifier {
-                        ImportSpecifier::Named(named_import) => {
-                            if named_import.local.sym == "createVNode" {
-                                self.import_create_vnode
-                                    .get_or_insert(named_import.local.clone());
-                            } else if named_import.local.sym == "createComponentVNode" {
-                                self.import_create_component
-                                    .get_or_insert(named_import.local.clone());
-                            } else if named_import.local.sym == "createTextVNode" {
-                                self.import_create_text_vnode
-                                    .get_or_insert(named_import.local.clone());
-                            } else if named_import.local.sym == "createFragment" {
-                                self.import_create_fragment
-                                    .get_or_insert(named_import.local.clone());
-                            } else if named_import.local.sym == "normalizeProps" {
-                                self.import_normalize_props
-                                    .get_or_insert(named_import.local.clone());
-                            }
-                        }
-                        _ => continue,
-                    }
-                }
-
-                return;
-            }
-        }
-    }
-
-    fn jsx_frag_to_expr(&mut self, el: JSXFragment) -> Expr {
-        let span = el.span();
-
-        if self.pure
-            && let Some(comments) = &self.comments
-        {
-            comments.add_pure_comment(span.lo);
-        }
-
-        let fragment = self
-            .import_create_fragment
-            .get_or_insert_with(|| quote_ident!("createFragment").into())
-            .clone();
-
-        let mut children_requires_normalization: bool = false;
-        let mut parent_can_be_keyed: bool = false;
-        let mut children_count: u16 = 0;
-
-        let mut children = vec![];
-        for child in el.children {
-            let child_expr = Some(match child {
-                JSXElementChild::JSXText(text) => {
-                    // TODO(kdy1): Optimize
-                    let value: swc_atoms::Wtf8Atom = jsx_text_to_str(&*text.value);
-                    let s = Str {
-                        span: text.span,
-                        raw: None,
-                        value,
-                    };
-
-                    if s.value.is_empty() {
-                        continue;
-                    }
-
-                    ExprOrSpread {
-                        spread: None,
-                        expr: Box::new(Expr::Call(CallExpr {
-                            span: DUMMY_SP,
-                            callee: self
-                                .import_create_text_vnode
-                                .get_or_insert_with(|| quote_ident!("createTextVNode").into())
-                                .clone()
-                                .as_callee(),
-                            args: vec![s.as_arg()],
-                            ..Default::default()
-                        })),
-                    }
-                }
-                JSXElementChild::JSXExprContainer(JSXExprContainer {
-                    expr: JSXExpr::Expr(e),
-                    ..
-                }) => {
-                    children_requires_normalization = true;
-                    parent_can_be_keyed = false;
-                    e.as_arg()
-                }
-                JSXElementChild::JSXExprContainer(JSXExprContainer {
-                    expr: JSXExpr::JSXEmptyExpr(..),
-                    ..
-                }) => continue,
-                JSXElementChild::JSXElement(el) => {
-                    if !parent_can_be_keyed && !children_requires_normalization {
-                        // Loop direct children to check if they have key property set
-                        parent_can_be_keyed = Self::does_children_have_key_defined(&el);
-                    }
-                    self.jsx_elem_to_expr(*el).as_arg()
-                }
-                JSXElementChild::JSXFragment(el) => self.jsx_frag_to_expr(el).as_arg(),
-                JSXElementChild::JSXSpreadChild(JSXSpreadChild { span, expr, .. }) => {
-                    ExprOrSpread {
-                        spread: Some(span),
-                        expr,
-                    }
-                }
-            });
-
-            children_count += 1;
-
-            children.push(child_expr)
-        }
-
-        let child_flags;
-
-        if !children_requires_normalization {
-            if children_count >= 1 {
-                if parent_can_be_keyed {
-                    child_flags = ChildFlags::HasKeyedChildren;
-                } else {
-                    child_flags = ChildFlags::HasNonKeyedChildren;
-                }
-            } else {
-                child_flags = ChildFlags::HasInvalidChildren;
-            }
+    /// Adds a pure annotation in front of a generated call
+    fn annotate(&self, span: Span) -> Span {
+        let Some(comments) = self.comments.as_ref().filter(|_| self.pure) else {
+            return span;
+        };
+        // JSX created by other transforms may have no position to attach the comment to
+        let span = if span.lo.is_dummy() {
+            Span::dummy_with_cmt()
         } else {
-            child_flags = ChildFlags::UnknownChildren;
+            span
         };
 
+        comments.add_pure_comment(span.lo);
+        span
+    }
+
+    fn call(&mut self, span: Span, helper: Helper, args: Vec<ExprOrSpread>) -> Expr {
         Expr::Call(CallExpr {
             span,
-            callee: fragment.as_callee(),
-            args: create_fragment_vnode_args(children, false, child_flags as u16, None, None),
+            ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+            callee: self.helper(helper).as_callee(),
+            args,
             type_args: None,
-            ..Default::default()
         })
     }
 
-    fn jsx_elem_to_expr(&mut self, el: JSXElement) -> Expr {
-        let top_level_node = self.top_level_node;
-        let span = el.span();
-        self.top_level_node = false;
-        let unresolved_ctxt = SyntaxContext::empty().apply_mark(self.unresolved_mark);
+    fn text_vnode(&mut self, text: Box<Expr>) -> Box<Expr> {
+        let span = self.annotate(text.span());
 
-        if self.pure
-            && let Some(comments) = &self.comments
-        {
-            comments.add_pure_comment(span.lo);
-        }
-
-        let name_span: Span = el.opening.name.span();
-        let name_expr;
-        let mut mut_flags: u16;
-        let vnode_kind: VNodeType;
-
-        match el.opening.name {
-            JSXElementName::Ident(ident) => {
-                if ident.sym == "this" {
-                    vnode_kind = Component;
-                    mut_flags = VNodeFlags::ComponentUnknown as u16;
-                    name_expr = Expr::This(ThisExpr { span: name_span });
-                } else if is_component_vnode(&ident) {
-                    if ident.sym == "Fragment" {
-                        vnode_kind = VNodeType::Fragment;
-                        mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Expr::Ident(Ident::new(
-                            "createFragment".into(),
-                            ident.span,
-                            Default::default(),
-                        ));
-                    } else {
-                        vnode_kind = Component;
-                        mut_flags = VNodeFlags::ComponentUnknown as u16;
-                        name_expr = Expr::Ident(ident)
-                    }
-                } else {
-                    vnode_kind = VNodeType::Element;
-                    mut_flags = parse_vnode_flag(&ident.sym);
-                    name_expr = Expr::Lit(Lit::Str(Str {
-                        span: name_span,
-                        raw: None,
-                        value: ident.sym.into(),
-                    }))
-                }
-            }
-            JSXElementName::JSXNamespacedName(_) => {
-                HANDLER.with(|handler| {
-                    handler
-                        .struct_span_err(name_span, "JSX Namespace is disabled")
-                        .emit()
-                });
-
-                return Expr::Invalid(Invalid { span: DUMMY_SP });
-            }
-            JSXElementName::JSXMemberExpr(JSXMemberExpr { obj, prop, .. }) => {
-                vnode_kind = Component;
-                mut_flags = VNodeFlags::ComponentUnknown as u16;
-
-                fn convert_obj(obj: JSXObject) -> Box<Expr> {
-                    let span = obj.span();
-
-                    (match obj {
-                        JSXObject::Ident(i) => {
-                            if i.sym == "this" {
-                                Expr::This(ThisExpr { span })
-                            } else {
-                                Expr::Ident(i)
-                            }
-                        }
-                        JSXObject::JSXMemberExpr(e) => Expr::Member(MemberExpr {
-                            span,
-                            obj: convert_obj(e.obj),
-                            prop: MemberProp::Ident(e.prop),
-                        }),
-                    })
-                    .into()
-                }
-                name_expr = Expr::Member(MemberExpr {
-                    span: name_span,
-                    obj: convert_obj(obj),
-                    prop: MemberProp::Ident(prop.clone()),
-                })
-            }
-        }
-
-        let mut props_obj = ObjectLit {
-            span: DUMMY_SP,
-            props: vec![],
-        };
-
-        let mut key_prop = None;
-        let mut ref_prop = None;
-        let mut component_refs: Option<ObjectLit> = None;
-
-        let mut class_name_param: Option<Box<Expr>> = None;
-        let mut has_text_children: bool = false;
-        let mut has_keyed_children: bool = false;
-        let mut has_non_keyed_children: bool = false;
-        let mut children_known: bool = false;
-        let mut needs_normalization: bool = false;
-        let mut has_re_create_flag: bool = false;
-        let mut child_flags_override_param = None;
-        let mut flags_override_param = None;
-        let mut content_editable_props: bool = false;
-        let mut prop_children: Option<Box<Expr>> = None;
-
-        for attr in el.opening.attrs {
-            match attr {
-                JSXAttrOrSpread::JSXAttr(attr) => {
-                    //
-                    match attr.name {
-                        JSXAttrName::Ident(i) => {
-                            //
-                            if i.sym == "class" || i.sym == "className" {
-                                if vnode_kind == VNodeType::Element {
-                                    if let Some(v) = attr.value {
-                                        class_name_param =
-                                            Some(jsx_attr_value_to_expr_or_invalid(v, i.span))
-                                    }
-
-                                    continue;
-                                }
-                            } else if i.sym == "onDoubleClick" {
-                                props_obj
-                                    .props
-                                    .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(
-                                        KeyValueProp {
-                                            key: PropName::Ident(IdentName::new(
-                                                "onDblClick".into(),
-                                                span,
-                                            )),
-                                            value: match attr.value {
-                                                Some(v) => {
-                                                    jsx_attr_value_to_expr_or_invalid(v, i.span)
-                                                }
-                                                None => true.into(),
-                                            },
-                                        },
-                                    ))));
-                                continue;
-                            } else if i.sym == "key" {
-                                key_prop = attr
-                                    .value
-                                    .and_then(jsx_attr_value_to_expr)
-                                    .map(|expr| expr.as_arg());
-
-                                if key_prop.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property 'key' should not be \
-                                                     empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
-
-                                continue;
-                            } else if i.sym == "ref" {
-                                ref_prop = attr
-                                    .value
-                                    .and_then(jsx_attr_value_to_expr)
-                                    .map(|expr| expr.as_arg());
-
-                                if ref_prop.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property 'ref' should not be \
-                                                     empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
-
-                                continue;
-                            } else if i.sym == "$ChildFlag" {
-                                child_flags_override_param = attr
-                                    .value
-                                    .and_then(jsx_attr_value_to_expr)
-                                    .map(|expr| expr.as_arg());
-
-                                if child_flags_override_param.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property '$ChildFlag' should \
-                                                     not be empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
-
-                                children_known = true;
-                                continue;
-                            } else if i.sym == "$HasVNodeChildren" {
-                                children_known = true;
-                                continue;
-                            } else if i.sym == "$Flags" {
-                                flags_override_param = attr
-                                    .value
-                                    .and_then(jsx_attr_value_to_expr)
-                                    .map(|expr| expr.as_arg());
-
-                                if flags_override_param.is_none() {
-                                    HANDLER.with(|handler| {
-                                        handler
-                                            .struct_span_err(
-                                                i.span,
-                                                "The value of property '$Flags' should not be \
-                                                     empty",
-                                            )
-                                            .emit();
-                                    });
-                                }
-
-                                continue;
-                            } else if i.sym == "$HasTextChildren" {
-                                children_known = true;
-                                has_text_children = true;
-                                continue;
-                            } else if i.sym == "$HasNonKeyedChildren" {
-                                children_known = true;
-                                has_non_keyed_children = true;
-                                continue;
-                            } else if i.sym == "$HasKeyedChildren" {
-                                children_known = true;
-                                has_keyed_children = true;
-                                continue;
-                            } else if i.sym == "$ReCreate" {
-                                has_re_create_flag = true;
-                                continue;
-                            }
-
-                            if i.sym.to_ascii_lowercase() == "contenteditable" {
-                                content_editable_props = true;
-                            } else if i.sym == "children" {
-                                if !el.children.is_empty() {
-                                    // prop children is ignored if there are any nested children
-                                    continue;
-                                }
-
-                                prop_children = match attr.value {
-                                    Some(v) => Some(jsx_attr_value_to_expr_or_invalid(v, i.span)),
-                                    None => continue,
-                                };
-
-                                continue;
-                            } else if vnode_kind == Component
-                                && i.sym.as_ref().starts_with("onComponent")
-                            {
-                                if let Some(v) = attr.value {
-                                    if component_refs.is_none() {
-                                        component_refs = Some(ObjectLit {
-                                            span: DUMMY_SP,
-                                            props: vec![],
-                                        })
-                                    };
-
-                                    if let Some(some_component_refs) = component_refs.as_mut() {
-                                        let ident_span = i.span;
-                                        let key = PropName::Ident(i);
-                                        let value =
-                                            jsx_attr_value_to_expr_or_invalid(v, ident_span);
-                                        some_component_refs.props.push(PropOrSpread::Prop(
-                                            Box::new(Prop::KeyValue(KeyValueProp { key, value })),
-                                        ));
-                                    }
-                                };
-
-                                continue;
-                            }
-
-                            let value = match attr.value {
-                                Some(v) => jsx_attr_value_to_expr_or_invalid(v, i.span),
-                                None => true.into(),
-                            };
-
-                            let converted_prop_name = if vnode_kind == VNodeType::Element
-                                && requires_lowercasing(&i.sym)
-                            {
-                                PropName::Ident(IdentName {
-                                    span: i.span,
-                                    sym: i.sym.to_lowercase().into(),
-                                })
-                            } else {
-                                let converted_sym = if vnode_kind == VNodeType::Element {
-                                    transform_attribute(&i.sym)
-                                } else {
-                                    &i.sym
-                                };
-
-                                if converted_sym.contains('-') || converted_sym.contains(':') {
-                                    PropName::Str(Str {
-                                        span: i.span,
-                                        raw: None,
-                                        value: converted_sym.into(),
-                                    })
-                                } else {
-                                    PropName::Ident(IdentName {
-                                        span: i.span,
-                                        sym: converted_sym.into(),
-                                    })
-                                }
-                            };
-
-                            props_obj
-                                .props
-                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                                    key: converted_prop_name,
-                                    value,
-                                }))));
-                        }
-                        JSXAttrName::JSXNamespacedName(JSXNamespacedName { ns, name, .. }) => {
-                            let value = match attr.value {
-                                Some(v) => jsx_attr_value_to_expr_or_invalid(v, ns.span),
-                                None => true.into(),
-                            };
-
-                            let mut str_value =
-                                String::with_capacity(ns.sym.len() + 1 + name.sym.len());
-                            str_value.push_str(ns.sym.as_ref());
-                            str_value.push(':');
-                            str_value.push_str(name.sym.as_ref());
-                            let key = Str {
-                                span,
-                                raw: None,
-                                value: str_value.into(),
-                            };
-                            let key = PropName::Str(key);
-
-                            props_obj
-                                .props
-                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                                    key,
-                                    value,
-                                }))));
-                        }
-                    }
-                }
-                JSXAttrOrSpread::SpreadElement(attr) => match *attr.expr {
-                    Expr::Object(obj) => {
-                        needs_normalization = true;
-                        props_obj.props.extend(obj.props);
-                    }
-                    _ => {
-                        needs_normalization = true;
-                        props_obj.props.push(PropOrSpread::Spread(attr));
-                    }
-                },
-            }
-        }
-
-        let mut children_requires_normalization: bool = false;
-        let mut children_found_text: bool = false;
-        let mut parent_can_be_keyed: bool = false;
-        let mut children_count: u16 = 0;
-
-        let mut children = vec![];
-
-        for child in el.children {
-            let child_expr = Some(match child {
-                JSXElementChild::JSXText(text) => {
-                    // TODO(kdy1): Optimize
-                    let value = jsx_text_to_str(&*text.value);
-                    let s = Str {
-                        span: text.span,
-                        raw: None,
-                        value,
-                    };
-
-                    if s.value.is_empty() {
-                        continue;
-                    }
-
-                    if vnode_kind == VNodeType::Fragment {
-                        ExprOrSpread {
-                            spread: None,
-                            expr: Box::new(Expr::Call(CallExpr {
-                                span: DUMMY_SP,
-                                ctxt: unresolved_ctxt,
-                                callee: self
-                                    .import_create_text_vnode
-                                    .get_or_insert_with(|| quote_ident!("createTextVNode").into())
-                                    .clone()
-                                    .as_callee(),
-                                args: vec![s.as_arg()],
-                                type_args: Default::default(),
-                            })),
-                        }
-                    } else {
-                        children_found_text = true;
-                        Lit::Str(s).as_arg()
-                    }
-                }
-                JSXElementChild::JSXExprContainer(JSXExprContainer {
-                    expr: JSXExpr::Expr(e),
-                    ..
-                }) => {
-                    children_requires_normalization = true;
-                    parent_can_be_keyed = false;
-                    e.as_arg()
-                }
-                JSXElementChild::JSXExprContainer(JSXExprContainer {
-                    expr: JSXExpr::JSXEmptyExpr(..),
-                    ..
-                }) => continue,
-                JSXElementChild::JSXElement(el) => {
-                    if vnode_kind != Component
-                        && !parent_can_be_keyed
-                        && !children_known
-                        && !children_requires_normalization
-                    {
-                        // Loop direct children to check if they have key property set
-                        parent_can_be_keyed = Self::does_children_have_key_defined(&el);
-                    }
-                    self.jsx_elem_to_expr(*el).as_arg()
-                }
-                JSXElementChild::JSXFragment(el) => self.jsx_frag_to_expr(el).as_arg(),
-                JSXElementChild::JSXSpreadChild(JSXSpreadChild { span, expr, .. }) => {
-                    ExprOrSpread {
-                        spread: Some(span),
-                        expr,
-                    }
-                }
-            });
-
-            children_count += 1;
-
-            children.push(child_expr)
-        }
-
-        if children_found_text {
-            match children_count {
-                1 => has_text_children = true,
-                _ => {
-                    for child in &mut children {
-                        let Some(expr) = child.take() else {
-                            continue;
-                        };
-
-                        if let Expr::Lit(Lit::Str(text)) = &*expr.expr {
-                            let text = text.clone();
-                            *child = Some(ExprOrSpread {
-                                spread: None,
-                                expr: Box::new(Expr::Call(CallExpr {
-                                    span: DUMMY_SP,
-                                    ctxt: unresolved_ctxt,
-                                    callee: self
-                                        .import_create_text_vnode
-                                        .get_or_insert_with(|| {
-                                            quote_ident!("createTextVNode").into()
-                                        })
-                                        .clone()
-                                        .as_callee(),
-                                    args: vec![text.as_arg()],
-                                    type_args: Default::default(),
-                                })),
-                            });
-                        } else {
-                            *child = Some(expr);
-                        }
-                    }
-                }
-            }
-        }
-
-        parent_can_be_keyed =
-            children_count > 1 && parent_can_be_keyed && !children_requires_normalization;
-        let parent_can_be_non_keyed =
-            children_count > 1 && !parent_can_be_keyed && !children_requires_normalization;
-
-        let child_flags: ChildFlags;
-
-        if !children_requires_normalization || children_known {
-            if has_keyed_children || parent_can_be_keyed {
-                child_flags = ChildFlags::HasKeyedChildren;
-            } else if has_non_keyed_children || parent_can_be_non_keyed {
-                child_flags = ChildFlags::HasNonKeyedChildren;
-            } else if children_count == 1 {
-                if has_text_children {
-                    child_flags = ChildFlags::HasTextChildren;
-                } else if vnode_kind == VNodeType::Fragment {
-                    child_flags = ChildFlags::HasNonKeyedChildren;
-                } else {
-                    child_flags = ChildFlags::HasVNodeChildren;
-                }
-            } else {
-                child_flags = ChildFlags::HasInvalidChildren
-            }
-        } else if has_keyed_children {
-            child_flags = ChildFlags::HasKeyedChildren;
-        } else if has_non_keyed_children {
-            child_flags = ChildFlags::HasNonKeyedChildren;
-        } else if has_text_children {
-            child_flags = ChildFlags::HasTextChildren;
-        } else {
-            child_flags = ChildFlags::UnknownChildren;
-        }
-
-        if vnode_kind == Component {
-            match children.len() {
-                0 => {
-                    match prop_children {
-                        Some(some_prop_children) => {
-                            props_obj
-                                .props
-                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                                    key: PropName::Ident(quote_ident!("children")),
-                                    value: some_prop_children,
-                                }))));
-                        }
-                        None => {
-                            // noop
-                        }
-                    }
-                }
-                1 => {
-                    if let Some(Some(ExprOrSpread { spread: None, .. })) = children.first() {
-                        if let Some(child) = children.take().into_iter().next().flatten() {
-                            props_obj
-                                .props
-                                .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                                    key: PropName::Ident(quote_ident!("children")),
-                                    value: child.expr,
-                                }))));
-                        }
-                    } else {
-                        props_obj
-                            .props
-                            .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                                key: PropName::Ident(quote_ident!("children")),
-                                value: Box::new(Expr::Array(ArrayLit {
-                                    span: DUMMY_SP,
-                                    elems: children.take(),
-                                })),
-                            }))));
-                    }
-                }
-                _ => {
-                    props_obj
-                        .props
-                        .push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                            key: PropName::Ident(quote_ident!("children")),
-                            value: Box::new(Expr::Array(ArrayLit {
-                                span: DUMMY_SP,
-                                elems: children.take(),
-                            })),
-                        }))));
-                }
-            }
-        } else {
-            // Backwards compatibility...
-            // Set prop children as children if no nested children were set
-            if children.is_empty() {
-                match prop_children {
-                    Some(some_prop_children) => children.push(Some(ExprOrSpread {
-                        spread: None,
-                        expr: some_prop_children,
-                    })),
-                    None => {
-                        // noop
-                    }
-                }
-            }
-        }
-
-        self.top_level_node = top_level_node;
-
-        if has_re_create_flag {
-            mut_flags |= VNodeFlags::ReCreate as u16;
-        }
-        if content_editable_props {
-            mut_flags |= VNodeFlags::ContentEditable as u16;
-        }
-
-        let flags_expr = match flags_override_param {
-            None => Box::new(Expr::Lit(Lit::Num(Number {
-                span: DUMMY_SP,
-                raw: None,
-                value: mut_flags as f64,
-            })))
-            .as_arg(),
-            Some(v) => v,
-        };
-
-        let create_method = if vnode_kind == Component {
-            self.import_create_component
-                .get_or_insert_with(|| quote_ident!("createComponentVNode").into())
-                .clone()
-        } else if vnode_kind == VNodeType::Element {
-            self.import_create_vnode
-                .get_or_insert_with(|| quote_ident!("createVNode").into())
-                .clone()
-        } else {
-            self.import_create_fragment
-                .get_or_insert_with(|| quote_ident!("createFragment").into())
-                .clone()
-        };
-
-        let create_method_args = if vnode_kind == Component {
-            // Functional component cannot have basic ref so when component refs is set use it
-            // If we can ever detect Functional component from Class component compile time
-            // We could add some validations
-            if let Some(some_refs) = component_refs {
-                create_component_vnode_args(
-                    flags_expr,
-                    name_expr,
-                    props_obj,
-                    key_prop,
-                    Some(some_refs.as_arg()),
-                )
-            } else {
-                create_component_vnode_args(flags_expr, name_expr, props_obj, key_prop, ref_prop)
-            }
-        } else if vnode_kind == VNodeType::Element {
-            CreateVNodeArgs {
-                flags: flags_expr,
-                name: name_expr,
-                class_name: class_name_param,
-                children,
-                child_flags: child_flags as u16,
-                child_flags_override_param,
-                props: props_obj,
-                key: key_prop,
-                refs: ref_prop,
-            }
-            .into_args()
-        } else {
-            create_fragment_vnode_args(
-                children,
-                has_non_keyed_children
-                    || has_keyed_children
-                    || child_flags_override_param.is_some(),
-                child_flags as u16,
-                child_flags_override_param,
-                key_prop,
-            )
-        };
-
-        let create_expr = Expr::Call(CallExpr {
-            span,
-            ctxt: unresolved_ctxt,
-            callee: create_method.as_callee(),
-            args: create_method_args,
-            type_args: Default::default(),
-        });
-
-        if needs_normalization {
-            return Expr::Call(CallExpr {
-                span,
-                ctxt: unresolved_ctxt,
-                callee: self
-                    .import_normalize_props
-                    .get_or_insert_with(|| quote_ident!("normalizeProps").into())
-                    .clone()
-                    .as_callee(),
-                args: vec![create_expr.as_arg()],
-                type_args: Default::default(),
-            });
-        }
-
-        create_expr
+        Box::new(self.call(span, Helper::CreateTextVNode, vec![text.as_arg()]))
     }
 
-    fn does_children_have_key_defined(el: &JSXElement) -> bool {
-        for attr in &el.opening.attrs {
-            match attr {
-                JSXAttrOrSpread::JSXAttr(attr) => {
-                    //
-                    match &attr.name {
-                        JSXAttrName::Ident(i) => {
-                            if i.sym == "key" {
-                                return true;
-                            }
-                        }
-                        JSXAttrName::JSXNamespacedName(_) => {
-                            continue;
-                        }
+    /// `transformTextNodes` of babel-plugin-inferno: text children become text vNodes when
+    /// the children are not normalized at runtime
+    fn transform_text_nodes(&mut self, children: Expr) -> Option<Box<Expr>> {
+        self.used[Helper::CreateTextVNode as usize] = true;
+
+        match children {
+            Expr::Array(mut array) => {
+                for element in array.elems.iter_mut().flatten() {
+                    if element.spread.is_none() && matches!(*element.expr, Expr::Lit(Lit::Str(_))) {
+                        element.expr = self.text_vnode(element.expr.take());
                     }
                 }
-                JSXAttrOrSpread::SpreadElement(_attr) => {
-                    continue;
+                Some(Box::new(Expr::Array(array)))
+            }
+            text @ Expr::Lit(Lit::Str(_)) => Some(self.text_vnode(Box::new(text))),
+            _ => None,
+        }
+    }
+
+    /// `createVNode` of babel-plugin-inferno for a child of an element or a fragment
+    fn child_to_vnode(&mut self, child: JSXElementChild) -> Option<ExprOrSpread> {
+        match child {
+            JSXElementChild::JSXText(text) => {
+                let value = handle_white_space(&text.value);
+
+                if value.is_empty() {
+                    return None;
                 }
+                Some(
+                    Expr::Lit(Lit::Str(Str {
+                        span: text.span,
+                        value: value.into(),
+                        raw: None,
+                    }))
+                    .as_arg(),
+                )
+            }
+            JSXElementChild::JSXExprContainer(JSXExprContainer {
+                expr: JSXExpr::Expr(expr),
+                ..
+            }) => Some(unparen(expr).as_arg()),
+            JSXElementChild::JSXExprContainer(_) => None,
+            // {...children} spreads an iterable into the children array, like esbuild and
+            // TypeScript compile it
+            JSXElementChild::JSXSpreadChild(JSXSpreadChild { span, expr }) => Some(ExprOrSpread {
+                spread: Some(span),
+                expr: unparen(expr),
+            }),
+            JSXElementChild::JSXElement(el) => Some(self.element_to_expr(*el).as_arg()),
+            JSXElementChild::JSXFragment(frag) => Some(self.fragment_to_expr(frag).as_arg()),
+            #[cfg(swc_ast_unknown)]
+            _ => panic!("unable to access unknown nodes"),
+        }
+    }
+
+    /// `getVNodeChildren` of babel-plugin-inferno
+    fn get_vnode_children(
+        &mut self,
+        ast_children: Vec<JSXElementChild>,
+        is_children_known: bool,
+    ) -> ChildrenResult {
+        let ast_children_len = ast_children.len();
+        let mut children = vec![];
+        let mut parent_can_be_keyed = false;
+        let mut requires_normalization = false;
+        let mut found_text = false;
+        let mut has_spread_child = false;
+
+        for child in ast_children {
+            // When a key is found on one of the children, they must all be keyed
+            let is_keyed = !is_children_known
+                && !parent_can_be_keyed
+                && matches!(&child, JSXElementChild::JSXElement(el) if has_key_attr(el));
+            let is_text = matches!(child, JSXElementChild::JSXText(_));
+
+            match child {
+                JSXElementChild::JSXExprContainer(_) => requires_normalization = true,
+                JSXElementChild::JSXSpreadChild(_) => {
+                    requires_normalization = true;
+                    has_spread_child = true;
+                }
+                _ => {}
+            }
+
+            if let Some(vnode) = self.child_to_vnode(child) {
+                // createVNode drops text that collapses to nothing
+                found_text |= is_text;
+                parent_can_be_keyed |= is_keyed;
+                children.push(vnode);
             }
         }
 
-        false
+        // A spread child is only valid inside the children array
+        let has_single_child = children.len() == 1 && !has_spread_child;
+
+        ChildrenResult {
+            parent_can_be_keyed: !has_single_child && parent_can_be_keyed,
+            children: if has_single_child {
+                children.pop().unwrap().expr
+            } else {
+                array(children)
+            },
+            found_text,
+            parent_can_be_non_keyed: !has_single_child
+                && !parent_can_be_keyed
+                && !requires_normalization
+                && ast_children_len > 1,
+            requires_normalization,
+            has_single_child,
+        }
+    }
+
+    /// `createVNode` of babel-plugin-inferno for a JSX fragment
+    fn fragment_to_expr(&mut self, frag: JSXFragment) -> Expr {
+        let span = self.annotate(frag.span);
+        let result = self.get_vnode_children(frag.children, false);
+        let mut children = Some(result.children);
+        let child_flags = if !result.requires_normalization {
+            if result.has_single_child {
+                children = Some(array(vec![children.unwrap().as_arg()]));
+            }
+            if result.parent_can_be_keyed {
+                ChildFlags::HasKeyedChildren
+            } else {
+                ChildFlags::HasNonKeyedChildren
+            }
+        } else {
+            ChildFlags::UnknownChildren
+        };
+
+        if result.found_text {
+            children = children.and_then(|children| self.transform_text_nodes(*children));
+        }
+
+        self.call(
+            span,
+            Helper::CreateFragment,
+            create_fragment_vnode_args(
+                children,
+                Flag::Known(child_flags as u16),
+                // short syntax fragments cannot have a key
+                None,
+            ),
+        )
+    }
+
+    /// `createVNode` of babel-plugin-inferno for a JSX element
+    fn element_to_expr(&mut self, el: JSXElement) -> Expr {
+        let span = el.span;
+        let Some(vtype) = get_vnode_type(el.opening.name) else {
+            return Expr::Invalid(Invalid { span });
+        };
+        let kind = vtype.kind;
+        let is_component = kind == VNodeType::Component;
+        let mut vprops = get_vnode_props(el.opening.attrs, is_component);
+        let mut result =
+            self.get_vnode_children(el.children, vprops.children_known || is_component);
+        let mut children = Some(result.children.take());
+        let mut child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
+        let mut flags = vtype.flags;
+        let mut overridden = vec![];
+
+        if vprops.has_re_create_flag {
+            flags |= VNodeFlags::ReCreate as u16;
+        }
+        if vprops.content_editable {
+            flags |= VNodeFlags::ContentEditable as u16;
+        }
+
+        if is_component {
+            if let Some(children) = children.take().filter(|children| !is_empty_array(children)) {
+                // JSX children replace children props
+                let value = if vprops.prop_children.is_some() {
+                    with_overridden(vprops.remove_children_props(), Some(children)).unwrap()
+                } else {
+                    children
+                };
+
+                vprops.props.push(PropItem {
+                    prop: key_value(
+                        PropName::Ident(IdentName::new(atom!("children"), DUMMY_SP)),
+                        value,
+                    ),
+                    is_children: false,
+                });
+            }
+        } else {
+            let has_prop_children = vprops.prop_children.is_some();
+
+            if has_prop_children && children.as_deref().is_some_and(is_empty_array) {
+                match vprops.prop_children.take().unwrap() {
+                    PropChildren::Str(value) => {
+                        let text = handle_white_space(&value);
+
+                        if !text.is_empty() {
+                            if kind != VNodeType::Fragment {
+                                result.found_text = true;
+                                result.has_single_child = true;
+                            }
+                            children = Some(Box::new(Expr::Lit(Lit::Str(Str {
+                                span: DUMMY_SP,
+                                value: text.into(),
+                                raw: None,
+                            }))));
+                        } else {
+                            children = None;
+                            child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
+                        }
+                    }
+                    PropChildren::Expr => {
+                        // children={expression}, or children=<element /> without braces. It is
+                        // passed as the children argument instead of as a prop.
+                        let value = vprops.remove_children_props().pop().map(Box::new);
+                        let is_jsx = value.as_deref().is_some_and(|value| {
+                            matches!(value, Expr::JSXElement(_) | Expr::JSXFragment(_))
+                        });
+
+                        // Only JSX is known to be a single vNode; other values are normalized at
+                        // runtime like {expression} children
+                        child_flags = Flag::Known(if kind != VNodeType::Fragment
+                            && (is_jsx || vprops.children_known)
+                        {
+                            ChildFlags::HasVNodeChildren
+                        } else {
+                            ChildFlags::UnknownChildren
+                        } as u16);
+                        children = value;
+                    }
+                    PropChildren::Empty | PropChildren::Other => {
+                        children = None;
+                        child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
+                    }
+                }
+            }
+
+            if !result.requires_normalization || vprops.children_known {
+                if vprops.has_keyed_children || result.parent_can_be_keyed {
+                    child_flags = Flag::Known(ChildFlags::HasKeyedChildren as u16);
+                } else if vprops.has_non_keyed_children || result.parent_can_be_non_keyed {
+                    child_flags = Flag::Known(ChildFlags::HasNonKeyedChildren as u16);
+                } else if vprops.has_text_children || (result.found_text && result.has_single_child)
+                {
+                    result.found_text = kind == VNodeType::Fragment;
+                    child_flags = Flag::Known(if kind == VNodeType::Fragment {
+                        ChildFlags::HasNonKeyedChildren as u16
+                    } else {
+                        ChildFlags::HasTextChildren as u16
+                    });
+                } else if result.has_single_child {
+                    child_flags = Flag::Known(if kind == VNodeType::Fragment {
+                        ChildFlags::HasNonKeyedChildren as u16
+                    } else {
+                        ChildFlags::HasVNodeChildren as u16
+                    });
+                }
+            } else if vprops.has_keyed_children {
+                child_flags = Flag::Known(ChildFlags::HasKeyedChildren as u16);
+            } else if vprops.has_non_keyed_children {
+                child_flags = Flag::Known(ChildFlags::HasNonKeyedChildren as u16);
+            }
+
+            if has_prop_children {
+                // Children props are passed as the children argument; the one in use is not an
+                // overridden value
+                overridden = vprops.remove_children_props();
+            }
+        }
+
+        if result.found_text {
+            children = children.and_then(|children| self.transform_text_nodes(*children));
+        }
+
+        if let Some(expr) = vprops.child_flags.take() {
+            // If $ChildFlag is provided it is runtime dependant
+            child_flags = Flag::Expr(expr);
+        } else if !is_component && result.requires_normalization && !vprops.children_known {
+            child_flags = Flag::Known(ChildFlags::UnknownChildren as u16);
+        }
+
+        if !overridden.is_empty() {
+            children = with_overridden(overridden, children);
+        }
+
+        let span = self.annotate(span);
+        let flags = match vprops.flags_override.take() {
+            Some(expr) => Flag::Expr(expr),
+            None => Flag::Known(flags),
+        };
+        let props = VNodeProps::into_object(std::mem::take(&mut vprops.props));
+
+        let call = match kind {
+            VNodeType::Component => {
+                let args = create_component_vnode_args(
+                    flags,
+                    vtype.tag.unwrap(),
+                    props,
+                    vprops.key,
+                    vprops.reference,
+                );
+                self.call(span, Helper::CreateComponentVNode, args)
+            }
+            VNodeType::Element => {
+                let args = CreateVNodeArgs {
+                    flags,
+                    tag: vtype.tag.unwrap(),
+                    class_name: vprops.class_name,
+                    children,
+                    child_flags,
+                    props,
+                    key: vprops.key,
+                    reference: vprops.reference,
+                }
+                .into_args();
+                self.call(span, Helper::CreateVNode, args)
+            }
+            VNodeType::Fragment => {
+                if !result.requires_normalization && result.has_single_child {
+                    children = children.map(|children| array(vec![children.as_arg()]));
+                }
+                let args = create_fragment_vnode_args(children, child_flags, vprops.key);
+
+                return self.call(span, Helper::CreateFragment, args);
+            }
+        };
+
+        // normalizeProps normalizes the children too
+        if vprops.needs_normalization {
+            return self.call(span, Helper::NormalizeProps, vec![call.as_arg()]);
+        }
+
+        call
+    }
+
+    fn set_bindings(&mut self, bindings: rustc_hash::FxHashMap<Atom, SyntaxContext>) {
+        self.used = [false; 5];
+        for helper in HELPERS {
+            self.bindings[helper as usize] = bindings.get(&helper.name()).copied();
+        }
+    }
+
+    /// Helpers to import: the used ones that the program does not declare itself
+    fn helpers_to_import(&self) -> Vec<Atom> {
+        HELPERS
+            .into_iter()
+            .filter(|&helper| {
+                self.used[helper as usize] && self.bindings[helper as usize].is_none()
+            })
+            .map(Helper::name)
+            .collect()
     }
 }
 
@@ -1091,153 +825,123 @@ where
     noop_visit_mut_type!();
 
     fn visit_mut_expr(&mut self, expr: &mut Expr) {
-        let top_level_node = self.top_level_node;
-        let mut did_work = false;
-
-        if let Expr::JSXElement(el) = expr {
-            did_work = true;
-            // <div></div> => Inferno.createVNode(...);
-            *expr = self.jsx_elem_to_expr(*el.take());
-        } else if let Expr::JSXFragment(frag) = expr {
-            // <></> => Inferno.createFragment(...);
-            did_work = true;
-            *expr = self.jsx_frag_to_expr(frag.take());
-        } else if let Expr::Paren(ParenExpr {
-            expr: inner_expr, ..
-        }) = expr
-        {
-            if let Expr::JSXElement(el) = &mut **inner_expr {
-                did_work = true;
-                *expr = self.jsx_elem_to_expr(*el.take());
-            } else if let Expr::JSXFragment(frag) = &mut **inner_expr {
-                // <></> => Inferno.createFragment(...);
-                did_work = true;
-                *expr = self.jsx_frag_to_expr(frag.take());
+        let jsx = match expr {
+            Expr::Paren(ParenExpr { expr: inner, .. })
+                if matches!(**inner, Expr::JSXElement(_) | Expr::JSXFragment(_)) =>
+            {
+                &mut **inner
             }
+            _ => &mut *expr,
+        };
+
+        match jsx {
+            Expr::JSXElement(el) => *expr = self.element_to_expr(*el.take()),
+            Expr::JSXFragment(frag) => *expr = self.fragment_to_expr(frag.take()),
+            _ => {}
         }
 
-        if did_work {
-            self.top_level_node = false;
-        }
-
+        // JSX in attribute values and expression containers
         expr.visit_mut_children_with(self);
-
-        self.top_level_node = top_level_node;
     }
 
     fn visit_mut_module(&mut self, module: &mut Module) {
-        self.set_local_import_refs(&mut module.body);
+        self.set_bindings(module_bindings(module));
 
-        self.visit_mut_module_items(&mut module.body);
+        module.visit_mut_children_with(self);
 
-        self.inject_runtime(&mut module.body, |imports, default_import_src, stmts| {
-            // Merge new imports to existing import
-            if merge_imports(&imports, &default_import_src, stmts) {
-                return;
-            }
+        let helpers = self.helpers_to_import();
+        if helpers.is_empty() {
+            return;
+        }
 
-            // Existing inferno import was not found, add new
-            let specifiers: Vec<ImportSpecifier> = imports
-                .into_iter()
-                .map(|imported| {
-                    ImportSpecifier::Named(ImportNamedSpecifier {
-                        span: DUMMY_SP,
-                        local: imported,
-                        imported: None,
-                        is_type_only: false,
-                    })
-                })
-                .collect();
-
-            prepend_stmt(
-                stmts,
-                ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
-                    span: DUMMY_SP,
-                    specifiers,
-                    src: Str {
-                        span: DUMMY_SP,
-                        raw: None,
-                        value: default_import_src.clone(),
-                    }
-                    .into(),
-                    type_only: Default::default(),
-                    with: Default::default(),
-                    phase: Default::default(),
-                })),
-            )
-        });
-    }
-
-    fn visit_mut_module_items(&mut self, items: &mut Vec<ModuleItem>) {
-        items.visit_mut_children_with(self);
-    }
-
-    fn visit_mut_stmts(&mut self, stmts: &mut Vec<Stmt>) {
-        stmts.visit_mut_children_with(self);
-    }
-
-    fn visit_mut_script(&mut self, script: &mut Script) {
-        self.visit_mut_stmts(&mut script.body);
-
-        let mark = self.unresolved_mark;
-        self.inject_runtime(&mut script.body, |imports, src, stmts| {
-            prepend_stmt(stmts, add_require(imports, src, mark))
-        });
-    }
-}
-
-#[inline]
-fn is_component_vnode(i: &Ident) -> bool {
-    // If it starts with uppercase
-    i.as_ref().starts_with(|c: char| c.is_ascii_uppercase())
-}
-
-// const { createElement } = require('react')
-// const { jsx: jsx } = require('react/jsx-runtime')
-fn add_require(imports: Vec<Ident>, src: Wtf8Atom, unresolved_mark: Mark) -> Stmt {
-    VarDecl {
-        span: DUMMY_SP,
-        kind: VarDeclKind::Const,
-        declare: false,
-        decls: vec![VarDeclarator {
-            span: DUMMY_SP,
-            name: Pat::Object(ObjectPat {
+        prepend_stmt(
+            &mut module.body,
+            ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
                 span: DUMMY_SP,
-                props: imports
+                specifiers: helpers
                     .into_iter()
-                    .map(|local| {
-                        ObjectPatProp::Assign(AssignPatProp {
+                    .map(|name| {
+                        ImportSpecifier::Named(ImportNamedSpecifier {
                             span: DUMMY_SP,
-                            key: local.into(),
-                            value: None,
+                            local: Ident::new_no_ctxt(name, DUMMY_SP),
+                            imported: None,
+                            is_type_only: false,
                         })
                     })
                     .collect(),
-                optional: false,
-                type_ann: None,
-            }),
-            // require('react')
+                src: Box::new(Str {
+                    span: DUMMY_SP,
+                    value: self.import_source.clone(),
+                    raw: None,
+                }),
+                type_only: false,
+                with: None,
+                phase: Default::default(),
+            })),
+        );
+    }
+
+    fn visit_mut_script(&mut self, script: &mut Script) {
+        self.set_bindings(script_bindings(script));
+
+        script.visit_mut_children_with(self);
+
+        let helpers = self.helpers_to_import();
+        if helpers.is_empty() {
+            return;
+        }
+
+        // Scripts cannot contain import declarations, so the helpers are read from a require()
+        // call instead: var _inferno = require("inferno"), createVNode = _inferno.createVNode;
+        let module_id = Ident::new_no_ctxt(
+            generate_uid(&self.import_source.to_string_lossy(), &used_names(script)),
+            DUMMY_SP,
+        );
+        let require = Ident::new(
+            atom!("require"),
+            DUMMY_SP,
+            SyntaxContext::empty().apply_mark(self.unresolved_mark),
+        );
+        let mut decls = vec![VarDeclarator {
+            span: DUMMY_SP,
+            name: module_id.clone().into(),
             init: Some(Box::new(Expr::Call(CallExpr {
                 span: DUMMY_SP,
-                callee: Callee::Expr(Box::new(Expr::Ident(Ident {
-                    ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
-                    sym: atom!("require"),
-                    optional: false,
-                    ..Default::default()
-                }))),
-                args: vec![ExprOrSpread {
-                    spread: None,
-                    expr: Box::new(Expr::Lit(Lit::Str(Str {
+                callee: require.as_callee(),
+                args: vec![
+                    Expr::Lit(Lit::Str(Str {
                         span: DUMMY_SP,
-                        value: src,
+                        value: self.import_source.clone(),
                         raw: None,
-                    }))),
-                }],
+                    }))
+                    .as_arg(),
+                ],
                 ..Default::default()
             }))),
             definite: false,
-        }],
-        ..Default::default()
+        }];
+
+        for name in helpers {
+            decls.push(VarDeclarator {
+                span: DUMMY_SP,
+                name: Ident::new_no_ctxt(name.clone(), DUMMY_SP).into(),
+                init: Some(Box::new(Expr::Member(MemberExpr {
+                    span: DUMMY_SP,
+                    obj: Box::new(Expr::Ident(module_id.clone())),
+                    prop: MemberProp::Ident(IdentName::new(name, DUMMY_SP)),
+                }))),
+                definite: false,
+            });
+        }
+
+        prepend_stmt(
+            &mut script.body,
+            Stmt::Decl(Decl::Var(Box::new(VarDecl {
+                span: DUMMY_SP,
+                kind: VarDeclKind::Var,
+                decls,
+                ..Default::default()
+            }))),
+        );
     }
-    .into()
 }

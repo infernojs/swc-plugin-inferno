@@ -1,4 +1,5 @@
-import { Component, createVNode } from "inferno";
+import { createVNode } from "inferno";
+import { Component } from "inferno";
 class App extends Component {
     render() {
         const navbarHeader = /*#__PURE__*/ createVNode(1, "div", "navbar-header", /*#__PURE__*/ createVNode(1, "a", "navbar-brand", /*#__PURE__*/ createVNode(1, "img", null, null, 1, {

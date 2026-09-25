@@ -264,7 +264,6 @@ mod duplicate_attributes {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_key_props() {
         assert_transform_error(
             r#"<div key="a" key={b()} />"#,
@@ -273,7 +272,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_props_on_elements() {
         assert_transform_error(
             "<p prop prop />",
@@ -282,7 +280,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_props_on_components() {
         assert_transform_error(
             r#"<Foo title="a" id="x" title="b" />"#,
@@ -291,7 +288,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_on_component_hooks() {
         assert_transform_error(
             "<Foo onComponentDidMount={a} onComponentDidMount={b} />",
@@ -300,7 +296,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_special_flags() {
         assert_transform_error(
             "<div $HasKeyedChildren $HasKeyedChildren>{a}</div>",
@@ -309,17 +304,15 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_point_the_duplicate_prop_error_at_the_duplicate() {
         assert_transform_error(
             r#"<Foo title="a" id="x" title="b" />"#,
-            r#"> 1 | <Foo title="a" id="x" title="b" />
-    |                       ^^^^^^^^^"#,
+            r#" 1 | <Foo title="a" id="x" title="b" />
+   :                       ^^^^^^^^^"#,
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_html_for_together_with_for_on_elements() {
         assert_transform_error(
             r#"<label htmlFor="a" for="b" />"#,
@@ -328,7 +321,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_a_lowercased_attribute_together_with_its_camel_case_name() {
         assert_transform_error(
             r#"<div tabIndex="1" tabindex="2" />"#,
@@ -337,7 +329,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_an_svg_attribute_together_with_its_camel_case_name() {
         assert_transform_error(
             r#"<rect strokeWidth="1" stroke-width="2" />"#,
@@ -346,7 +337,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_a_namespaced_attribute_together_with_its_camel_case_name() {
         assert_transform_error(
             r##"<use xlinkHref="#a" xlink:href="#b" />"##,
@@ -355,15 +345,14 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_point_the_mapped_attribute_error_at_the_second_attribute() {
         assert_transform_error(
             r#"<label
   htmlFor="a"
   for="b"
 />"#,
-            r#"> 3 |   for="b"
-    |   ^^^^^^^"#,
+            r#" 3 |   for="b"
+   :   ^^^^^^^"#,
         );
     }
 
@@ -378,21 +367,20 @@ mod duplicate_attributes {
         );
     }
 
-    // babel-plugin-inferno keeps the object literal spread; swc-plugin-inferno flattens it into the props,
-    // which creates the same props.
     #[test]
     fn should_allow_a_prop_next_to_a_spread_containing_the_same_prop() {
         assert_transform(
             "<p {...{prop}} prop />",
             r#"normalizeProps(createVNode(1, "p", null, null, 1, {
-    prop: prop,
-    prop: true
+  ...{
+    prop
+  },
+  "prop": true
 }));"#,
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops a children prop replaced by JSX children without evaluating it"]
     fn should_evaluate_a_component_children_prop_replaced_by_jsx_children() {
         assert_transform(
             "<Foo children={f()}>2</Foo>",
@@ -403,7 +391,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops a children prop replaced by JSX children without evaluating it"]
     fn should_evaluate_an_element_children_prop_replaced_by_jsx_children() {
         assert_transform(
             "<div children={f()}>x</div>",
@@ -412,7 +399,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops a children prop replaced by JSX children without evaluating it"]
     fn should_evaluate_a_children_prop_replaced_by_several_jsx_children() {
         assert_transform(
             "<div children={f()}><a/><b/></div>",
@@ -421,7 +407,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_children_props_on_components() {
         assert_transform_error(
             "<Foo children={1} children={4}>2</Foo>",
@@ -430,7 +415,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_children_props_on_elements() {
         assert_transform_error(
             "<div children={a()} children={b()} />",
@@ -439,7 +423,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_point_the_duplicate_children_prop_error_at_the_duplicate() {
         assert_transform_error(
             r#"<div
@@ -447,13 +430,12 @@ mod duplicate_attributes {
   children={a()}
   children={b()}
 />"#,
-            r"> 4 |   children={b()}
-    |   ^^^^^^^^^^^^^^",
+            r" 4 |   children={b()}
+   :   ^^^^^^^^^^^^^^",
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_ref_props_on_elements() {
         assert_transform_error(
             "<div ref={a} ref={b} />",
@@ -462,7 +444,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_ref_props_on_components() {
         assert_transform_error(
             "<Foo ref={a} onComponentDidMount={m} ref={b} />",
@@ -471,17 +452,15 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_point_the_duplicate_ref_prop_error_at_the_duplicate() {
         assert_transform_error(
             "<div ref={a} ref={b} />",
-            r"> 1 | <div ref={a} ref={b} />
-    |              ^^^^^^^",
+            r" 1 | <div ref={a} ref={b} />
+   :              ^^^^^^^",
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_class_name_props_on_elements() {
         assert_transform_error(
             r#"<div className="a" className={b} />"#,
@@ -490,7 +469,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_class_props_on_elements() {
         assert_transform_error(
             r#"<div class="a" class={b} />"#,
@@ -499,7 +477,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_class_name_together_with_class_on_elements() {
         assert_transform_error(
             "<div className={a} class={b} />",
@@ -508,7 +485,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_class_together_with_class_name_on_elements() {
         assert_transform_error(
             r#"<div class="a" className="b" />"#,
@@ -517,20 +493,18 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_point_the_class_name_and_class_error_at_the_second_one() {
         assert_transform_error(
             r"<div
   className={a}
   class={b}
 />",
-            r"> 3 |   class={b}
-    |   ^^^^^^^^^",
+            r" 3 |   class={b}
+   :   ^^^^^^^^^",
         );
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not reject duplicate props"]
     fn should_reject_duplicate_class_name_props_on_components() {
         assert_transform_error(
             r#"<Foo className="a" className="b" />"#,
@@ -549,7 +523,6 @@ mod duplicate_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno drops a children prop replaced by JSX children without evaluating it"]
     fn should_keep_replaced_values_that_may_have_side_effects() {
         assert_transform(
             "<div children={[...a]}>c</div>",
@@ -674,7 +647,6 @@ mod mapping_tables_only_apply_to_elements {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno maps onDoubleClick on components too"]
     fn should_not_map_on_double_click_on_components() {
         assert_transform(
             "<Foo onDoubleClick={f} />",
@@ -701,7 +673,6 @@ mod mapped_attributes {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not map this SVG attribute"]
     fn should_map_text_anchor_on_svg_text() {
         assert_transform(
             r#"<svg><text textAnchor="middle" /></svg>"#,
@@ -839,7 +810,6 @@ mod proto_prop {
     // - Should give the component an own __proto__ prop (evaluates the generated code; should_emit_proto_as_a_computed_key_on_components checks the same key)
 
     #[test]
-    #[ignore = "swc-plugin-inferno emits __proto__ as a plain key, which sets the prototype of the props"]
     fn should_emit_proto_as_a_computed_key_on_components() {
         assert_transform(
             "<Foo __proto__={x} />",
@@ -850,7 +820,6 @@ mod proto_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno emits __proto__ as a plain key, which sets the prototype of the props"]
     fn should_emit_proto_as_a_computed_key_on_elements() {
         assert_transform(
             "<div __proto__={x} />",
@@ -861,7 +830,6 @@ mod proto_prop {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno emits __proto__ as a plain key, which sets the prototype of the props"]
     fn should_keep_proto_next_to_other_props_babel_proto_in_jsx_attribute() {
         assert_transform(
             r#"<p __proto__={null} class="bar" />"#,
@@ -933,10 +901,9 @@ mod object_prototype_names_as_attributes {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno passes true as className.
     #[test]
-    fn should_drop_a_valueless_class_name() {
-        assert_transform("<div className />", r#"createVNode(1, "div");"#);
+    fn should_pass_true_as_class_name_for_a_valueless_class_name() {
+        assert_transform("<div className />", r#"createVNode(1, "div", true);"#);
     }
 
     #[test]

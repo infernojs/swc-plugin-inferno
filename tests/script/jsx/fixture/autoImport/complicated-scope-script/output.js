@@ -1,4 +1,4 @@
-const { createVNode } = require("inferno");
+var _inferno = require("inferno"), createVNode = _inferno.createVNode;
 const Bar = ()=>{
     const Foo = ()=>{
         const Component = ({ thing, ..._react })=>{

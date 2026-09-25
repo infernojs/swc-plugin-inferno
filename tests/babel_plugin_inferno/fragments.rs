@@ -36,7 +36,6 @@ mod keyed_fragments {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno keeps $HasKeyedChildren on a fragment without children"]
     fn should_create_an_empty_fragment_with_has_keyed_children() {
         assert_transform("<Fragment $HasKeyedChildren/>", "createFragment();");
     }
@@ -47,7 +46,6 @@ mod fragment_placement {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
     fn should_compile_an_empty_react_fragment_inside_an_element() {
         assert_transform(
             "<div><React.Fragment /></div>",
@@ -78,14 +76,11 @@ mod fragment_placement {
 mod current_behaviour_questionable {
     use super::*;
 
-    // swc-plugin-inferno drops the spread too, but keeps the normalizeProps call around the fragment.
     #[test]
     fn should_drop_a_spread_on_fragment() {
         assert_transform(
             "<Fragment {...p}>x</Fragment>",
-            r#"normalizeProps(createFragment([
-    createTextVNode("x")
-], 4));"#,
+            r#"createFragment([createTextVNode("x")], 4);"#,
         );
     }
 
@@ -98,7 +93,6 @@ mod current_behaviour_questionable {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
     fn should_drop_other_props_on_react_fragment() {
         assert_transform(
             "<React.Fragment a={1}>x</React.Fragment>",
@@ -107,7 +101,6 @@ mod current_behaviour_questionable {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not wrap the child in an array"]
     fn should_wrap_a_dynamic_child_in_an_array_when_child_flag_is_an_expression() {
         assert_transform(
             "<Fragment $ChildFlag={x}>{a}</Fragment>",

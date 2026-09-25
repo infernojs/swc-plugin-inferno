@@ -1,0 +1,6 @@
+  x Multiple prop props are not supported. Remove the duplicate prop prop.
+   ,-[input.js:1:1]
+ 1 | <p prop prop>
+   :         ^^^^
+ 2 |     text
+   `----

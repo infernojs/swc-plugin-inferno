@@ -53,31 +53,26 @@ mod identifier_tags {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles tags that do not start with an uppercase letter as elements"]
     fn should_compile_an_underscore_prefixed_tag_as_a_component() {
         assert_transform("<_foo />", "createComponentVNode(2, _foo);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles tags that do not start with an uppercase letter as elements"]
     fn should_compile_a_dollar_prefixed_tag_as_a_component() {
         assert_transform("<$foo />", "createComponentVNode(2, $foo);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles tags that do not start with an uppercase letter as elements"]
     fn should_compile_an_underscore_prefixed_uppercase_tag_as_a_component() {
         assert_transform("<_Foo />", "createComponentVNode(2, _Foo);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles tags that do not start with an uppercase letter as elements"]
     fn should_compile_proto_as_a_component() {
         assert_transform("<__proto__ />", "createComponentVNode(2, __proto__);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles tags that do not start with an uppercase letter as elements"]
     fn should_compile_an_uppercase_non_ascii_tag_as_a_component() {
         assert_transform("<Ünicode />", "createComponentVNode(2, Ünicode);");
     }
@@ -154,25 +149,30 @@ mod object_prototype_names_as_tags {
 mod namespaced_tags {
     use super::*;
 
-    // babel-plugin-inferno reports: Namespace tags like <svg:rect> are not supported.
     #[test]
     fn should_reject_namespaced_svg_tags() {
-        assert_transform_error("<svg:rect />", "JSX Namespace is disabled");
+        assert_transform_error(
+            "<svg:rect />",
+            "Namespace tags like <svg:rect> are not supported.",
+        );
     }
 
-    // babel-plugin-inferno reports: Namespace tags like <f:image> are not supported.
     #[test]
     fn should_reject_namespaced_tags_with_namespaced_attributes() {
-        assert_transform_error("<f:image n:attr />", "JSX Namespace is disabled");
+        assert_transform_error(
+            "<f:image n:attr />",
+            "Namespace tags like <f:image> are not supported.",
+        );
     }
 
-    // babel-plugin-inferno reports: Namespace tags like <Namespace:Component> are not supported.
     #[test]
     fn should_reject_namespaced_component_tags() {
-        assert_transform_error("<Namespace:Component />", "JSX Namespace is disabled");
+        assert_transform_error(
+            "<Namespace:Component />",
+            "Namespace tags like <Namespace:Component> are not supported.",
+        );
     }
 
-    // babel-plugin-inferno reports: Namespace tags like <svg:rect> are not supported.
     #[test]
     fn should_point_the_namespace_tag_error_at_the_tag_name() {
         assert_transform_error(
@@ -190,13 +190,11 @@ mod tags_that_are_not_valid_identifiers {
     use super::*;
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles hyphens in tag names to subtractions"]
     fn should_compile_an_uppercase_hyphenated_tag_as_an_element() {
         assert_transform("<Foo-bar />", r#"createVNode(1, "Foo-bar");"#);
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles hyphens in tag names to subtractions"]
     fn should_compile_a_mixed_case_hyphenated_tag_with_children_babel_parser_basic_7() {
         assert_transform(
             r#"<AbC-def test="x">bar</AbC-def>"#,
@@ -212,7 +210,6 @@ mod tags_that_are_not_valid_identifiers {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles hyphens in tag names to subtractions"]
     fn should_compile_a_hyphenated_member_expression_property_as_a_computed_access() {
         assert_transform(
             "<Foo.bar-baz />",
@@ -221,7 +218,6 @@ mod tags_that_are_not_valid_identifiers {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles hyphens in tag names to subtractions"]
     fn should_compile_a_hyphenated_property_in_a_deeper_member_expression() {
         assert_transform(
             "<Foo.bar-baz.Qux>x</Foo.bar-baz.Qux>",
@@ -232,7 +228,6 @@ mod tags_that_are_not_valid_identifiers {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles hyphens in tag names to subtractions"]
     fn should_compile_a_hyphenated_property_of_this() {
         assert_transform(
             "<this.foo-bar />",
@@ -241,13 +236,15 @@ mod tags_that_are_not_valid_identifiers {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno compiles hyphens in tag names to subtractions"]
     fn should_reject_a_hyphenated_member_expression_object() {
         assert_transform_error(
             "<a-b.c />",
-            r"a-b is not a valid variable name for a member expression tag.
-> 1 | <a-b.c />
-    |  ^^^",
+            "a-b is not a valid variable name for a member expression tag.",
+        );
+        assert_transform_error(
+            "<a-b.c />",
+            r" 1 | <a-b.c />
+   :  ^^^",
         );
     }
 }
@@ -434,10 +431,9 @@ mod tag_evaluation_order {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno compiles <this /> to an element named "this".
     #[test]
-    fn should_compile_this_as_a_component() {
-        assert_transform("() => <this />", "()=>createComponentVNode(2, this);");
+    fn should_compile_this_as_an_element_named_this() {
+        assert_transform("() => <this />", r#"() => createVNode(1, "this");"#);
     }
 
     #[test]
@@ -451,13 +447,11 @@ mod current_behaviour_questionable {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
     fn should_treat_any_member_expression_ending_in_fragment_as_a_fragment() {
         assert_transform("<x.Fragment>{a}</x.Fragment>", "createFragment(a, 0);");
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
     fn should_treat_a_deep_member_expression_ending_in_fragment_as_a_fragment() {
         assert_transform(
             "<Foo.Bar.Fragment>x</Foo.Bar.Fragment>",

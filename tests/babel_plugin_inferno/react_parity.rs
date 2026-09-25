@@ -71,7 +71,6 @@ createVNode(1, "div", null, "w < w", 16);"#,
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno only treats Fragment as a fragment, not member expressions ending in Fragment"]
     fn should_compile_a_keyed_react_fragment_without_children() {
         assert_transform(
             r#"<React.Fragment key="foo"></React.Fragment>"#,
@@ -179,7 +178,6 @@ mod jstransform_react_test {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno does not convert tabs in JSX text to spaces"]
     fn should_convert_trailing_tabs_to_spaces() {
         assert_transform(
             "<div>a  \t \t </div>",
@@ -222,7 +220,6 @@ mod compiler_fixtures {
     }
 
     #[test]
-    #[ignore = "swc-plugin-inferno wraps text in createTextVNode inside component children"]
     fn should_compile_a_lowercase_local_member_expression_as_a_component_jsx_lowercase_localvar_memberexpr()
      {
         assert_transform(
@@ -420,9 +417,9 @@ mod react_dom_and_runtime_tests {
 mod current_behaviour_questionable {
     use super::*;
 
-    // babel-plugin-inferno marks the span and the children as unknown children.
     #[test]
-    fn should_ignore_comments_between_children_transform_jsxto_react_jsx_test() {
+    fn should_keep_empty_spans_and_unknown_children_when_comments_sit_between_children_transform_jsxto_react_jsx_test()
+     {
         assert_transform(
             r"<div>
   {/* A comment at the beginning */}
@@ -435,10 +432,7 @@ mod current_behaviour_questionable {
   {/* A comment at the end */}
   {/* A second comment at the end */}
 </div>",
-            r#"createVNode(1, "div", null, [
-    createVNode(1, "span"),
-    createVNode(1, "br")
-], 4);"#,
+            r#"createVNode(1, "div", null, [createVNode(1, "span", null, null, 0), createVNode(1, "br")], 0);"#,
         );
     }
 }

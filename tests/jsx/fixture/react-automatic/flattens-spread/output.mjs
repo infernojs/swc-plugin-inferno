@@ -7,9 +7,13 @@ import { createVNode, normalizeProps } from "inferno";
 }));
 /*#__PURE__*/ normalizeProps(createVNode(1, "img", null, null, 1, {
     alt: "",
-    src,
-    title
+    ...{
+        src,
+        title
+    }
 }));
 /*#__PURE__*/ normalizeProps(createVNode(1, "blockquote", null, items, 0, {
-    cite
+    ...{
+        cite
+    }
 }));

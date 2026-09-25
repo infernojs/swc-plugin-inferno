@@ -1,4 +1,4 @@
-  x The value of property 'key' should not be empty
+  x Please provide an explicit key value. Using "key" as a shorthand for "key={true}" is not allowed.
    ,-[input.js:1:1]
  1 | const test = <div key></div>
    :                   ^^^

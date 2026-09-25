@@ -1,4 +1,5 @@
-import { Component, createTextVNode, createVNode, linkEvent, render, createComponentVNode } from 'inferno';
+import { createComponentVNode } from "inferno";
+import { Component, createTextVNode, createVNode, linkEvent, render } from 'inferno';
 const Foo = class Clock extends Component {
     public render() {
         return /*#__PURE__*/ createComponentVNode(2, Collapsible, {
