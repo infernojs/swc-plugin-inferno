@@ -5,11 +5,10 @@ pub use self::{
     pure_annotations::pure_annotations,
     refresh::{options::RefreshOptions, refresh},
 };
-use swc_core::ecma::ast::Pass;
 use swc_core::{
     common::{Mark, SourceMap, comments::Comments, sync::Lrc},
-    ecma::ast::Program,
-    plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
+    ecma::ast::{Pass, Program},
+    plugin::{errors::HANDLER, plugin_transform, proxies::TransformPluginProgramMetadata},
 };
 
 mod inferno_flags;
@@ -35,62 +34,52 @@ pub fn inferno<C>(
 where
     C: Comments + Clone,
 {
-    let Options {
-        development, pure, ..
-    } = options;
-    let development = development.unwrap_or(false);
-    let pure = pure.unwrap_or(true);
-
-    let refresh_options = options.refresh.take();
+    let development = options.development();
+    let refresh_pass = options
+        .refresh
+        .take()
+        .filter(|_| development)
+        .map(|refresh_options| {
+            refresh(
+                true,
+                Some(refresh_options),
+                cm,
+                comments.clone(),
+                top_level_mark,
+            )
+        });
+    let pure_pass = options.pure().then(|| pure_annotations(comments.clone()));
 
     (
-        refresh(
-            development,
-            refresh_options,
-            cm.clone(),
-            comments.clone(),
-            top_level_mark,
-        ),
-        jsx(comments.clone(), options, unresolved_mark),
-        pure_annotations(comments.filter(|_| pure)),
+        refresh_pass,
+        jsx(comments, options, unresolved_mark),
+        pure_pass,
     )
 }
 
 #[plugin_transform]
-fn inferno_jsx_plugin(mut program: Program, metadata: TransformPluginProgramMetadata) -> Program {
-    let top_level_mark = Mark::new();
-    let cm = Lrc::new(SourceMap::default());
-    let unresolved_mark = metadata.unresolved_mark;
-
-    let options: Options = metadata
+fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata) -> Program {
+    let options = match metadata
         .get_transform_plugin_config()
-        .map(|config| {
-            serde_json::from_str(&config)
-                .unwrap_or_else(|err| panic!("swc-plugin-inferno: invalid plugin options: {err}"))
-        })
-        .unwrap_or_default();
-    let development = options.development.unwrap_or(false);
-    let pure = options.pure.unwrap_or(true);
+        .map(|config| serde_json::from_str::<Option<Options>>(&config))
+    {
+        None => Options::default(),
+        Some(Ok(options)) => options.unwrap_or_default(),
+        Some(Err(err)) => {
+            HANDLER.with(|handler| {
+                handler.err(&format!(
+                    "swc-plugin-inferno: invalid plugin options: {err}"
+                ))
+            });
+            return program;
+        }
+    };
 
-    if development {
-        let refresh_options = options.clone().refresh;
-        let mut refresh_pass = refresh(
-            development,
-            refresh_options,
-            cm.clone(),
-            Some(&metadata.comments),
-            top_level_mark,
-        );
-        program = program.apply(&mut refresh_pass);
-    }
-
-    let mut jsx_pass = jsx(Some(&metadata.comments), options, unresolved_mark);
-    program = program.apply(&mut jsx_pass);
-
-    if pure {
-        let mut pure_pass = pure_annotations(Some(&metadata.comments));
-        program = program.apply(&mut pure_pass);
-    }
-
-    program
+    program.apply(inferno(
+        Lrc::new(SourceMap::default()),
+        metadata.comments,
+        options,
+        Mark::new(),
+        metadata.unresolved_mark,
+    ))
 }

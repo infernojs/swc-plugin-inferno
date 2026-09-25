@@ -52,8 +52,27 @@ pub struct Options {
     pub refresh: Option<RefreshOptions>,
 }
 
-/// The module the helpers are imported from when `importSource` is not set
-const DEFAULT_IMPORT_SOURCE: &str = "inferno";
+impl Options {
+    /// The module the helpers are imported from when `importSource` is not set
+    pub(crate) const DEFAULT_IMPORT_SOURCE: &str = "inferno";
+
+    /// Whether generated calls get `/*#__PURE__*/` annotations
+    pub fn pure(&self) -> bool {
+        self.pure.unwrap_or(true)
+    }
+
+    /// Whether the fast refresh pass runs (it also needs `refresh`)
+    pub fn development(&self) -> bool {
+        self.development.unwrap_or(false)
+    }
+
+    /// The module the helpers are imported from
+    pub fn import_source(&self) -> &str {
+        self.import_source
+            .as_deref()
+            .unwrap_or(Self::DEFAULT_IMPORT_SOURCE)
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum VNodeType {
@@ -101,12 +120,8 @@ where
 {
     visit_mut_pass(Jsx {
         unresolved_mark,
-        import_source: options
-            .import_source
-            .as_deref()
-            .unwrap_or(DEFAULT_IMPORT_SOURCE)
-            .into(),
-        pure: options.pure.unwrap_or(true),
+        import_source: options.import_source().into(),
+        pure: options.pure(),
         comments,
         used: [false; 5],
         bindings: [None; 5],

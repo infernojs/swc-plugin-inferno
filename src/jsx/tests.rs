@@ -17,7 +17,7 @@ use testing::NormalizedOutput;
 
 use super::text::handle_white_space;
 use super::*;
-use crate::{inferno, pure_annotations};
+use crate::inferno;
 use swc_core::atoms::wtf8::Wtf8;
 
 test!(
@@ -1437,7 +1437,6 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
             top_level_mark,
             unresolved_mark,
         ),
-        pure_annotations(Some(t.comments.clone())),
     ))
 }
 
