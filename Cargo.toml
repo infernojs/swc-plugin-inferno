@@ -8,7 +8,7 @@ license       = "MIT"
 name          = "swc-plugin-inferno"
 repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
 rust-version  = "1.88"
-version       = "2.17.0"
+version       = "3.0.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(swc_ast_unknown)'] }

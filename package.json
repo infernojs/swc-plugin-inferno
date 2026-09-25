@@ -1,6 +1,6 @@
 {
   "name": "swc-plugin-inferno",
-  "version": "2.17.0",
+  "version": "3.0.0",
   "description": "Inferno JSX plugin for SWC `@swc/core`",
   "main": "swc_plugin_inferno.wasm",
   "files": [
