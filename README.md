@@ -9,7 +9,7 @@
 
 > Plugin for SWC to enable JSX/TSX for Inferno
 
-This plugin transforms JSX and TSX code in your projects to [Inferno](https://github.com/trueadm/inferno) compatible virtual DOM.
+This plugin transforms JSX and TSX code in your projects to [Inferno](https://github.com/infernojs/inferno) compatible virtual DOM.
 It is recommended to use this plugin for compiling JSX for inferno. It is different to other JSX plugins, because it outputs highly optimized inferno specific `createVNode` calls. This plugin also checks children shape during compilation stage to reduce overhead from runtime application.
 
 The plugin generates the same code as [babel-plugin-inferno](https://github.com/infernojs/babel-plugin-inferno), and its
@@ -41,12 +41,28 @@ For rest of the settings see: https://swc.rs/docs/configuration/compilation
 }
 ```
 
-Unknown plugin options are rejected with an error.
+Unknown plugin options are rejected with an error. The options are:
+
+| Option         | Default     | Description                                                                                  |
+|----------------|-------------|----------------------------------------------------------------------------------------------|
+| `pure`         | `true`      | Add `/*#__PURE__*/` annotations, see below.                                                  |
+| `importSource` | `"inferno"` | The module the helpers are imported from, see [Options](#options).                          |
+| `development`  | `false`     | Enables fast refresh together with `refresh`. On its own it changes nothing.                 |
+| `refresh`      | off         | Fast refresh: `true`, or `{ "refreshReg": "$RefreshReg$", "refreshSig": "$RefreshSig$", "emitFullSignatures": false }`. Only applies when `development` is `true`. |
 
 With `"pure": true` the plugin adds `/*#__PURE__*/` to the calls it generates from JSX, and also to hand-written calls
-of Inferno factories such as `forwardRef`, `createRef`, `createPortal` and `createVNode`. Minifiers remove these calls
-when their result is unused, so don't call them only for their side effects. `normalizeProps` is annotated only when its
-argument is a freshly created vNode, because it mutates the vNode passed to it.
+of Inferno factories such as `forwardRef`, `createRef`, `createPortal` and `createVNode` imported from `inferno` or from
+`importSource`. Minifiers remove these calls when their result is unused, so don't call them only for their side
+effects. `normalizeProps` is annotated only when its argument is a freshly created vNode, because it mutates the vNode
+passed to it.
+
+### Fast refresh
+
+With `"development": true` and `"refresh": true` the plugin registers components for hot reloading like
+`react-refresh/babel`: components are passed to `$RefreshReg$`, and the hooks of a component to a signature created by
+`$RefreshSig$`. The functions are renamed with `refreshReg` and `refreshSig`. Your hot reloading runtime has to define
+them. Any call of a function named `use` followed by a capital letter counts as a hook, for example `useLoaderData` of
+inferno-router. A `// @refresh reset` comment in a file remounts its components on every edit.
 
 To use SWC with Webpack install `swc-loader` and add it to the Webpack configuration
 
@@ -113,10 +129,11 @@ This plugin provides few special compile time flags that can be used to optimize
 <div $HasVNodeChildren /> - Children is another vNode (Element or Component)
 <div $HasNonKeyedChildren /> - Children is always array without keys
 <div $HasKeyedChildren /> - Children is array of vNodes having unique keys
-<div $ChildFlag={expression} /> - This attribute is used for defining children shpae runtime. See inferno-vnode-flags (ChildFlags) for possibe values
+<div $ChildFlag={expression} /> - This attribute is used for defining children shape runtime. See inferno-vnode-flags (ChildFlags) for possible values
 
 // Functional flags
 <div $ReCreate /> - This flag tells inferno to always remove and add the node. It can be used to replace key={Math.random()}
+<div $Flags={expression} /> - Replaces the vNode flags the plugin computes. See inferno-vnode-flags (VNodeFlags) for possible values
 ```
 
 ## Options
