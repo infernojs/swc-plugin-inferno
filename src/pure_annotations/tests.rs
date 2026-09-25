@@ -72,7 +72,6 @@ fn run_test_with(input: &str, expected: &str, options: crate::Options) {
                 actual_sm.clone(),
                 Some(&actual_comments),
                 options,
-                top_level_mark,
                 unresolved_mark,
             ));
 

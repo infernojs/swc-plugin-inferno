@@ -13,14 +13,12 @@ fn tr(t: &mut Tester) -> Box<dyn Pass> {
     Box::new((
         resolver(unresolved_mark, top_level_mark, false),
         refresh(
-            true,
-            Some(RefreshOptions {
+            RefreshOptions {
                 emit_full_signatures: true,
                 ..Default::default()
-            }),
+            },
             t.cm.clone(),
             Some(t.comments.clone()),
-            top_level_mark,
         ),
     ))
 }
@@ -554,14 +552,12 @@ test!(
         (
             resolver(unresolved_mark, top_level_mark, false),
             refresh(
-                true,
-                Some(RefreshOptions {
+                RefreshOptions {
                     emit_full_signatures: true,
                     ..Default::default()
-                }),
+                },
                 t.cm.clone(),
                 Some(t.comments.clone()),
-                top_level_mark,
             ),
             jsx(
                 Some(t.comments.clone()),
@@ -685,15 +681,13 @@ test!(
         (
             resolver(unresolved_mark, top_level_mark, false),
             refresh(
-                true,
-                Some(RefreshOptions {
+                RefreshOptions {
                     refresh_reg: "import_meta_refreshReg".to_string(),
                     refresh_sig: "import_meta_refreshSig".to_string(),
                     emit_full_signatures: true,
-                }),
+                },
                 t.cm.clone(),
                 Some(t.comments.clone()),
-                top_level_mark,
             ),
         )
     },
@@ -783,5 +777,60 @@ test!(
         <button type="button" onClick={() => setCount(c => c + 1)}>{count}</button>
       );
     }
+"#
+);
+
+// The module scope is read from the first binding the module declares, which may come after
+// other statements.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    imported_hook_after_a_statement_is_in_scope,
+    r#"
+    'use client';
+    console.log('loaded');
+    import { useFancyState } from './hooks';
+    export function App() {
+      const bar = useFancyState();
+      return <h1>{bar}</h1>;
+    }
+"#
+);
+
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    destructured_binding_gives_the_module_scope,
+    r#"
+    export const { theme } = globalThis.config;
+    function useTheme() {
+      return theme;
+    }
+    export function App() {
+      const t = useTheme();
+      return <h1>{t}</h1>;
+    }
+"#
+);
+
+// Without module bindings a hook can only be global, which forces a reset.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    hoc_default_export_without_bindings,
+    r#"
+    export default memo(() => {
+      const value = useGlobalValue();
+      return <h1>{value}</h1>;
+    });
 "#
 );

@@ -1434,7 +1434,6 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
             t.cm.clone(),
             Some(t.comments.clone()),
             options.options,
-            top_level_mark,
             unresolved_mark,
         ),
     ))
@@ -1450,7 +1449,6 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
             t.cm.clone(),
             Some(t.comments.clone()),
             options.options,
-            top_level_mark,
             unresolved_mark,
         ),
     ))
@@ -2462,12 +2460,11 @@ fn test_script(src: &str, output: &Path, options: Options) {
         let unresolved_mark = Mark::new();
 
         let script = Program::Script(script).apply(&mut (
-            resolver(Mark::new(), top_level_mark, false),
+            resolver(unresolved_mark, top_level_mark, false),
             inferno(
                 tester.cm.clone(),
                 Some(&tester.comments),
                 options,
-                top_level_mark,
                 unresolved_mark,
             ),
             hygiene(),

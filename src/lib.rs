@@ -6,7 +6,7 @@ pub use self::{
     refresh::{options::RefreshOptions, refresh},
 };
 use swc_core::{
-    common::{Mark, SourceMap, comments::Comments, sync::Lrc},
+    common::{Mark, SourceMapper, comments::Comments, sync::Lrc},
     ecma::ast::{Pass, Program},
     plugin::{errors::HANDLER, plugin_transform, proxies::TransformPluginProgramMetadata},
 };
@@ -19,35 +19,29 @@ mod transformations;
 
 /// Runs the fast refresh pass (when enabled), the JSX transform and the pure annotation pass.
 ///
-/// `top_level_mark` and `unresolved_mark` should be the marks passed to swc's `resolver`.
+/// The program must have been processed by swc's `resolver`; `unresolved_mark` is the unresolved
+/// [Mark] passed to it. `cm` is only read by the fast refresh pass: pass the program's
+/// `SourceMap`, or the plugin metadata's source map proxy.
 ///
 /// # Note
 ///
 /// Errors are reported through `swc_core::common::errors::HANDLER`.
-pub fn inferno<C>(
-    cm: Lrc<SourceMap>,
+pub fn inferno<C, S>(
+    cm: Lrc<S>,
     comments: Option<C>,
     mut options: Options,
-    top_level_mark: Mark,
     unresolved_mark: Mark,
 ) -> impl Pass
 where
     C: Comments + Clone,
+    S: SourceMapper,
 {
     let development = options.development();
     let refresh_pass = options
         .refresh
         .take()
         .filter(|_| development)
-        .map(|refresh_options| {
-            refresh(
-                true,
-                Some(refresh_options),
-                cm,
-                comments.clone(),
-                top_level_mark,
-            )
-        });
+        .map(|refresh_options| refresh(refresh_options, cm, comments.clone()));
     let pure_pass = options.pure().then(|| pure_annotations(comments.clone()));
 
     (
@@ -76,10 +70,9 @@ fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata
     };
 
     program.apply(inferno(
-        Lrc::new(SourceMap::default()),
+        Lrc::new(metadata.source_map),
         metadata.comments,
         options,
-        Mark::new(),
         metadata.unresolved_mark,
     ))
 }

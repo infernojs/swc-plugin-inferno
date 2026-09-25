@@ -3,7 +3,7 @@ use std::{fmt::Write, mem};
 use base64::prelude::{BASE64_STANDARD, Engine};
 use sha1::{Digest, Sha1};
 use swc_core::common::util::take::Take;
-use swc_core::common::{DUMMY_SP, SourceMap, SourceMapper, Spanned, SyntaxContext};
+use swc_core::common::{DUMMY_SP, SourceMapper, Spanned, SyntaxContext};
 use swc_core::ecma::ast::*;
 use swc_core::ecma::utils::{ExprFactory, private_ident, quote_ident};
 use swc_core::ecma::visit::{
@@ -45,7 +45,7 @@ pub struct HookRegister<'a> {
     pub ident: Vec<Ident>,
     pub extra_stmt: Vec<Stmt>,
     pub current_scope: Vec<SyntaxContext>,
-    pub cm: &'a SourceMap,
+    pub cm: &'a dyn SourceMapper,
     pub should_reset: bool,
 }
 
@@ -357,7 +357,7 @@ impl<'a> VisitMut for HookRegister<'a> {
     }
 }
 
-fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &SourceMap) -> Option<HookSig> {
+fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper) -> Option<HookSig> {
     let mut hook = HookCollector {
         state: Vec::new(),
         cm,
@@ -375,7 +375,7 @@ fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &SourceMap) -> Option<HookSig> {
     }
 }
 
-fn collect_hooks_arrow(body: &mut ArrowFunctionBody, cm: &SourceMap) -> Option<HookSig> {
+fn collect_hooks_arrow(body: &mut ArrowFunctionBody, cm: &dyn SourceMapper) -> Option<HookSig> {
     match body {
         ArrowFunctionBody::FunctionBody(block) => collect_hooks(&mut block.stmts, cm),
         ArrowFunctionBody::Expr(expr) => {
@@ -408,7 +408,7 @@ fn collect_hooks_arrow(body: &mut ArrowFunctionBody, cm: &SourceMap) -> Option<H
 
 struct HookCollector<'a> {
     state: Vec<Hook>,
-    cm: &'a SourceMap,
+    cm: &'a dyn SourceMapper,
 }
 
 fn is_hook_like(s: &str) -> bool {

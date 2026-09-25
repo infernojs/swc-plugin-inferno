@@ -171,4 +171,39 @@ if (!/\/\*#__PURE__\*\/ ?forwardRef\(/.test(transformWith(null))) {
   fail("null plugin options: defaults were not applied");
 }
 
+// Fast refresh reads the host's source map and the module scope that the host's resolver set,
+// which only the wasm guest sees.
+const refreshed = transformSync(
+  `
+import { useState } from "inferno-hooks";
+import { useFancyState } from "./hooks";
+export function App() {
+  const [count, setCount] = useState(0);
+  const [value] = useFancyState();
+  return <h1>{count}{value}</h1>;
+}
+export const Card = Inferno.memo(() => <div />);
+`,
+  {
+    filename: "refresh.jsx",
+    jsc: {
+      parser: { syntax: "ecmascript", jsx: true },
+      experimental: { plugins: [[wasmPath, { development: true, refresh: { emitFullSignatures: true } }]] },
+      target: "es2022",
+    },
+  },
+).code;
+const refreshExpectations = [
+  // Hook keys include the source text of the bindings and of useState's initial value.
+  [/"useState\{\[count, setCount\]\(0\)\}\\nuseFancyState\{\[value\]\}"/, "hook signature with source text"],
+  // An imported custom hook is in scope: no forced reset, listed in the hooks array.
+  [/, false, function\(\) \{\s*return \[\s*useFancyState\s*\];/, "imported custom hook in scope"],
+  // A member expression HOC is named after its source text.
+  [/\$RefreshReg\$\(_c\d*, "Card\$Inferno\.memo"\)/, "HOC registration name"],
+];
+const refreshFailures = refreshExpectations.filter(([re]) => !re.test(refreshed)).map(([, what]) => what);
+if (refreshFailures.length > 0) {
+  fail(`fast refresh output is missing: ${refreshFailures.join(", ")}\n${refreshed}`);
+}
+
 console.error(`[e2e] OK - ${bundle.length} byte bundle, all assertions passed`);

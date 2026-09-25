@@ -1,14 +1,17 @@
 use self::{
     hook::HookRegister,
-    util::{collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt},
+    util::{
+        collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt,
+        top_level_ctxt,
+    },
 };
 use rustc_hash::FxHashSet;
 use std::borrow::Cow;
 use swc_core::ecma::visit::visit_mut_pass;
 use swc_core::{
     common::{
-        BytePos, DUMMY_SP, Mark, SourceMap, SourceMapper, Span, Spanned, SyntaxContext,
-        comments::Comments, sync::Lrc, util::take::Take,
+        BytePos, DUMMY_SP, SourceMapper, Span, Spanned, SyntaxContext, comments::Comments,
+        sync::Lrc, util::take::Take,
     },
     ecma::ast::*,
     ecma::utils::{ExprFactory, private_ident, quote_ident, quote_str},
@@ -49,35 +52,32 @@ fn get_persistent_id(ident: &Ident) -> Persist {
     }
 }
 
-/// `react-refresh/babel`
-/// https://github.com/facebook/react/blob/main/packages/react-refresh/src/ReactFreshBabelPlugin.js
-pub fn refresh<C: Comments>(
-    dev: bool,
-    options: Option<RefreshOptions>,
-    cm: Lrc<SourceMap>,
-    comments: Option<C>,
-    global_mark: Mark,
-) -> impl Pass {
+/// Fast refresh registrations, like `react-refresh/babel`
+/// (<https://github.com/facebook/react/blob/main/packages/react-refresh/src/ReactFreshBabelPlugin.js>).
+///
+/// It must run after swc's `resolver`. `cm` is used to read the source text of hook calls: pass
+/// the program's `SourceMap`, or the plugin metadata's source map proxy.
+pub fn refresh<C, S>(options: RefreshOptions, cm: Lrc<S>, comments: Option<C>) -> impl Pass
+where
+    C: Comments,
+    S: SourceMapper,
+{
     visit_mut_pass(Refresh {
-        enable: dev && options.is_some(),
         cm,
         comments,
         should_reset: false,
-        options: options.unwrap_or_default(),
-        global_mark,
+        options,
     })
 }
 
-struct Refresh<C: Comments> {
-    enable: bool,
+struct Refresh<C: Comments, S: SourceMapper> {
     options: RefreshOptions,
-    cm: Lrc<SourceMap>,
+    cm: Lrc<S>,
     should_reset: bool,
     comments: Option<C>,
-    global_mark: Mark,
 }
 
-impl<C: Comments> Refresh<C> {
+impl<C: Comments, S: SourceMapper> Refresh<C, S> {
     fn get_persistent_id_from_var_decl(
         &self,
         var_decl: &mut VarDecl,
@@ -246,9 +246,10 @@ impl<C: Comments> Refresh<C> {
 }
 
 /// We let user do /* @refresh reset */ to reset state in the whole file.
-impl<C> Visit for Refresh<C>
+impl<C, S> Visit for Refresh<C, S>
 where
     C: Comments,
+    S: SourceMapper,
 {
     fn visit_span(&mut self, n: &Span) {
         if self.should_reset {
@@ -282,16 +283,8 @@ where
     }
 }
 
-// TODO: figure out if we can insert all registers at once
-impl<C: Comments> VisitMut for Refresh<C> {
-    // Does anyone write react without esmodule?
-    // fn visit_mut_script(&mut self, _: &mut Script) {}
-
+impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
     fn visit_mut_module(&mut self, n: &mut Module) {
-        if !self.enable {
-            return;
-        }
-
         // to collect comments
         self.visit_module(n);
 
@@ -308,8 +301,8 @@ impl<C: Comments> VisitMut for Refresh<C> {
             options: &self.options,
             ident: Vec::new(),
             extra_stmt: Vec::new(),
-            current_scope: vec![SyntaxContext::empty().apply_mark(self.global_mark)],
-            cm: &self.cm,
+            current_scope: vec![top_level_ctxt(module_items)],
+            cm: &*self.cm,
             should_reset: self.should_reset,
         };
 
