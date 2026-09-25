@@ -369,6 +369,11 @@ where
         )
     }
 
+    /// Whether generated calls get pure annotations
+    fn annotates(&self) -> bool {
+        self.pure && self.comments.is_some()
+    }
+
     /// Adds a pure annotation in front of a generated call
     fn annotate(&self, span: Span) -> Span {
         let Some(comments) = self.comments.as_ref().filter(|_| self.pure) else {
@@ -711,6 +716,15 @@ where
         }
 
         let span = self.annotate(span);
+        // normalizeProps wraps the call and keeps the position of the tag, like in
+        // babel-plugin-inferno. A pure annotation belongs to a position, so the wrapped call gets
+        // a position of its own to be annotated too; otherwise a minifier keeps it when the
+        // vNode is unused.
+        let call_span = if vprops.needs_normalization && self.annotates() {
+            self.annotate(DUMMY_SP)
+        } else {
+            span
+        };
         let flags = match vprops.flags_override {
             Some(expr) => Flag::Expr(expr),
             None => Flag::Known(flags),
@@ -724,7 +738,7 @@ where
             VType::Component(tag) => {
                 let args =
                     create_component_vnode_args(flags, tag, props, vprops.key, vprops.reference);
-                self.call(span, Helper::CreateComponentVNode, args)
+                self.call(call_span, Helper::CreateComponentVNode, args)
             }
             VType::Element { tag, .. } => {
                 let args = CreateVNodeArgs {
@@ -738,7 +752,7 @@ where
                     reference: vprops.reference,
                 }
                 .into_args();
-                self.call(span, Helper::CreateVNode, args)
+                self.call(call_span, Helper::CreateVNode, args)
             }
             VType::Fragment => {
                 if single_text_child || (!requires_normalization && has_single_child) {

@@ -396,10 +396,28 @@ test!(
     r#"
   import { createVNode, createComponentVNode } from "inferno";
   import { normalizeProps } from 'inferno';
-  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ normalizeProps(createVNode(1, "div", null, null, 1, {
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
     ...p
   })));
   const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo));
+  "#
+);
+
+// Both calls are annotated, so that a minifier drops an unused element with a spread.
+test!(
+    spread_element,
+    r#"
+  const x = <div {...p} />;
+  const y = <Foo {...p} />;
+  "#,
+    r#"
+  import { createVNode, createComponentVNode, normalizeProps } from "inferno";
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+    ...p
+  }));
+  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo, {
+    ...p
+  }));
   "#
 );
 

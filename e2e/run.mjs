@@ -143,6 +143,11 @@ const withDefaults = transformWith({});
 if (!/\/\*#__PURE__\*\/ ?forwardRef\(/.test(withDefaults)) {
   fail(`default options: forwardRef(...) is not annotated #__PURE__:\n${withDefaults}`);
 }
+// Both the normalizeProps call of a spread element and the vNode it wraps are annotated, so that
+// a minifier can drop an unused element completely.
+if (!/\/\*#__PURE__\*\/ ?normalizeProps\(\/\*#__PURE__\*\/ ?createVNode\(1, "div"/.test(withDefaults)) {
+  fail(`default options: the vNode inside normalizeProps(...) is not annotated #__PURE__:\n${withDefaults}`);
+}
 // normalizeProps mutates its argument, so a minifier must never drop this call.
 if (/#__PURE__\*\/ ?normalizeProps\(vNode\)/.test(withDefaults)) {
   fail(`normalizeProps(vNode) must not be annotated #__PURE__:\n${withDefaults}`);

@@ -9,7 +9,7 @@ var x = /*#__PURE__*/ createVNode(1, "div", null, [
         meow: "wolf"
     }, "2"),
     /*#__PURE__*/ createVNode(1, "div", null, null, 1, null, "3"),
-    /*#__PURE__*/ normalizeProps(createVNode(1, "div", null, null, 1, {
+    /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
         ...props
     }, "4"))
 ], 8);
