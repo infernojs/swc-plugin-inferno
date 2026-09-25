@@ -2496,3 +2496,35 @@ fn test_script(src: &str, output: &Path, options: Options) {
         Ok(())
     })
 }
+
+#[test]
+fn jsx_text_edge_cases() {
+    // \r\n and \r are line breaks too
+    assert_eq!(jsx_text_to_str("a\r\n  b\rc"), "a b c");
+    // Tab-only lines are dropped
+    assert_eq!(jsx_text_to_str("a\n\t\t\nb"), "a b");
+    // Tabs inside non-ASCII text
+    assert_eq!(jsx_text_to_str("ä\tö"), "ä ö");
+    assert_eq!(jsx_text_to_str("ä\t\n\tö\t"), "ä ö ");
+    // The first line keeps its leading and the last line its trailing whitespace
+    assert_eq!(jsx_text_to_str("  a  \n  b  "), "  a b  ");
+    assert_eq!(jsx_text_to_str("  a  \n  "), "  a");
+}
+
+#[test]
+fn unchanged_text_is_borrowed() {
+    use std::borrow::Cow;
+
+    for text in ["Hello world", "  a  ", "ä ö", ""] {
+        assert!(
+            matches!(handle_white_space(Wtf8::from_str(text)), Cow::Borrowed(_)),
+            "{text:?}"
+        );
+    }
+    for text in ["a\tb", "a\nb", "\n  "] {
+        assert!(
+            matches!(handle_white_space(Wtf8::from_str(text)), Cow::Owned(_)),
+            "{text:?}"
+        );
+    }
+}

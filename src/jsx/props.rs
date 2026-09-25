@@ -1,6 +1,6 @@
 //! Props of a JSX element, like `getVNodeProps` of babel-plugin-inferno.
 
-use super::text::collapse_attribute_line_breaks;
+use super::text::{collapse_attribute_line_breaks, map_text};
 use crate::transformations::attribute_tables::{
     is_lowercase_attribute, react_attribute, svg_attribute,
 };
@@ -47,7 +47,7 @@ pub(super) fn get_value(value: Option<JSXAttrValue>) -> Box<Expr> {
         // decoded value and collapse line breaks like Babel's react-jsx does.
         Some(JSXAttrValue::Str(s)) => Box::new(Expr::Lit(Lit::Str(Str {
             span: s.span,
-            value: collapse_attribute_line_breaks(&s.value).into(),
+            value: map_text(s.value, collapse_attribute_line_breaks),
             raw: None,
         }))),
         Some(JSXAttrValue::JSXElement(el)) => Box::new(Expr::JSXElement(el)),

@@ -28,7 +28,7 @@ use self::bindings::{generate_uid, module_bindings, script_bindings, used_names}
 use self::props::{
     PropChildren, PropItem, VNodeProps, emit_error, get_vnode_props, key_value, unparen,
 };
-use self::text::handle_white_space;
+use self::text::{handle_white_space, map_text};
 use self::vnode_args::{
     CreateVNodeArgs, Flag, create_component_vnode_args, create_fragment_vnode_args, is_empty_array,
 };
@@ -441,7 +441,7 @@ where
     fn child_to_vnode(&mut self, child: JSXElementChild) -> Option<ExprOrSpread> {
         match child {
             JSXElementChild::JSXText(text) => {
-                let value = handle_white_space(&text.value);
+                let value = map_text(text.value, handle_white_space);
 
                 if value.is_empty() {
                     return None;
@@ -449,7 +449,7 @@ where
                 Some(
                     Expr::Lit(Lit::Str(Str {
                         span: text.span,
-                        value: value.into(),
+                        value,
                         raw: None,
                     }))
                     .as_arg(),
@@ -610,7 +610,7 @@ where
             if has_prop_children && children.as_deref().is_some_and(is_empty_array) {
                 match vprops.prop_children.take().unwrap() {
                     PropChildren::Str(value) => {
-                        let text = handle_white_space(&value);
+                        let text = map_text(value, handle_white_space);
 
                         if !text.is_empty() {
                             if kind != VNodeType::Fragment {
@@ -619,7 +619,7 @@ where
                             }
                             children = Some(Box::new(Expr::Lit(Lit::Str(Str {
                                 span: DUMMY_SP,
-                                value: text.into(),
+                                value: text,
                                 raw: None,
                             }))));
                         } else {
