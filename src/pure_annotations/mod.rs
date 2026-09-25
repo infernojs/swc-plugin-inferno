@@ -146,8 +146,11 @@ where
     }
 
     fn is_fresh_vnode(&self, expr: &Expr) -> bool {
-        let Expr::Call(call) = expr.unwrap_parens() else {
-            return false;
+        let call = match expr.unwrap_parens() {
+            Expr::Call(call) => call,
+            // This pass runs before the JSX transform, which turns JSX into fresh vNodes
+            Expr::JSXElement(_) | Expr::JSXFragment(_) => return true,
+            _ => return false,
         };
 
         match self.inferno_export(&call.callee).map(|name| &**name) {

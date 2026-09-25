@@ -385,3 +385,20 @@ test!(
   }
   "#
 );
+
+test!(
+    normalize_props_of_jsx,
+    r#"
+  import { normalizeProps } from 'inferno';
+  const x = normalizeProps(<div {...p} />);
+  const y = normalizeProps(<Foo />);
+  "#,
+    r#"
+  import { createVNode, createComponentVNode } from "inferno";
+  import { normalizeProps } from 'inferno';
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ normalizeProps(createVNode(1, "div", null, null, 1, {
+    ...p
+  })));
+  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo));
+  "#
+);

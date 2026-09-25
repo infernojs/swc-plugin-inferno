@@ -17,7 +17,7 @@ mod pure_annotations;
 mod refresh;
 mod transformations;
 
-/// Runs the fast refresh pass (when enabled), the JSX transform and the pure annotation pass.
+/// Runs the fast refresh pass (when enabled), the pure annotation pass and the JSX transform.
 ///
 /// The program must have been processed by swc's `resolver`; `unresolved_mark` is the unresolved
 /// [Mark] passed to it. `cm` is only read by the fast refresh pass: pass the program's
@@ -46,10 +46,12 @@ where
         .pure()
         .then(|| pure_annotations(comments.clone(), options.import_source().into()));
 
+    // The pure annotation pass runs first: the JSX transform annotates the calls it generates,
+    // and a file without hand-written Inferno imports is not walked again
     (
         refresh_pass,
-        jsx(comments, options, unresolved_mark),
         pure_pass,
+        jsx(comments, options, unresolved_mark),
     )
 }
 
