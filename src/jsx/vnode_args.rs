@@ -17,6 +17,12 @@ pub(super) enum Flag {
     Expr(Box<Expr>),
 }
 
+impl From<ChildFlags> for Flag {
+    fn from(flags: ChildFlags) -> Self {
+        Flag::Known(flags as u16)
+    }
+}
+
 impl Flag {
     fn is(&self, value: ChildFlags) -> bool {
         matches!(self, Flag::Known(flag) if *flag == value as u16)

@@ -72,13 +72,6 @@ impl Options {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum VNodeType {
-    Element,
-    Component,
-    Fragment,
-}
-
 /// The Inferno functions that the generated code calls, in the order they are imported
 #[derive(Clone, Copy)]
 enum Helper {
@@ -149,10 +142,10 @@ where
 }
 
 /// `getVNodeType` of babel-plugin-inferno
-struct VType {
-    kind: VNodeType,
-    tag: Option<Box<Expr>>,
-    flags: u16,
+enum VType {
+    Element { tag: Box<Expr>, flags: u16 },
+    Component(Box<Expr>),
+    Fragment,
 }
 
 /// `getVNodeChildren` of babel-plugin-inferno
@@ -318,47 +311,32 @@ fn member_expr(span: Span, object: Box<Expr>, property: IdentName) -> Box<Expr> 
 /// `getVNodeType` of babel-plugin-inferno
 fn get_vnode_type(name: JSXElementName) -> Option<VType> {
     match name {
-        JSXElementName::Ident(ident) => {
-            if ident.sym == "Fragment" {
-                Some(VType {
-                    kind: VNodeType::Fragment,
-                    tag: None,
-                    flags: VNodeFlags::ComponentUnknown as u16,
-                })
-            } else if is_component(&ident.sym) && is_valid_identifier(&ident.sym) {
-                // Names that are not identifiers, like Foo-bar, can only be elements
-                Some(VType {
-                    kind: VNodeType::Component,
-                    tag: Some(Box::new(Expr::Ident(ident))),
-                    flags: VNodeFlags::ComponentUnknown as u16,
-                })
-            } else {
-                Some(VType {
-                    kind: VNodeType::Element,
-                    flags: parse_vnode_flag(&ident.sym),
-                    tag: Some(Box::new(Expr::Lit(Lit::Str(Str {
-                        span: ident.span,
-                        value: ident.sym.into(),
-                        raw: None,
-                    })))),
-                })
+        JSXElementName::Ident(ident) => Some(if ident.sym == "Fragment" {
+            VType::Fragment
+        } else if is_component(&ident.sym) && is_valid_identifier(&ident.sym) {
+            // Names that are not identifiers, like Foo-bar, can only be elements
+            VType::Component(Box::new(Expr::Ident(ident)))
+        } else {
+            VType::Element {
+                flags: parse_vnode_flag(&ident.sym),
+                tag: Box::new(Expr::Lit(Lit::Str(Str {
+                    span: ident.span,
+                    value: ident.sym.into(),
+                    raw: None,
+                }))),
             }
-        }
+        }),
         JSXElementName::JSXMemberExpr(member) => {
             if member.prop.sym == "Fragment" {
-                return Some(VType {
-                    kind: VNodeType::Fragment,
-                    tag: None,
-                    flags: VNodeFlags::ComponentUnknown as u16,
-                });
+                return Some(VType::Fragment);
             }
             let object = member_object(member.obj)?;
 
-            Some(VType {
-                kind: VNodeType::Component,
-                tag: Some(member_expr(member.span, object, member.prop)),
-                flags: VNodeFlags::ComponentUnknown as u16,
-            })
+            Some(VType::Component(member_expr(
+                member.span,
+                object,
+                member.prop,
+            )))
         }
         JSXElementName::JSXNamespacedName(name) => {
             emit_error(
@@ -536,31 +514,42 @@ where
     /// `createVNode` of babel-plugin-inferno for a JSX fragment
     fn fragment_to_expr(&mut self, frag: JSXFragment) -> Expr {
         let span = self.annotate(frag.span);
-        let result = self.get_vnode_children(frag.children, false);
-        let mut children = Some(result.children);
-        let child_flags = if !result.requires_normalization {
-            if result.has_single_child {
-                children = Some(array(vec![children.unwrap().as_arg()]));
-            }
-            if result.parent_can_be_keyed {
-                ChildFlags::HasKeyedChildren
-            } else {
-                ChildFlags::HasNonKeyedChildren
-            }
+        let ChildrenResult {
+            parent_can_be_keyed,
+            children,
+            found_text,
+            requires_normalization,
+            has_single_child,
+            ..
+        } = self.get_vnode_children(frag.children, false);
+        let (children, child_flags) = if requires_normalization {
+            (children, ChildFlags::UnknownChildren)
         } else {
-            ChildFlags::UnknownChildren
+            (
+                if has_single_child {
+                    array(vec![children.as_arg()])
+                } else {
+                    children
+                },
+                if parent_can_be_keyed {
+                    ChildFlags::HasKeyedChildren
+                } else {
+                    ChildFlags::HasNonKeyedChildren
+                },
+            )
         };
-
-        if result.found_text {
-            children = children.and_then(|children| self.transform_text_nodes(*children));
-        }
+        let children = if found_text {
+            self.transform_text_nodes(*children)
+        } else {
+            Some(children)
+        };
 
         self.call(
             span,
             Helper::CreateFragment,
             create_fragment_vnode_args(
                 children,
-                Flag::Known(child_flags as u16),
+                child_flags.into(),
                 // short syntax fragments cannot have a key
                 None,
             ),
@@ -573,14 +562,23 @@ where
         let Some(vtype) = get_vnode_type(el.opening.name) else {
             return Expr::Invalid(Invalid { span });
         };
-        let kind = vtype.kind;
-        let is_component = kind == VNodeType::Component;
+        let is_component = matches!(vtype, VType::Component(_));
+        let is_fragment = matches!(vtype, VType::Fragment);
         let mut vprops = get_vnode_props(el.opening.attrs, is_component);
-        let mut result =
-            self.get_vnode_children(el.children, vprops.children_known || is_component);
-        let mut children = Some(result.children.take());
-        let mut child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
-        let mut flags = vtype.flags;
+        let ChildrenResult {
+            parent_can_be_keyed,
+            children,
+            mut found_text,
+            parent_can_be_non_keyed,
+            requires_normalization,
+            mut has_single_child,
+        } = self.get_vnode_children(el.children, vprops.children_known || is_component);
+        let mut children = Some(children);
+        let mut child_flags = ChildFlags::HasInvalidChildren;
+        let mut flags = match &vtype {
+            VType::Element { flags, .. } => *flags,
+            VType::Component(_) | VType::Fragment => VNodeFlags::ComponentUnknown as u16,
+        };
         let mut overridden = None;
 
         if vprops.has_re_create_flag {
@@ -615,9 +613,9 @@ where
                         let text = map_text(value, handle_white_space);
 
                         if !text.is_empty() {
-                            if kind != VNodeType::Fragment {
-                                result.found_text = true;
-                                result.has_single_child = true;
+                            if !is_fragment {
+                                found_text = true;
+                                has_single_child = true;
                             }
                             children = Some(Box::new(Expr::Lit(Lit::Str(Str {
                                 span: DUMMY_SP,
@@ -626,7 +624,6 @@ where
                             }))));
                         } else {
                             children = None;
-                            child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
                         }
                     }
                     PropChildren::Expr => {
@@ -639,69 +636,65 @@ where
 
                         // Only JSX is known to be a single vNode; other values are normalized at
                         // runtime like {expression} children
-                        child_flags = Flag::Known(if kind != VNodeType::Fragment
-                            && (is_jsx || vprops.children_known)
-                        {
+                        child_flags = if !is_fragment && (is_jsx || vprops.children_known) {
                             ChildFlags::HasVNodeChildren
                         } else {
                             ChildFlags::UnknownChildren
-                        } as u16);
+                        };
                         children = value;
                     }
-                    PropChildren::Empty | PropChildren::Other => {
-                        children = None;
-                        child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
-                    }
+                    PropChildren::Empty | PropChildren::Other => children = None,
                 }
             }
 
-            if !result.requires_normalization || vprops.children_known {
-                if vprops.has_keyed_children || result.parent_can_be_keyed {
-                    child_flags = Flag::Known(ChildFlags::HasKeyedChildren as u16);
-                } else if vprops.has_non_keyed_children || result.parent_can_be_non_keyed {
-                    child_flags = Flag::Known(ChildFlags::HasNonKeyedChildren as u16);
-                } else if vprops.has_text_children || (result.found_text && result.has_single_child)
-                {
-                    result.found_text = kind == VNodeType::Fragment;
-                    child_flags = Flag::Known(if kind == VNodeType::Fragment {
-                        ChildFlags::HasNonKeyedChildren as u16
+            if !requires_normalization || vprops.children_known {
+                if vprops.has_keyed_children || parent_can_be_keyed {
+                    child_flags = ChildFlags::HasKeyedChildren;
+                } else if vprops.has_non_keyed_children || parent_can_be_non_keyed {
+                    child_flags = ChildFlags::HasNonKeyedChildren;
+                } else if vprops.has_text_children || (found_text && has_single_child) {
+                    found_text = is_fragment;
+                    child_flags = if is_fragment {
+                        ChildFlags::HasNonKeyedChildren
                     } else {
-                        ChildFlags::HasTextChildren as u16
-                    });
-                } else if result.has_single_child {
-                    child_flags = Flag::Known(if kind == VNodeType::Fragment {
-                        ChildFlags::HasNonKeyedChildren as u16
+                        ChildFlags::HasTextChildren
+                    };
+                } else if has_single_child {
+                    child_flags = if is_fragment {
+                        ChildFlags::HasNonKeyedChildren
                     } else {
-                        ChildFlags::HasVNodeChildren as u16
-                    });
+                        ChildFlags::HasVNodeChildren
+                    };
                 }
             } else if vprops.has_keyed_children {
-                child_flags = Flag::Known(ChildFlags::HasKeyedChildren as u16);
+                child_flags = ChildFlags::HasKeyedChildren;
             } else if vprops.has_non_keyed_children {
-                child_flags = Flag::Known(ChildFlags::HasNonKeyedChildren as u16);
+                child_flags = ChildFlags::HasNonKeyedChildren;
             }
 
             // A children prop is passed as the children argument, or replaced by JSX children
             overridden = vprops.take_children_prop();
         }
 
-        if result.found_text {
+        if found_text {
             children = children.and_then(|children| self.transform_text_nodes(*children));
         }
 
-        if let Some(expr) = vprops.child_flags.take() {
+        let child_flags = match vprops.child_flags {
             // If $ChildFlag is provided it is runtime dependant
-            child_flags = Flag::Expr(expr);
-        } else if !is_component && result.requires_normalization && !vprops.children_known {
-            child_flags = Flag::Known(ChildFlags::UnknownChildren as u16);
-        }
+            Some(expr) => Flag::Expr(expr),
+            None if !is_component && requires_normalization && !vprops.children_known => {
+                ChildFlags::UnknownChildren.into()
+            }
+            None => child_flags.into(),
+        };
 
         if let Some(overridden) = overridden {
             children = with_overridden(*overridden, children);
         }
 
         let span = self.annotate(span);
-        let flags = match vprops.flags_override.take() {
+        let flags = match vprops.flags_override {
             Some(expr) => Flag::Expr(expr),
             None => Flag::Known(flags),
         };
@@ -710,21 +703,16 @@ where
             props: vprops.props,
         };
 
-        let call = match kind {
-            VNodeType::Component => {
-                let args = create_component_vnode_args(
-                    flags,
-                    vtype.tag.unwrap(),
-                    props,
-                    vprops.key,
-                    vprops.reference,
-                );
+        let call = match vtype {
+            VType::Component(tag) => {
+                let args =
+                    create_component_vnode_args(flags, tag, props, vprops.key, vprops.reference);
                 self.call(span, Helper::CreateComponentVNode, args)
             }
-            VNodeType::Element => {
+            VType::Element { tag, .. } => {
                 let args = CreateVNodeArgs {
                     flags,
-                    tag: vtype.tag.unwrap(),
+                    tag,
                     class_name: vprops.class_name,
                     children,
                     child_flags,
@@ -735,8 +723,8 @@ where
                 .into_args();
                 self.call(span, Helper::CreateVNode, args)
             }
-            VNodeType::Fragment => {
-                if !result.requires_normalization && result.has_single_child {
+            VType::Fragment => {
+                if !requires_normalization && has_single_child {
                     children = children.map(|children| array(vec![children.as_arg()]));
                 }
                 let args = create_fragment_vnode_args(children, child_flags, vprops.key);
