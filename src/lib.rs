@@ -42,7 +42,9 @@ where
         .take()
         .filter(|_| development)
         .map(|refresh_options| refresh(refresh_options, cm, comments.clone()));
-    let pure_pass = options.pure().then(|| pure_annotations(comments.clone()));
+    let pure_pass = options
+        .pure()
+        .then(|| pure_annotations(comments.clone(), options.import_source().into()));
 
     (
         refresh_pass,

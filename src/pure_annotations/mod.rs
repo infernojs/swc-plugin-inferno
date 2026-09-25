@@ -11,12 +11,16 @@ mod tests;
 /// This pass adds a /*#__PURE__*/ annotation to calls to known pure top-level
 /// Inferno methods, so that terser and other minifiers can safely remove them
 /// during dead code elimination.
-pub fn pure_annotations<C>(comments: Option<C>) -> impl Pass
+///
+/// The methods are recognized when they are imported from `inferno` or from `import_source`, the
+/// module the JSX transform imports its helpers from.
+pub fn pure_annotations<C>(comments: Option<C>, import_source: Atom) -> impl Pass
 where
     C: Comments,
 {
     visit_mut_pass(PureAnnotations {
-        imports: Default::default(),
+        imports: FxHashMap::default(),
+        import_source,
         comments,
     })
 }
@@ -26,6 +30,7 @@ where
     C: Comments,
 {
     imports: FxHashMap<Id, Atom>,
+    import_source: Atom,
     comments: Option<C>,
 }
 
@@ -39,10 +44,10 @@ where
         // Pass 1: collect imports
         for item in &module.body {
             if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = item {
-                let Some(src_str) = import.src.value.as_str() else {
+                let Some(src) = import.src.value.as_str() else {
                     continue;
                 };
-                if src_str != "inferno" {
+                if src != "inferno" && src != &*self.import_source {
                     continue;
                 }
 
@@ -85,8 +90,9 @@ where
         if self.should_annotate(call)
             && let Some(comments) = &self.comments
         {
+            // The comment needs a position; generated calls may have none
             if call.span.lo.is_dummy() {
-                call.span.lo = Span::dummy_with_cmt().lo;
+                call.span = Span::dummy_with_cmt();
             }
 
             comments.add_pure_comment(call.span.lo);
@@ -160,7 +166,8 @@ where
 }
 
 fn is_pure(specifier: &str) -> bool {
-    // Only imports from "inferno" are collected, see `visit_mut_module`.
+    // Only imports from the Inferno module are collected, see `visit_mut_module`.
+    // createElement and createClass are exported by inferno-compat.
     matches!(
         specifier,
         "createComponentVNode"

@@ -323,3 +323,65 @@ fn pure_false_disables_annotations() {
         },
     )
 }
+
+#[test]
+fn import_source_factories_are_pure() {
+    run_test_with(
+        r#"
+  import { forwardRef } from 'inferno-compat';
+  import { createRef } from 'inferno';
+  const Comp = forwardRef((props, ref) => null);
+  const ref = createRef();
+  "#,
+        r#"
+  import { forwardRef } from 'inferno-compat';
+  import { createRef } from 'inferno';
+  const Comp = /*#__PURE__*/ forwardRef((props, ref) => null);
+  const ref = /*#__PURE__*/ createRef();
+  "#,
+        crate::Options {
+            import_source: Some("inferno-compat".into()),
+            ..Default::default()
+        },
+    );
+}
+
+test!(
+    other_modules_are_not_the_import_source,
+    r#"
+  import { forwardRef } from 'inferno-compat';
+  const Comp = forwardRef((props, ref) => null);
+  "#,
+    r#"
+  import { forwardRef } from 'inferno-compat';
+  const Comp = forwardRef((props, ref) => null);
+  "#
+);
+
+test!(
+    aliased_import,
+    r#"
+  import { createVNode as cv } from 'inferno';
+  cv(1, "div");
+  "#,
+    r#"
+  import { createVNode as cv } from 'inferno';
+  /*#__PURE__*/ cv(1, "div");
+  "#
+);
+
+test!(
+    shadowed_import,
+    r#"
+  import { createRef } from 'inferno';
+  function make(createRef) {
+    return createRef();
+  }
+  "#,
+    r#"
+  import { createRef } from 'inferno';
+  function make(createRef) {
+    return createRef();
+  }
+  "#
+);
