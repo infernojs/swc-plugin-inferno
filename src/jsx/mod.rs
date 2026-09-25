@@ -24,7 +24,7 @@ mod props;
 mod text;
 mod vnode_args;
 
-use self::bindings::{generate_uid, module_bindings, script_bindings, used_names};
+use self::bindings::{HelperBindings, generate_uid, module_bindings, script_bindings, used_names};
 use self::props::{
     PropChildren, PropItem, VNodeProps, emit_error, get_vnode_props, key_value, unparen,
 };
@@ -91,7 +91,7 @@ enum Helper {
     CreateTextVNode,
 }
 
-const HELPERS: [Helper; 5] = [
+const HELPERS: [Helper; HELPER_COUNT] = [
     Helper::CreateVNode,
     Helper::CreateFragment,
     Helper::CreateComponentVNode,
@@ -99,7 +99,14 @@ const HELPERS: [Helper; 5] = [
     Helper::CreateTextVNode,
 ];
 
+const HELPER_COUNT: usize = 5;
+
 impl Helper {
+    /// The helper that a binding of this name declares
+    fn from_name(name: &str) -> Option<Self> {
+        HELPERS.into_iter().find(|helper| helper.name() == name)
+    }
+
     fn name(self) -> Atom {
         match self {
             Helper::CreateVNode => atom!("createVNode"),
@@ -119,12 +126,12 @@ where
     C: Comments,
 {
     visit_mut_pass(Jsx {
-        unresolved_mark,
+        unresolved_ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
         import_source: options.import_source().into(),
         pure: options.pure(),
         comments,
-        used: [false; 5],
-        bindings: [None; 5],
+        used: [false; HELPER_COUNT],
+        bindings: [None; HELPER_COUNT],
     })
 }
 
@@ -132,14 +139,15 @@ struct Jsx<C>
 where
     C: Comments,
 {
-    unresolved_mark: Mark,
+    /// The context of unresolved (global) identifiers
+    unresolved_ctxt: SyntaxContext,
     import_source: Wtf8Atom,
     pure: bool,
     comments: Option<C>,
     /// Helpers called by the generated code
-    used: [bool; 5],
+    used: [bool; HELPER_COUNT],
     /// Helpers the program declares itself, which are called instead of importing them
-    bindings: [Option<SyntaxContext>; 5],
+    bindings: HelperBindings,
 }
 
 /// `getVNodeType` of babel-plugin-inferno
@@ -405,7 +413,7 @@ where
     fn call(&mut self, span: Span, helper: Helper, args: Vec<ExprOrSpread>) -> Expr {
         Expr::Call(CallExpr {
             span,
-            ctxt: SyntaxContext::empty().apply_mark(self.unresolved_mark),
+            ctxt: self.unresolved_ctxt,
             callee: self.helper(helper).as_callee(),
             args,
             type_args: None,
@@ -751,11 +759,9 @@ where
         call
     }
 
-    fn set_bindings(&mut self, bindings: rustc_hash::FxHashMap<Atom, SyntaxContext>) {
-        self.used = [false; 5];
-        for helper in HELPERS {
-            self.bindings[helper as usize] = bindings.get(&helper.name()).copied();
-        }
+    fn set_bindings(&mut self, bindings: HelperBindings) {
+        self.used = [false; HELPER_COUNT];
+        self.bindings = bindings;
     }
 
     /// Helpers to import: the used ones that the program does not declare itself
@@ -849,11 +855,7 @@ where
             generate_uid(&self.import_source.to_string_lossy(), &used_names(script)),
             DUMMY_SP,
         );
-        let require = Ident::new(
-            atom!("require"),
-            DUMMY_SP,
-            SyntaxContext::empty().apply_mark(self.unresolved_mark),
-        );
+        let require = Ident::new(atom!("require"), DUMMY_SP, self.unresolved_ctxt);
         let mut decls = vec![VarDeclarator {
             span: DUMMY_SP,
             name: module_id.clone().into(),

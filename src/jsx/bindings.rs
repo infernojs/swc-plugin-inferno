@@ -1,20 +1,24 @@
 //! Program scope bindings, like the `scope.hasBinding` and `scope.generateUidIdentifier`
 //! calls of babel-plugin-inferno.
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use super::{HELPER_COUNT, Helper};
+use rustc_hash::FxHashSet;
 use swc_core::{
     atoms::Atom,
     common::SyntaxContext,
     ecma::{
         ast::*,
-        utils::find_pat_ids,
+        utils::for_each_binding_ident,
         visit::{Visit, VisitWith, noop_visit_type},
     },
 };
 
-/// Bindings declared in the program scope of a module: imports, top-level declarations and
+/// The context of each helper that the program declares itself, or `None`
+pub(super) type HelperBindings = [Option<SyntaxContext>; HELPER_COUNT];
+
+/// The helpers declared in the program scope of a module: imports, top-level declarations and
 /// hoisted `var`s.
-pub(super) fn module_bindings(module: &Module) -> FxHashMap<Atom, SyntaxContext> {
+pub(super) fn module_bindings(module: &Module) -> HelperBindings {
     let mut collector = BindingCollector::default();
 
     for item in &module.body {
@@ -29,8 +33,8 @@ pub(super) fn module_bindings(module: &Module) -> FxHashMap<Atom, SyntaxContext>
     collector.bindings
 }
 
-/// Bindings declared in the program scope of a script
-pub(super) fn script_bindings(script: &Script) -> FxHashMap<Atom, SyntaxContext> {
+/// The helpers declared in the program scope of a script
+pub(super) fn script_bindings(script: &Script) -> HelperBindings {
     let mut collector = BindingCollector::default();
 
     for stmt in &script.body {
@@ -42,18 +46,19 @@ pub(super) fn script_bindings(script: &Script) -> FxHashMap<Atom, SyntaxContext>
 
 #[derive(Default)]
 struct BindingCollector {
-    bindings: FxHashMap<Atom, SyntaxContext>,
+    bindings: HelperBindings,
 }
 
 impl BindingCollector {
     fn add(&mut self, ident: &Ident) {
-        self.bindings.entry(ident.sym.clone()).or_insert(ident.ctxt);
+        if let Some(helper) = Helper::from_name(&ident.sym) {
+            // The first declaration wins
+            self.bindings[helper as usize].get_or_insert(ident.ctxt);
+        }
     }
 
     fn add_pat(&mut self, pat: &Pat) {
-        for ident in find_pat_ids::<_, Ident>(pat) {
-            self.add(&ident);
-        }
+        for_each_binding_ident(pat, |binding| self.add(&binding.id));
     }
 
     fn module_decl(&mut self, decl: &ModuleDecl) {
@@ -165,17 +170,14 @@ pub(super) fn generate_uid(name: &str, used: &FxHashSet<Atom>) -> Atom {
         .trim_start_matches('_')
         .trim_end_matches(|c: char| c.is_ascii_digit());
 
-    (1..)
-        .map(|i| {
-            if i > 1 {
-                format!("_{name}{i}")
-            } else {
-                format!("_{name}")
-            }
-        })
-        .map(Atom::from)
-        .find(|uid| !used.contains(uid))
-        .unwrap()
+    let mut uid = Atom::from(format!("_{name}"));
+    for i in 2.. {
+        if !used.contains(&uid) {
+            break;
+        }
+        uid = format!("_{name}{i}").into();
+    }
+    uid
 }
 
 /// `toIdentifier` of `@babel/types`: `inferno-compat` becomes `infernoCompat`
@@ -199,8 +201,6 @@ fn to_identifier(input: &str) -> String {
         }
     }
 
-    if Ident::verify_symbol(&camel_cased).is_err() {
-        camel_cased.insert(0, '_');
-    }
+    // babel prefixes a reserved word with `_` here, which generate_uid strips again
     camel_cased
 }
