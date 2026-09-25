@@ -1,4 +1,7 @@
-use swc_core::common::{FileName, Mark, SourceMap, comments::SingleThreadedComments, sync::Lrc};
+use swc_core::atoms::atom;
+use swc_core::common::{
+    FileName, Mark, SourceMap, SyntaxContext, comments::SingleThreadedComments, sync::Lrc,
+};
 use swc_core::ecma::transforms::base::resolver;
 use swc_ecma_codegen::{Emitter, text_writer::JsWriter};
 use swc_ecma_parser::{Parser, StringInput};
@@ -526,4 +529,71 @@ fn fragment_with_spread_registers_only_printed_annotations() {
     );
 
     assert_eq!(comments, code.matches("#__PURE__").count(), "{code}");
+}
+
+// A pass applied to several programs must not keep the imports of the earlier ones.
+#[test]
+fn reused_pass_forgets_the_imports_of_the_previous_module() {
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let syntax = ::swc_ecma_parser::Syntax::Es(Default::default());
+        let mut pass = pure_annotations(Some(t.comments.clone()), atom!("inferno"));
+
+        let first = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "first.js",
+            syntax,
+            Some(true),
+            "import { createRef } from 'inferno';\ncreateRef();",
+        )?;
+        let _ = first.apply(&mut pass);
+        let second = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "second.js",
+            syntax,
+            Some(true),
+            "function createRef() { sideEffect(); }\ncreateRef();",
+        )?;
+        let second = second.apply(&mut pass);
+
+        let comments = t.comments.clone();
+        let code = t.print(&second, &comments);
+        assert!(!code.contains("#__PURE__"), "{code}");
+        Ok(())
+    });
+}
+
+// Scripts cannot import Inferno, so the pass does not walk them. The pass is given an import that
+// matches a call in the script, which makes a walk visible as an annotation.
+#[test]
+fn scripts_are_not_walked() {
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let syntax = ::swc_ecma_parser::Syntax::Es(Default::default());
+        let script = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "script.js",
+            syntax,
+            Some(false),
+            "function createRef() { sideEffect(); }\ncreateRef();",
+        )?;
+        let id = (
+            atom!("createRef"),
+            SyntaxContext::empty().apply_mark(top_level_mark),
+        );
+        let mut imports = FxHashMap::default();
+        imports.insert(id, InfernoImport::Named(atom!("createRef")));
+        let script = script.apply(visit_mut_pass(PureAnnotations {
+            imports,
+            import_source: atom!("inferno"),
+            comments: Some(t.comments.clone()),
+        }));
+
+        let comments = t.comments.clone();
+        let code = t.print(&script, &comments);
+        assert!(!code.contains("#__PURE__"), "{code}");
+        Ok(())
+    });
 }

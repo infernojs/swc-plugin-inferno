@@ -49,7 +49,8 @@ where
     noop_visit_mut_type!();
 
     fn visit_mut_module(&mut self, module: &mut Module) {
-        // Pass 1: collect imports
+        // Pass 1: collect imports. A pass may be applied to several modules.
+        self.imports.clear();
         for item in &module.body {
             if let ModuleItem::ModuleDecl(ModuleDecl::Import(import)) = item {
                 let Some(src) = import.src.value.as_str() else {
@@ -97,6 +98,9 @@ where
         // Pass 2: add pure annotations.
         module.visit_mut_children_with(self);
     }
+
+    /// Scripts cannot import Inferno
+    fn visit_mut_script(&mut self, _: &mut Script) {}
 
     fn visit_mut_call_expr(&mut self, call: &mut CallExpr) {
         if self.should_annotate(call)
