@@ -445,3 +445,74 @@ test!(
   star.createRef();
   "#
 );
+
+/// Compiles `input` and returns the code and the number of leading comments registered
+fn compile(input: &str, options: crate::Options) -> (String, usize) {
+    let mut result = (String::new(), 0);
+
+    Tester::run(|tester| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let (program, source_map, comments) = parse(tester, input)?;
+        let program = program
+            .apply(&mut resolver(unresolved_mark, top_level_mark, false))
+            .apply(&mut crate::inferno(
+                source_map.clone(),
+                Some(&comments),
+                options,
+                unresolved_mark,
+            ));
+        let count = comments.borrow_all().0.values().map(Vec::len).sum();
+
+        result = (emit(source_map, comments, &program), count);
+        Ok(())
+    });
+    result
+}
+
+// The fast refresh wrappers `_s(...)` and `_c = ...` must not take the annotation of the factory
+// call they wrap.
+#[test]
+fn refresh_wrappers_do_not_take_the_annotation_of_the_factory() {
+    let (code, _) = compile(
+        r#"
+  import { forwardRef } from 'inferno';
+  import { useState } from 'inferno-hooks';
+  export const Comp = forwardRef((p, r) => { useState(1); return <div />; });
+  export default forwardRef(function X() { return <p />; });
+  "#,
+        crate::Options {
+            development: Some(true),
+            refresh: Some(crate::RefreshOptions::default()),
+            ..Default::default()
+        },
+    );
+
+    assert!(!code.contains("/*#__PURE__*/ _s("), "{code}");
+    assert!(!code.contains("/*#__PURE__*/ _c"), "{code}");
+    assert_eq!(
+        code.matches("/*#__PURE__*/ forwardRef(").count(),
+        2,
+        "{code}"
+    );
+}
+
+// Fast refresh turns an expression body with hooks into a block that returns it; the annotation
+// stays on the returned call instead of moving in front of `return`.
+#[test]
+fn refresh_return_does_not_take_the_annotation_of_the_body() {
+    let (code, _) = compile(
+        r#"
+  import { useThing } from './hooks';
+  export const Card = () => <div>{useThing()}</div>;
+  "#,
+        crate::Options {
+            development: Some(true),
+            refresh: Some(crate::RefreshOptions::default()),
+            ..Default::default()
+        },
+    );
+
+    assert!(!code.contains("/*#__PURE__*/ return"), "{code}");
+    assert!(code.contains("return /*#__PURE__*/ createVNode("), "{code}");
+}

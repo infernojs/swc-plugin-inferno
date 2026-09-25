@@ -411,12 +411,14 @@ fn collect_hooks_arrow<S: SourceMapper>(
 
             if !hook.state.is_empty() {
                 let sig = HookSig::new(hook.state);
+                // The block and the return have no position: a position shared with `expr` would
+                // take the comments of `expr`, like its pure annotation
                 *body = ArrowFunctionBody::FunctionBody(FunctionBody {
-                    span: expr.span(),
+                    span: DUMMY_SP,
                     stmts: vec![
                         make_call_stmt(sig.handle.clone()),
                         Stmt::Return(ReturnStmt {
-                            span: expr.span(),
+                            span: DUMMY_SP,
                             arg: Some(Box::new(expr.as_mut().take())),
                         }),
                     ],

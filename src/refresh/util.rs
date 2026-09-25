@@ -1,6 +1,6 @@
 use rustc_hash::FxHashSet;
 use swc_core::{
-    common::{DUMMY_SP, Spanned, SyntaxContext},
+    common::{DUMMY_SP, SyntaxContext},
     ecma::ast::*,
     ecma::utils::{ExprFactory, find_pat_ids},
     ecma::visit::{Visit, VisitWith, noop_visit_type},
@@ -84,12 +84,13 @@ fn assert_hygiene(e: &Expr) {
     }
 }
 
-/// `handle = expr`
+/// `handle = expr`. The assignment has no position: a position shared with `expr` would take the
+/// comments of `expr`, like its pure annotation.
 pub fn make_assign_expr(handle: Ident, expr: Box<Expr>) -> Expr {
     assert_hygiene(&expr);
 
     AssignExpr {
-        span: expr.span(),
+        span: DUMMY_SP,
         op: op!("="),
         left: handle.into(),
         right: expr,

@@ -12,7 +12,7 @@ use std::borrow::Cow;
 use swc_core::{
     atoms::{Atom, atom},
     common::{
-        BytePos, DUMMY_SP, SourceMapper, Span, Spanned, SyntaxContext,
+        BytePos, DUMMY_SP, SourceMapper, Span, SyntaxContext,
         comments::{Comment, Comments},
         sync::Lrc,
         util::take::Take,
@@ -64,15 +64,15 @@ struct HocHook {
 }
 
 impl HocHook {
-    /// `callee(expr, ...rest_arg)`
+    /// `callee(expr, ...rest_arg)`. The call has no position: a position shared with `expr` would
+    /// take the comments of `expr`, like its pure annotation.
     fn wrap(&self, expr: Expr) -> Expr {
-        let span = expr.span();
         let mut args = Vec::with_capacity(1 + self.rest_arg.len());
         args.push(expr.as_arg());
         args.extend(self.rest_arg.iter().cloned());
 
         CallExpr {
-            span,
+            span: DUMMY_SP,
             callee: self.callee.clone(),
             args,
             ..Default::default()
