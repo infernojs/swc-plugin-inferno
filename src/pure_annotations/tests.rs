@@ -516,3 +516,14 @@ fn refresh_return_does_not_take_the_annotation_of_the_body() {
     assert!(!code.contains("/*#__PURE__*/ return"), "{code}");
     assert!(code.contains("return /*#__PURE__*/ createVNode("), "{code}");
 }
+
+// A Fragment with a spread gets no normalizeProps call, so no annotation for one is registered.
+#[test]
+fn fragment_with_spread_registers_only_printed_annotations() {
+    let (code, comments) = compile(
+        "const x = <Fragment {...p}>x</Fragment>;",
+        crate::Options::default(),
+    );
+
+    assert_eq!(comments, code.matches("#__PURE__").count(), "{code}");
+}

@@ -231,12 +231,11 @@ fn may_have_side_effects(expr: &Expr) -> bool {
     }
 }
 
-/// `withOverridden` of babel-plugin-inferno: a children prop replaced by JSX children is still
-/// evaluated before them, like in React's JSX transform. `None` stands for no children argument,
-/// and stays so when the prop has no side effects.
-fn with_overridden(overridden: Expr, value: Option<Box<Expr>>) -> Option<Box<Expr>> {
+/// The parts of a children prop that JSX children replace which are still evaluated, like in
+/// React's JSX transform, or `None` when it has no side effects
+fn side_effects(overridden: Expr) -> Option<SeqExpr> {
     // The prop value has no parentheses, see `get_value`
-    let mut exprs: Vec<_> = match overridden {
+    let exprs: Vec<_> = match overridden {
         Expr::Seq(seq) => seq
             .exprs
             .into_iter()
@@ -246,14 +245,25 @@ fn with_overridden(overridden: Expr, value: Option<Box<Expr>>) -> Option<Box<Exp
         _ => vec![],
     };
 
-    if exprs.is_empty() {
-        return value;
-    }
-    exprs.push(value.unwrap_or_else(null_expr));
-    Some(Box::new(Expr::Seq(SeqExpr {
+    (!exprs.is_empty()).then_some(SeqExpr {
         span: DUMMY_SP,
         exprs,
-    })))
+    })
+}
+
+/// `(side effects, value)`
+fn followed_by(mut side_effects: SeqExpr, value: Box<Expr>) -> Box<Expr> {
+    side_effects.exprs.push(value);
+    Box::new(Expr::Seq(side_effects))
+}
+
+/// `withOverridden` of babel-plugin-inferno: `value` after the side effects of the children prop
+/// that it replaces
+fn with_overridden(overridden: Expr, value: Box<Expr>) -> Box<Expr> {
+    match side_effects(overridden) {
+        Some(side_effects) => followed_by(side_effects, value),
+        None => value,
+    }
 }
 
 /// `jsxMemberExpressionReference` of babel-plugin-inferno
@@ -369,11 +379,6 @@ where
         )
     }
 
-    /// Whether generated calls get pure annotations
-    fn annotates(&self) -> bool {
-        self.pure && self.comments.is_some()
-    }
-
     /// Adds a pure annotation in front of a generated call
     fn annotate(&self, span: Span) -> Span {
         let Some(comments) = self.comments.as_ref().filter(|_| self.pure) else {
@@ -391,13 +396,36 @@ where
     }
 
     fn call(&mut self, span: Span, helper: Helper, args: Vec<ExprOrSpread>) -> Expr {
+        let callee = self.helper(helper);
+        self.call_of(span, callee, args)
+    }
+
+    fn call_of(&self, span: Span, callee: Ident, args: Vec<ExprOrSpread>) -> Expr {
         Expr::Call(CallExpr {
             span,
             ctxt: self.unresolved_ctxt,
-            callee: self.helper(helper).as_callee(),
+            callee: callee.as_callee(),
             args,
             type_args: None,
         })
+    }
+
+    /// The call that creates the vNode of an element or a component. When `normalizeProps` wraps
+    /// it, both calls have the position of the tag, like in babel-plugin-inferno. The annotation
+    /// at that position is printed before `normalizeProps`, so the wrapped call's own annotation
+    /// is attached to its callee; without it a minifier keeps the call when the vNode is unused.
+    fn vnode_call(
+        &mut self,
+        span: Span,
+        helper: Helper,
+        args: Vec<ExprOrSpread>,
+        normalized: bool,
+    ) -> Expr {
+        let mut callee = self.helper(helper);
+        if normalized {
+            callee.span = self.annotate(DUMMY_SP);
+        }
+        self.call_of(span, callee, args)
     }
 
     fn text_vnode(&mut self, text: Box<Expr>) -> Box<Expr> {
@@ -607,16 +635,13 @@ where
         }
 
         if is_component {
-            // JSX children replace a children prop
-            let children = children
-                .take()
-                .filter(|children| !is_empty_array(children))
-                .map(|children| match vprops.take_children_prop() {
-                    Some(overridden) => with_overridden(*overridden, Some(children)),
-                    None => Some(children),
-                });
+            if let Some(children) = children.take().filter(|children| !is_empty_array(children)) {
+                // JSX children replace a children prop
+                let value = match vprops.take_children_prop() {
+                    Some(overridden) => with_overridden(*overridden, children),
+                    None => children,
+                };
 
-            if let Some(Some(value)) = children {
                 vprops.props.push(key_value(
                     PropName::Ident(IdentName::new(atom!("children"), DUMMY_SP)),
                     value,
@@ -712,19 +737,15 @@ where
         };
 
         if let Some(overridden) = overridden {
-            children = with_overridden(*overridden, children);
+            children = match children {
+                Some(children) => Some(with_overridden(*overridden, children)),
+                // Without a children argument the prop is still evaluated for its side effects
+                None => side_effects(*overridden)
+                    .map(|side_effects| followed_by(side_effects, null_expr())),
+            };
         }
 
         let span = self.annotate(span);
-        // normalizeProps wraps the call and keeps the position of the tag, like in
-        // babel-plugin-inferno. A pure annotation belongs to a position, so the wrapped call gets
-        // a position of its own to be annotated too; otherwise a minifier keeps it when the
-        // vNode is unused.
-        let call_span = if vprops.needs_normalization && self.annotates() {
-            self.annotate(DUMMY_SP)
-        } else {
-            span
-        };
         let flags = match vprops.flags_override {
             Some(expr) => Flag::Expr(expr),
             None => Flag::Known(flags),
@@ -738,7 +759,12 @@ where
             VType::Component(tag) => {
                 let args =
                     create_component_vnode_args(flags, tag, props, vprops.key, vprops.reference);
-                self.call(call_span, Helper::CreateComponentVNode, args)
+                self.vnode_call(
+                    span,
+                    Helper::CreateComponentVNode,
+                    args,
+                    vprops.needs_normalization,
+                )
             }
             VType::Element { tag, .. } => {
                 let args = CreateVNodeArgs {
@@ -752,7 +778,7 @@ where
                     reference: vprops.reference,
                 }
                 .into_args();
-                self.call(call_span, Helper::CreateVNode, args)
+                self.vnode_call(span, Helper::CreateVNode, args, vprops.needs_normalization)
             }
             VType::Fragment => {
                 if single_text_child || (!requires_normalization && has_single_child) {
