@@ -86,18 +86,18 @@ fn hooks_closure(hooks: Vec<HookCall>) -> Function {
         ..Default::default()
     }
 }
-pub struct HookRegister<'a> {
+pub struct HookRegister<'a, S: SourceMapper> {
     /// The function that creates a signature handle
     pub refresh_sig: &'a Atom,
     pub emit_full_signatures: bool,
     pub ident: Vec<Ident>,
     pub extra_stmt: Vec<Stmt>,
     pub current_scope: Vec<SyntaxContext>,
-    pub cm: &'a dyn SourceMapper,
+    pub cm: &'a S,
     pub should_reset: bool,
 }
 
-impl<'a> HookRegister<'a> {
+impl<S: SourceMapper> HookRegister<'_, S> {
     /// `var _s = $RefreshSig$(), ...` for the signature handles used in the scope
     pub fn gen_hook_handle(&mut self) -> Stmt {
         var_decl(
@@ -235,7 +235,7 @@ impl<'a> HookRegister<'a> {
     }
 }
 
-impl<'a> VisitMut for HookRegister<'a> {
+impl<S: SourceMapper> VisitMut for HookRegister<'_, S> {
     noop_visit_mut_type!();
 
     fn visit_mut_block_stmt(&mut self, b: &mut BlockStmt) {
@@ -370,7 +370,11 @@ impl<'a> VisitMut for HookRegister<'a> {
 
 /// Collects the hooks called in a function body. `self_ids` are the names of the function, whose
 /// recursive calls are not hooks of their own.
-fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper, self_ids: &[Id]) -> Option<HookSig> {
+fn collect_hooks<S: SourceMapper>(
+    stmts: &mut Vec<Stmt>,
+    cm: &S,
+    self_ids: &[Id],
+) -> Option<HookSig> {
     let mut hook = HookCollector {
         state: Vec::new(),
         cm,
@@ -389,9 +393,9 @@ fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper, self_ids: &[Id]) 
     }
 }
 
-fn collect_hooks_arrow(
+fn collect_hooks_arrow<S: SourceMapper>(
     body: &mut ArrowFunctionBody,
-    cm: &dyn SourceMapper,
+    cm: &S,
     self_ids: &[Id],
 ) -> Option<HookSig> {
     match body {
@@ -425,9 +429,9 @@ fn collect_hooks_arrow(
     }
 }
 
-struct HookCollector<'a> {
+struct HookCollector<'a, S: SourceMapper> {
     state: Vec<Hook>,
-    cm: &'a dyn SourceMapper,
+    cm: &'a S,
     self_ids: &'a [Id],
 }
 
@@ -437,7 +441,7 @@ fn is_hook_like(s: &str) -> bool {
         .is_some_and(char::is_uppercase)
 }
 
-impl HookCollector<'_> {
+impl<S: SourceMapper> HookCollector<'_, S> {
     fn is_self_call(&self, ident: &Ident) -> bool {
         self.self_ids
             .iter()
@@ -495,7 +499,7 @@ impl HookCollector<'_> {
     }
 }
 
-impl Visit for HookCollector<'_> {
+impl<S: SourceMapper> Visit for HookCollector<'_, S> {
     noop_visit_type!();
 
     fn visit_arrow_function_body(&mut self, _: &ArrowFunctionBody) {}

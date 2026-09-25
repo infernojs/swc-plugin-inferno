@@ -165,7 +165,7 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
         &self,
         item: &mut ModuleItem,
         used_in_jsx: &FxHashSet<Id>,
-        hook_reg: &mut HookRegister,
+        hook_reg: &mut HookRegister<S>,
     ) -> Persist {
         match item {
             // function Foo() {}
@@ -206,7 +206,7 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
         &self,
         var_decl: &mut VarDecl,
         used_in_jsx: &FxHashSet<Id>,
-        hook_reg: &mut HookRegister,
+        hook_reg: &mut HookRegister<S>,
     ) -> Persist {
         // We only handle the case when a single variable is declared
         let [
@@ -271,7 +271,7 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
     fn get_persistent_id_from_default_export(
         &self,
         export: &mut ExportDefaultExpr,
-        hook_reg: &mut HookRegister,
+        hook_reg: &mut HookRegister<S>,
     ) -> Persist {
         let Expr::Call(call) = &mut *export.expr else {
             return Persist::None;
@@ -298,7 +298,7 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
         &self,
         call_expr: &mut CallExpr,
         mut regs: Vec<Reg>,
-        hook_reg: &mut HookRegister,
+        hook_reg: &mut HookRegister<S>,
     ) -> Option<Hoc> {
         let [first, ..] = call_expr.args.as_mut_slice() else {
             return None;
