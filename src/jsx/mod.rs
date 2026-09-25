@@ -25,9 +25,7 @@ mod text;
 mod vnode_args;
 
 use self::bindings::{HelperBindings, generate_uid, module_bindings, script_bindings, used_names};
-use self::props::{
-    PropChildren, PropItem, VNodeProps, emit_error, get_vnode_props, key_value, unparen,
-};
+use self::props::{PropChildren, emit_error, get_vnode_props, key_value, unparen};
 use self::text::{handle_white_space, map_text};
 use self::vnode_args::{
     CreateVNodeArgs, Flag, create_component_vnode_args, create_fragment_vnode_args, is_empty_array,
@@ -239,27 +237,24 @@ fn may_have_side_effects(expr: &Expr) -> bool {
 }
 
 /// `withOverridden` of babel-plugin-inferno: a children prop replaced by JSX children is still
-/// evaluated before them, like in React's JSX transform
-fn with_overridden(overridden: Vec<Expr>, value: Option<Box<Expr>>) -> Option<Box<Expr>> {
-    let mut exprs = vec![];
-
-    for node in overridden {
-        match *unparen(Box::new(node)) {
-            Expr::Seq(seq) => exprs.extend(
-                seq.exprs
-                    .into_iter()
-                    .filter(|expr| may_have_side_effects(expr)),
-            ),
-            node if may_have_side_effects(&node) => exprs.push(Box::new(node)),
-            _ => {}
-        }
-    }
+/// evaluated before them, like in React's JSX transform. `None` stands for no children argument,
+/// and stays so when the prop has no side effects.
+fn with_overridden(overridden: Expr, value: Option<Box<Expr>>) -> Option<Box<Expr>> {
+    // The prop value has no parentheses, see `get_value`
+    let mut exprs: Vec<_> = match overridden {
+        Expr::Seq(seq) => seq
+            .exprs
+            .into_iter()
+            .filter(|expr| may_have_side_effects(expr))
+            .collect(),
+        node if may_have_side_effects(&node) => vec![Box::new(node)],
+        _ => vec![],
+    };
 
     if exprs.is_empty() {
         return value;
     }
     exprs.push(value.unwrap_or_else(null_expr));
-
     Some(Box::new(Expr::Seq(SeqExpr {
         span: DUMMY_SP,
         exprs,
@@ -586,7 +581,7 @@ where
         let mut children = Some(result.children.take());
         let mut child_flags = Flag::Known(ChildFlags::HasInvalidChildren as u16);
         let mut flags = vtype.flags;
-        let mut overridden = vec![];
+        let mut overridden = None;
 
         if vprops.has_re_create_flag {
             flags |= VNodeFlags::ReCreate as u16;
@@ -596,27 +591,26 @@ where
         }
 
         if is_component {
-            if let Some(children) = children.take().filter(|children| !is_empty_array(children)) {
-                // JSX children replace children props
-                let value = if vprops.prop_children.is_some() {
-                    with_overridden(vprops.remove_children_props(), Some(children)).unwrap()
-                } else {
-                    children
-                };
-
-                vprops.props.push(PropItem {
-                    prop: key_value(
-                        PropName::Ident(IdentName::new(atom!("children"), DUMMY_SP)),
-                        value,
-                    ),
-                    is_children: false,
+            // JSX children replace a children prop
+            let children = children
+                .take()
+                .filter(|children| !is_empty_array(children))
+                .map(|children| match vprops.take_children_prop() {
+                    Some(overridden) => with_overridden(*overridden, Some(children)),
+                    None => Some(children),
                 });
+
+            if let Some(Some(value)) = children {
+                vprops.props.push(key_value(
+                    PropName::Ident(IdentName::new(atom!("children"), DUMMY_SP)),
+                    value,
+                ));
             }
         } else {
-            let has_prop_children = vprops.prop_children.is_some();
-
-            if has_prop_children && children.as_deref().is_some_and(is_empty_array) {
-                match vprops.prop_children.take().unwrap() {
+            if children.as_deref().is_some_and(is_empty_array)
+                && let Some(prop_children) = vprops.prop_children.take()
+            {
+                match prop_children {
                     PropChildren::Str(value) => {
                         let text = map_text(value, handle_white_space);
 
@@ -638,7 +632,7 @@ where
                     PropChildren::Expr => {
                         // children={expression}, or children=<element /> without braces. It is
                         // passed as the children argument instead of as a prop.
-                        let value = vprops.remove_children_props().pop().map(Box::new);
+                        let value = vprops.take_children_prop();
                         let is_jsx = value.as_deref().is_some_and(|value| {
                             matches!(value, Expr::JSXElement(_) | Expr::JSXFragment(_))
                         });
@@ -687,11 +681,8 @@ where
                 child_flags = Flag::Known(ChildFlags::HasNonKeyedChildren as u16);
             }
 
-            if has_prop_children {
-                // Children props are passed as the children argument; the one in use is not an
-                // overridden value
-                overridden = vprops.remove_children_props();
-            }
+            // A children prop is passed as the children argument, or replaced by JSX children
+            overridden = vprops.take_children_prop();
         }
 
         if result.found_text {
@@ -705,8 +696,8 @@ where
             child_flags = Flag::Known(ChildFlags::UnknownChildren as u16);
         }
 
-        if !overridden.is_empty() {
-            children = with_overridden(overridden, children);
+        if let Some(overridden) = overridden {
+            children = with_overridden(*overridden, children);
         }
 
         let span = self.annotate(span);
@@ -714,7 +705,10 @@ where
             Some(expr) => Flag::Expr(expr),
             None => Flag::Known(flags),
         };
-        let props = VNodeProps::into_object(std::mem::take(&mut vprops.props));
+        let props = ObjectLit {
+            span: DUMMY_SP,
+            props: vprops.props,
+        };
 
         let call = match kind {
             VNodeType::Component => {

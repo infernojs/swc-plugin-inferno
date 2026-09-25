@@ -96,15 +96,12 @@ pub(super) enum PropChildren {
     Other,
 }
 
-/// A prop, and whether it comes from a `children` attribute
-pub(super) struct PropItem {
-    pub(super) prop: PropOrSpread,
-    pub(super) is_children: bool,
-}
-
 #[derive(Default)]
 pub(super) struct VNodeProps {
-    pub(super) props: Vec<PropItem>,
+    pub(super) props: Vec<PropOrSpread>,
+    /// The index of the `children` prop in `props`. There is at most one: duplicate attributes
+    /// are rejected, and no other attribute becomes a `children` prop.
+    children_prop: Option<usize>,
     pub(super) key: Option<Box<Expr>>,
     pub(super) reference: Option<Box<Expr>>,
     pub(super) class_name: Option<Box<Expr>>,
@@ -121,29 +118,16 @@ pub(super) struct VNodeProps {
 }
 
 impl VNodeProps {
-    /// Removes every children prop and returns the removed values in source order
-    pub(super) fn remove_children_props(&mut self) -> Vec<Expr> {
-        let mut removed = vec![];
+    /// Removes the `children` prop and returns its value
+    pub(super) fn take_children_prop(&mut self) -> Option<Box<Expr>> {
+        let index = self.children_prop.take()?;
 
-        self.props.retain_mut(|item| {
-            if !item.is_children {
-                return true;
-            }
-            if let PropOrSpread::Prop(prop) = &mut item.prop
-                && let Prop::KeyValue(KeyValueProp { value, .. }) = &mut **prop
-            {
-                removed.push(*std::mem::replace(value, Expr::undefined(DUMMY_SP)));
-            }
-            false
-        });
-
-        removed
-    }
-
-    pub(super) fn into_object(props: Vec<PropItem>) -> ObjectLit {
-        ObjectLit {
-            span: DUMMY_SP,
-            props: props.into_iter().map(|item| item.prop).collect(),
+        if let PropOrSpread::Prop(prop) = self.props.remove(index)
+            && let Prop::KeyValue(KeyValueProp { value, .. }) = *prop
+        {
+            Some(value)
+        } else {
+            None
         }
     }
 }
@@ -187,10 +171,7 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
         let attr = match attr {
             JSXAttrOrSpread::SpreadElement(spread) => {
                 result.needs_normalization = true;
-                result.props.push(PropItem {
-                    prop: PropOrSpread::Spread(spread),
-                    is_children: false,
-                });
+                result.props.push(PropOrSpread::Spread(spread));
                 continue;
             }
             JSXAttrOrSpread::JSXAttr(attr) => attr,
@@ -231,11 +212,12 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
                         }
                     }
                 }
-                let is_children = output_name == "children";
-                result.props.push(PropItem {
-                    prop: key_value(prop_name(output_name, span), get_value(value)),
-                    is_children,
-                });
+                if output_name == "children" {
+                    result.children_prop = Some(result.props.len());
+                }
+                result
+                    .props
+                    .push(key_value(prop_name(output_name, span), get_value(value)));
             };
 
         if !is_component && (name == "className" || name == "class") {
