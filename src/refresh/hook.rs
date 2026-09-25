@@ -35,10 +35,9 @@ struct Hook {
 }
 
 // we only consider two kinds of callee as hook call
-#[allow(clippy::large_enum_variant)]
 enum HookCall {
     Ident(Ident),
-    Member(Expr, IdentName), // for obj and prop
+    Member(Box<Expr>, IdentName), // for obj and prop
 }
 pub struct HookRegister<'a> {
     pub options: &'a RefreshOptions,
@@ -82,22 +81,18 @@ impl<'a> HookRegister<'a> {
         let mut custom_hook = Vec::new();
 
         for hook in hooks {
-            let name = match &hook.callee {
-                HookCall::Ident(i) => i.clone(),
-                HookCall::Member(_, i) => i.clone().into(),
+            let (name, is_custom) = match &hook.callee {
+                HookCall::Ident(ident) => (&ident.sym, !is_builtin_hook(&ident.sym)),
+                HookCall::Member(obj, prop) => (
+                    &prop.sym,
+                    !is_builtin_hook(&prop.sym)
+                        && matches!(&**obj, Expr::Ident(obj) if obj.sym != "React"),
+                ),
             };
-            sign.push(format!("{}{{{}}}", name.sym, hook.key));
-            match &hook.callee {
-                HookCall::Ident(ident) if !is_builtin_hook(&ident.sym) => {
-                    custom_hook.push(hook.callee);
-                }
-                HookCall::Member(Expr::Ident(obj_ident), prop)
-                    if !is_builtin_hook(&prop.sym) && obj_ident.sym.as_ref() != "React" =>
-                {
-                    custom_hook.push(hook.callee);
-                }
-                _ => (),
-            };
+            sign.push(format!("{name}{{{}}}", hook.key));
+            if is_custom {
+                custom_hook.push(hook.callee);
+            }
         }
 
         let sign = sign.join("\n");
@@ -125,18 +120,14 @@ impl<'a> HookRegister<'a> {
         for hook in custom_hook {
             let ident = match &hook {
                 HookCall::Ident(ident) => Some(ident),
-                HookCall::Member(Expr::Ident(ident), _) => Some(ident),
-                _ => None,
+                HookCall::Member(obj, _) => obj.as_ident(),
             };
-            if !ident
-                .map(|id| self.current_scope.contains(&id.ctxt))
-                .unwrap_or(false)
-            {
+            if ident.is_some_and(|ident| self.current_scope.contains(&ident.ctxt)) {
+                custom_hook_in_scope.push(hook);
+            } else {
                 // We don't have anything to put in the array because Hook is out of scope.
                 // Since it could potentially have been edited, remount the component.
                 should_reset = true;
-            } else {
-                custom_hook_in_scope.push(hook);
             }
         }
 
@@ -153,7 +144,7 @@ impl<'a> HookRegister<'a> {
                             HookCall::Ident(ident) => Expr::from(ident),
                             HookCall::Member(obj, prop) => MemberExpr {
                                 span: DUMMY_SP,
-                                obj: Box::new(obj),
+                                obj,
                                 prop: MemberProp::Ident(prop),
                             }
                             .into(),
@@ -259,6 +250,14 @@ impl<'a> VisitMut for HookRegister<'a> {
         }
     }
 
+    fn visit_mut_constructor(&mut self, c: &mut Constructor) {
+        c.params.visit_mut_with(self);
+
+        if let Some(body) = &mut c.body {
+            self.visit_mut_scoped_stmts(&mut body.stmts, c.ctxt);
+        }
+    }
+
     fn visit_mut_arrow_expr(&mut self, a: &mut ArrowExpr) {
         a.params.visit_mut_with(self);
 
@@ -270,9 +269,13 @@ impl<'a> VisitMut for HookRegister<'a> {
         e.visit_mut_children_with(self);
 
         match e {
-            Expr::Fn(FnExpr { function: f, .. }) => {
+            Expr::Fn(FnExpr {
+                ident: fn_ident,
+                function: f,
+            }) => {
                 if let Some(body) = &mut f.body {
-                    let sig = collect_hooks(&mut body.stmts, self.cm);
+                    let self_ids: Vec<Id> = fn_ident.iter().map(Ident::to_id).collect();
+                    let sig = collect_hooks(&mut body.stmts, self.cm, &self_ids);
 
                     if let Some(HookSig { handle, hooks }) = sig {
                         self.ident.push(handle.clone());
@@ -281,7 +284,7 @@ impl<'a> VisitMut for HookRegister<'a> {
                 }
             }
             Expr::Arrow(ArrowExpr { body, .. }) => {
-                let sig = collect_hooks_arrow(body, self.cm);
+                let sig = collect_hooks_arrow(body, self.cm, &[]);
 
                 if let Some(HookSig { handle, hooks }) = sig {
                     self.ident.push(handle.clone());
@@ -305,11 +308,16 @@ impl<'a> VisitMut for HookRegister<'a> {
             } = decl
             {
                 match init.as_mut() {
-                    Expr::Fn(FnExpr { function: f, .. }) => {
+                    Expr::Fn(FnExpr {
+                        ident: fn_ident,
+                        function: f,
+                    }) => {
                         let ctxt = f.ctxt;
                         if let Some(body) = &mut f.body {
                             self.visit_mut_scoped_stmts(&mut body.stmts, ctxt);
-                            if let Some(sig) = collect_hooks(&mut body.stmts, self.cm) {
+                            let mut self_ids = vec![id.to_id()];
+                            self_ids.extend(fn_ident.iter().map(Ident::to_id));
+                            if let Some(sig) = collect_hooks(&mut body.stmts, self.cm, &self_ids) {
                                 self.gen_hook_register_stmt(Ident::from(&*id), sig);
                             }
                         } else {
@@ -319,7 +327,7 @@ impl<'a> VisitMut for HookRegister<'a> {
                     Expr::Arrow(ArrowExpr { body, ctxt, .. }) => {
                         let ctxt = *ctxt;
                         self.visit_mut_arrow_body(body, ctxt);
-                        if let Some(sig) = collect_hooks_arrow(body, self.cm) {
+                        if let Some(sig) = collect_hooks_arrow(body, self.cm, &[id.to_id()]) {
                             self.gen_hook_register_stmt(Ident::from(&*id), sig);
                         }
                     }
@@ -340,7 +348,7 @@ impl<'a> VisitMut for HookRegister<'a> {
             function: f,
         }) = d
             && let Some(body) = &mut f.body
-            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm)
+            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm, &[ident.to_id()])
         {
             self.gen_hook_register_stmt(ident.clone(), sig);
         }
@@ -350,17 +358,20 @@ impl<'a> VisitMut for HookRegister<'a> {
         f.visit_mut_children_with(self);
 
         if let Some(body) = &mut f.function.body
-            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm)
+            && let Some(sig) = collect_hooks(&mut body.stmts, self.cm, &[f.ident.to_id()])
         {
             self.gen_hook_register_stmt(f.ident.clone(), sig);
         }
     }
 }
 
-fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper) -> Option<HookSig> {
+/// Collects the hooks called in a function body. `self_ids` are the names of the function, whose
+/// recursive calls are not hooks of their own.
+fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper, self_ids: &[Id]) -> Option<HookSig> {
     let mut hook = HookCollector {
         state: Vec::new(),
         cm,
+        self_ids,
     };
 
     stmts.visit_with(&mut hook);
@@ -375,13 +386,18 @@ fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper) -> Option<HookSig
     }
 }
 
-fn collect_hooks_arrow(body: &mut ArrowFunctionBody, cm: &dyn SourceMapper) -> Option<HookSig> {
+fn collect_hooks_arrow(
+    body: &mut ArrowFunctionBody,
+    cm: &dyn SourceMapper,
+    self_ids: &[Id],
+) -> Option<HookSig> {
     match body {
-        ArrowFunctionBody::FunctionBody(block) => collect_hooks(&mut block.stmts, cm),
+        ArrowFunctionBody::FunctionBody(block) => collect_hooks(&mut block.stmts, cm, self_ids),
         ArrowFunctionBody::Expr(expr) => {
             let mut hook = HookCollector {
                 state: Vec::new(),
                 cm,
+                self_ids,
             };
 
             expr.visit_with(&mut hook);
@@ -409,72 +425,61 @@ fn collect_hooks_arrow(body: &mut ArrowFunctionBody, cm: &dyn SourceMapper) -> O
 struct HookCollector<'a> {
     state: Vec<Hook>,
     cm: &'a dyn SourceMapper,
+    self_ids: &'a [Id],
 }
 
 fn is_hook_like(s: &str) -> bool {
-    if let Some(s) = s.strip_prefix("use") {
-        s.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
-    } else {
-        false
-    }
+    s.strip_prefix("use")
+        .and_then(|rest| rest.chars().next())
+        .is_some_and(char::is_uppercase)
 }
 
-impl<'a> HookCollector<'a> {
+impl HookCollector<'_> {
+    fn is_self_call(&self, ident: &Ident) -> bool {
+        self.self_ids
+            .iter()
+            .any(|(sym, ctxt)| *sym == ident.sym && *ctxt == ident.ctxt)
+    }
+
     fn get_hook_from_call_expr(&self, expr: &CallExpr, lhs: Option<&Pat>) -> Option<Hook> {
-        let callee = if let Callee::Expr(callee) = &expr.callee {
-            Some(callee.as_ref())
-        } else {
-            None
-        }?;
-        let mut hook_call = None;
-        let ident = match callee {
-            Expr::Ident(ident) => {
-                hook_call = Some(HookCall::Ident(ident.clone()));
-                Some(&ident.sym)
+        let Callee::Expr(callee) = &expr.callee else {
+            return None;
+        };
+        let (name, callee) = match &**callee {
+            // A recursive call is not listed: a hook in its own hooks array makes the refresh
+            // runtime recurse forever while computing the signature key
+            Expr::Ident(ident) if is_hook_like(&ident.sym) && !self.is_self_call(ident) => {
+                (&ident.sym, HookCall::Ident(ident.clone()))
             }
             // hook cannot be used in class, so we're fine without SuperProp
             Expr::Member(MemberExpr {
                 obj,
-                prop: MemberProp::Ident(ident),
+                prop: MemberProp::Ident(prop),
                 ..
-            }) => {
-                hook_call = Some(HookCall::Member(*obj.clone(), ident.clone()));
-                Some(&ident.sym)
+            }) if is_hook_like(&prop.sym) => {
+                (&prop.sym, HookCall::Member(obj.clone(), prop.clone()))
             }
-            _ => None,
-        }?;
-        let name = if is_hook_like(ident) {
-            Some(ident)
-        } else {
-            None
-        }?;
-        let mut key = if let Some(name) = lhs {
-            self.cm.span_to_snippet(name.span()).unwrap_or_default()
-        } else {
-            String::new()
+            _ => return None,
         };
-        // Some built-in Hooks reset on edits to arguments.
-        if *name == "useState" && !expr.args.is_empty() {
-            // useState first argument is initial state.
+        let mut key = lhs
+            .map(|lhs| self.cm.span_to_snippet(lhs.span()).unwrap_or_default())
+            .unwrap_or_default();
+        // Some built-in Hooks reset on edits to their initial state argument
+        let initial_state = match &**name {
+            "useState" => expr.args.first(),
+            "useReducer" => expr.args.get(1),
+            _ => None,
+        };
+        if let Some(initial_state) = initial_state {
             let _ = write!(
                 key,
                 "({})",
                 self.cm
-                    .span_to_snippet(expr.args[0].span())
-                    .unwrap_or_default()
-            );
-        } else if name == "useReducer" && expr.args.len() > 1 {
-            // useReducer second argument is initial state.
-            let _ = write!(
-                key,
-                "({})",
-                self.cm
-                    .span_to_snippet(expr.args[1].span())
+                    .span_to_snippet(initial_state.span())
                     .unwrap_or_default()
             );
         }
 
-        let callee = hook_call?;
         Some(Hook { callee, key })
     }
 
@@ -487,7 +492,7 @@ impl<'a> HookCollector<'a> {
     }
 }
 
-impl<'a> Visit for HookCollector<'a> {
+impl Visit for HookCollector<'_> {
     noop_visit_type!();
 
     fn visit_arrow_function_body(&mut self, _: &ArrowFunctionBody) {}
@@ -517,14 +522,13 @@ impl<'a> Visit for HookCollector<'a> {
             }
             Stmt::Decl(Decl::Var(var_decl)) => {
                 for decl in &var_decl.decls {
-                    if let Some(init) = &decl.init {
-                        if let Some(hook) = self.get_hook_from_expr(init, Some(&decl.name)) {
-                            self.state.push(hook)
-                        } else {
-                            stmt.visit_children_with(self)
-                        }
-                    } else {
-                        stmt.visit_children_with(self)
+                    match decl
+                        .init
+                        .as_deref()
+                        .and_then(|init| self.get_hook_from_expr(init, Some(&decl.name)))
+                    {
+                        Some(hook) => self.state.push(hook),
+                        None => decl.visit_children_with(self),
                     }
                 }
             }

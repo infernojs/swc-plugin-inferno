@@ -165,6 +165,8 @@ impl Visit for UsedInJsx {
         if let JSXElementName::Ident(ident) = &n.name {
             self.0.insert(ident.to_id());
         }
+        // Components also appear in JSX attribute values
+        n.visit_children_with(self);
     }
 }
 

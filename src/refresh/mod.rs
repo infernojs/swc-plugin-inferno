@@ -212,7 +212,7 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
                 let hook = if let Expr::Call(call) = first.as_ref() {
                     let res = Some(HocHook {
                         callee: call.callee.clone(),
-                        rest_arg: call.args[1..].to_owned(),
+                        rest_arg: call.args.get(1..).unwrap_or_default().to_vec(),
                     });
                     **first_arg = make_assign_stmt(reg_ident.clone(), first);
                     res

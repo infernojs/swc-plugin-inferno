@@ -834,3 +834,76 @@ test!(
     });
 "#
 );
+
+// Signatures of components declared in a constructor stay in the constructor's scope.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    component_in_class_constructor,
+    r#"
+    import { Component } from 'inferno';
+    import { useState } from 'inferno-hooks';
+    export class Table extends Component {
+      constructor(props) {
+        super(props);
+        const Row = () => {
+          const [x] = useState(0);
+          return <tr>{x}</tr>;
+        };
+        this.row = Row;
+      }
+    }
+"#
+);
+
+// Each declarator is collected once.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    hooks_in_multiple_declarators,
+    r#"
+    import { useA, useB, useC } from './hooks';
+    export function App() {
+      const a = useA(), b = 1;
+      const c = f(useB()), d = f(useC());
+      return <div>{a}{b}{c}{d}</div>;
+    }
+"#
+);
+
+// A hook that calls itself is not in its own hooks array.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    self_recursive_hook,
+    r#"
+    import { useState } from 'inferno-hooks';
+    export function useCounter(depth) {
+      const [count] = useState(0);
+      return depth > 0 ? useCounter(depth - 1) : count;
+    }
+"#
+);
+
+// A component only used in an attribute value is registered.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    component_used_only_in_attribute,
+    r#"
+    const Header = styled.header`color: red;`;
+    export const Page = () => <Layout header={<Header />} />;
+"#
+);
