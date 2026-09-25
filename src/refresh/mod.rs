@@ -10,8 +10,10 @@ use std::borrow::Cow;
 use swc_core::ecma::visit::visit_mut_pass;
 use swc_core::{
     common::{
-        BytePos, DUMMY_SP, SourceMapper, Span, Spanned, SyntaxContext, comments::Comments,
-        sync::Lrc, util::take::Take,
+        BytePos, DUMMY_SP, SourceMapper, Span, Spanned, SyntaxContext,
+        comments::{Comment, Comments},
+        sync::Lrc,
+        util::take::Take,
     },
     ecma::ast::*,
     ecma::utils::{ExprFactory, private_ident, quote_ident, quote_str},
@@ -245,6 +247,15 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
     }
 }
 
+/// A comment containing this resets the state of every component in the file on each edit
+const REFRESH_RESET: &str = "@refresh reset";
+
+fn has_refresh_reset(comments: &[Comment]) -> bool {
+    comments
+        .iter()
+        .any(|comment| comment.text.contains(REFRESH_RESET))
+}
+
 /// We let user do /* @refresh reset */ to reset state in the whole file.
 impl<C, S> Visit for Refresh<C, S>
 where
@@ -255,36 +266,27 @@ where
         if self.should_reset {
             return;
         }
+        let Some(comments) = &self.comments else {
+            return;
+        };
+        // `has_*` is a cheap check; `with_*` takes the comments and puts them back
+        let leading =
+            |pos| comments.has_leading(pos) && comments.with_leading(pos, has_refresh_reset);
+        let trailing =
+            |pos| comments.has_trailing(pos) && comments.with_trailing(pos, has_refresh_reset);
 
-        let mut should_refresh = self.should_reset;
-        if let Some(comments) = &self.comments {
-            if !n.hi.is_dummy() {
-                comments.with_leading(n.hi - BytePos(1), |comments| {
-                    if comments.iter().any(|c| c.text.contains("@refresh reset")) {
-                        should_refresh = true
-                    }
-                });
-            }
-
-            comments.with_leading(n.lo, |comments| {
-                if comments.iter().any(|c| c.text.contains("@refresh reset")) {
-                    should_refresh = true
-                }
-            });
-
-            comments.with_trailing(n.lo, |comments| {
-                if comments.iter().any(|c| c.text.contains("@refresh reset")) {
-                    should_refresh = true
-                }
-            });
-        }
-
-        self.should_reset = should_refresh;
+        self.should_reset = (!n.hi.is_dummy() && leading(n.hi - BytePos(1)))
+            || leading(n.lo)
+            || trailing(n.lo)
+            // A comment after code on the same line
+            || trailing(n.hi);
     }
 }
 
 impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
     fn visit_mut_module(&mut self, n: &mut Module) {
+        // A reset comment only applies to its own file
+        self.should_reset = false;
         // to collect comments
         self.visit_module(n);
 

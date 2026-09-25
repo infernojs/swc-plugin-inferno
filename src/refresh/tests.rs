@@ -907,3 +907,61 @@ test!(
     export const Page = () => <Layout header={<Header />} />;
 "#
 );
+
+// A reset comment after code on the same line counts too.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    refresh_reset_comment_after_code,
+    r#"
+    import { useState } from 'inferno-hooks';
+    export function Counter() {
+      const [count] = useState(0); // @refresh reset
+      return <div>{count}</div>;
+    }
+"#
+);
+
+#[test]
+fn refresh_reset_comment_does_not_leak_into_the_next_module() {
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let syntax = ::swc_ecma_parser::Syntax::Es(Default::default());
+        let mut pass = refresh(
+            RefreshOptions {
+                emit_full_signatures: true,
+                ..Default::default()
+            },
+            t.cm.clone(),
+            Some(t.comments.clone()),
+        );
+
+        let first = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "first.js",
+            syntax,
+            Some(true),
+            "/* @refresh reset */\nexport function A() { useState(); return null; }",
+        )?;
+        let first = first.apply(&mut pass);
+        let second = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "second.js",
+            syntax,
+            Some(true),
+            "export function B() { useState(); return null; }",
+        )?;
+        let second = second.apply(&mut pass);
+
+        let comments = t.comments.clone();
+        let first = t.print(&first, &comments);
+        let second = t.print(&second, &comments);
+        assert!(first.contains(r#"_s(A, "useState{}", true);"#), "{first}");
+        assert!(second.contains(r#"_s(B, "useState{}");"#), "{second}");
+        Ok(())
+    });
+}
