@@ -992,3 +992,78 @@ test!(
     }
 "#
 );
+
+/// Compiles `input` with fast refresh and full signatures, without hygiene
+fn transform(syntax: ::swc_ecma_parser::Syntax, input: &str) -> String {
+    let mut code = String::new();
+
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let is_ts = matches!(syntax, ::swc_ecma_parser::Syntax::Typescript(_));
+        let pass = (
+            resolver(unresolved_mark, top_level_mark, is_ts),
+            refresh(
+                RefreshOptions {
+                    emit_full_signatures: true,
+                    ..Default::default()
+                },
+                t.cm.clone(),
+                Some(t.comments.clone()),
+            ),
+        );
+        let program = t.apply_transform(pass, "input.js", syntax, Some(true), input)?;
+        let comments = t.comments.clone();
+
+        code = t.print(&program, &comments);
+        Ok(())
+    });
+    code
+}
+
+fn es_jsx() -> ::swc_ecma_parser::Syntax {
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        explicit_resource_management: true,
+        ..Default::default()
+    })
+}
+
+// `import x = require()` declares a module binding, so a hook read from it is in scope.
+#[test]
+fn import_equals_gives_the_module_scope() {
+    let code = transform(
+        ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsSyntax {
+            tsx: true,
+            ..Default::default()
+        }),
+        "import hooks = require('./hooks');
+         export default memo(() => {
+           const v = hooks.useFoo();
+           return <div>{v}</div>;
+         });",
+    );
+
+    assert!(
+        !code.contains(", true)"),
+        "the hook is out of scope:\n{code}"
+    );
+}
+
+// A `using` declaration declares a module binding too.
+#[test]
+fn using_declaration_gives_the_module_scope() {
+    let code = transform(
+        es_jsx(),
+        "using hooks = open();
+         export default memo(() => {
+           const v = hooks.useFoo();
+           return <div>{v}</div>;
+         });",
+    );
+
+    assert!(
+        !code.contains(", true)"),
+        "the hook is out of scope:\n{code}"
+    );
+}

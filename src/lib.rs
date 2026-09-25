@@ -13,6 +13,7 @@ use swc_core::{
 
 mod inferno_flags;
 mod jsx;
+mod program_bindings;
 mod pure_annotations;
 mod refresh;
 mod transformations;

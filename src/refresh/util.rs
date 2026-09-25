@@ -1,8 +1,9 @@
+use crate::program_bindings::for_each_module_binding;
 use rustc_hash::FxHashSet;
 use swc_core::{
     common::{DUMMY_SP, SyntaxContext},
     ecma::ast::*,
-    ecma::utils::{ExprFactory, find_pat_ids},
+    ecma::utils::ExprFactory,
     ecma::visit::{Visit, VisitWith, noop_visit_type},
 };
 
@@ -12,46 +13,11 @@ use swc_core::{
 /// binding the module declares. Without any binding no module-level hook can be in scope, and
 /// `SyntaxContext::empty()` matches no resolved identifier.
 pub fn top_level_ctxt(items: &[ModuleItem]) -> SyntaxContext {
-    items
-        .iter()
-        .find_map(|item| match item {
-            ModuleItem::ModuleDecl(ModuleDecl::Import(import)) if !import.type_only => import
-                .specifiers
-                .iter()
-                .find_map(|specifier| match specifier {
-                    ImportSpecifier::Named(named) if !named.is_type_only => Some(named.local.ctxt),
-                    ImportSpecifier::Default(default) => Some(default.local.ctxt),
-                    ImportSpecifier::Namespace(namespace) => Some(namespace.local.ctxt),
-                    _ => None,
-                }),
-            ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl { decl, .. }))
-            | ModuleItem::Stmt(Stmt::Decl(decl)) => decl_ctxt(decl),
-            ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(ExportDefaultDecl {
-                decl:
-                    DefaultDecl::Fn(FnExpr {
-                        ident: Some(ident), ..
-                    })
-                    | DefaultDecl::Class(ClassExpr {
-                        ident: Some(ident), ..
-                    }),
-                ..
-            })) => Some(ident.ctxt),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
-fn decl_ctxt(decl: &Decl) -> Option<SyntaxContext> {
-    match decl {
-        Decl::Fn(function) => Some(function.ident.ctxt),
-        Decl::Class(class) => Some(class.ident.ctxt),
-        Decl::Var(var) => var.decls.iter().find_map(|declarator| {
-            find_pat_ids::<_, Ident>(&declarator.name)
-                .first()
-                .map(|ident| ident.ctxt)
-        }),
-        _ => None,
-    }
+    let mut ctxt = None;
+    for_each_module_binding(items, |ident| {
+        ctxt.get_or_insert(ident.ctxt);
+    });
+    ctxt.unwrap_or_default()
 }
 
 pub fn is_builtin_hook(name: &str) -> bool {
