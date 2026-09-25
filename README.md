@@ -30,13 +30,20 @@ For rest of the settings see: https://swc.rs/docs/configuration/compilation
     "experimental": {
          "plugins": [
             ["swc-plugin-inferno", {
-              "pure": true // Enable or disable /*#__PURE__*/ statements
+              "pure": true // Enable or disable /*#__PURE__*/ annotations (default: true)
             }]
         ]
     }
   }
 }
 ```
+
+Unknown plugin options are rejected with an error.
+
+With `"pure": true` the plugin adds `/*#__PURE__*/` to the calls it generates from JSX, and also to hand-written calls
+of Inferno factories such as `forwardRef`, `createRef`, `createPortal` and `createVNode`. Minifiers remove these calls
+when their result is unused, so don't call them only for their side effects. `normalizeProps` is annotated only when its
+argument is a freshly created vNode, because it mutates the vNode passed to it.
 
 To use SWC with Webpack install `swc-loader` and add it to the Webpack configuration
 

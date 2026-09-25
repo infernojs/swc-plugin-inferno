@@ -1239,6 +1239,7 @@ dependencies = [
  "rayon",
  "rustc-hash",
  "serde",
+ "serde_json",
  "sha-1",
  "swc_config",
  "swc_core",

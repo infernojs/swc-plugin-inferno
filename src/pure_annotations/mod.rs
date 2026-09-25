@@ -1,5 +1,5 @@
 use rustc_hash::FxHashMap;
-use swc_core::atoms::{Atom, Wtf8Atom, atom};
+use swc_core::atoms::{Atom, atom};
 use swc_core::common::Span;
 use swc_core::common::comments::Comments;
 use swc_core::ecma::ast::*;
@@ -25,7 +25,7 @@ struct PureAnnotations<C>
 where
     C: Comments,
 {
-    imports: FxHashMap<Id, (Wtf8Atom, Atom)>,
+    imports: FxHashMap<Id, Atom>,
     comments: Option<C>,
 }
 
@@ -47,7 +47,6 @@ where
                 }
 
                 for specifier in &import.specifiers {
-                    let src = import.src.value.clone();
                     match specifier {
                         ImportSpecifier::Named(named) => {
                             let imported: Atom = match &named.imported {
@@ -59,14 +58,13 @@ where
                                 #[cfg(swc_ast_unknown)]
                                 Some(_) => continue,
                             };
-                            self.imports.insert(named.local.to_id(), (src, imported));
+                            self.imports.insert(named.local.to_id(), imported);
                         }
                         ImportSpecifier::Default(default) => {
-                            self.imports
-                                .insert(default.local.to_id(), (src, atom!("default")));
+                            self.imports.insert(default.local.to_id(), atom!("default"));
                         }
                         ImportSpecifier::Namespace(ns) => {
-                            self.imports.insert(ns.local.to_id(), (src, atom!("*")));
+                            self.imports.insert(ns.local.to_id(), atom!("*"));
                         }
                         #[cfg(swc_ast_unknown)]
                         _ => (),
@@ -84,38 +82,9 @@ where
     }
 
     fn visit_mut_call_expr(&mut self, call: &mut CallExpr) {
-        let is_inferno_call = match &call.callee {
-            Callee::Expr(expr) => match &**expr {
-                Expr::Ident(ident) => {
-                    if let Some((src, specifier)) = self.imports.get(&ident.to_id()) {
-                        is_pure(src, specifier)
-                    } else {
-                        false
-                    }
-                }
-                Expr::Member(member) => match &*member.obj {
-                    Expr::Ident(ident) => {
-                        if let Some((src, specifier)) = self.imports.get(&ident.to_id()) {
-                            if &**specifier == "default" || &**specifier == "*" {
-                                match &member.prop {
-                                    MemberProp::Ident(ident) => is_pure(src, &ident.sym),
-                                    _ => false,
-                                }
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    }
-                    _ => false,
-                },
-                _ => false,
-            },
-            _ => false,
-        };
-
-        if is_inferno_call && let Some(comments) = &self.comments {
+        if self.should_annotate(call)
+            && let Some(comments) = &self.comments
+        {
             if call.span.lo.is_dummy() {
                 call.span.lo = Span::dummy_with_cmt().lo;
             }
@@ -127,30 +96,86 @@ where
     }
 }
 
-fn is_pure(src: &Wtf8Atom, specifier: &Atom) -> bool {
-    let Some(src) = src.as_str() else {
-        return false;
-    };
+impl<C> PureAnnotations<C>
+where
+    C: Comments,
+{
+    /// Returns the name of the Inferno export called by `callee`, for both
+    /// `foo()` (named import) and `Inferno.foo()` (default / namespace import).
+    fn inferno_export<'a>(&'a self, callee: &'a Callee) -> Option<&'a Atom> {
+        let Callee::Expr(expr) = callee else {
+            return None;
+        };
 
-    match src {
-        "inferno" => matches!(
-            &**specifier,
-            "createComponentVNode"
-                | "createFragment"
-                | "createPortal"
-                | "createRef"
-                | "createRenderer"
-                | "createTextVNode"
-                | "createVNode"
-                | "forwardRef"
-                | "directClone"
-                | "findDOMFromVNode"
-                | "getFlagsForElementVnode"
-                | "linkEvent"
-                | "normalizeProps"
-                | "createElement"
-                | "createClass"
-        ),
-        _ => false,
+        match &**expr {
+            Expr::Ident(ident) => self.imports.get(&ident.to_id()),
+            Expr::Member(member) => {
+                let Expr::Ident(obj) = &*member.obj else {
+                    return None;
+                };
+                let specifier = self.imports.get(&obj.to_id())?;
+                if &**specifier != "default" && &**specifier != "*" {
+                    return None;
+                }
+                match &member.prop {
+                    MemberProp::Ident(prop) => Some(&prop.sym),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
+
+    fn should_annotate(&self, call: &CallExpr) -> bool {
+        match self.inferno_export(&call.callee).map(|name| &**name) {
+            // normalizeProps mutates its argument in place, so it can only be
+            // dropped when that argument is a fresh vNode nothing else refers to.
+            Some("normalizeProps") => call
+                .args
+                .first()
+                .is_some_and(|arg| arg.spread.is_none() && self.is_fresh_vnode(&arg.expr)),
+            Some(name) => is_pure(name),
+            None => false,
+        }
+    }
+
+    fn is_fresh_vnode(&self, expr: &Expr) -> bool {
+        let Expr::Call(call) = expr.unwrap_parens() else {
+            return false;
+        };
+
+        match self.inferno_export(&call.callee).map(|name| &**name) {
+            Some(
+                "createVNode"
+                | "createComponentVNode"
+                | "createFragment"
+                | "createTextVNode"
+                | "createPortal"
+                | "directClone",
+            ) => true,
+            Some("normalizeProps") => self.should_annotate(call),
+            _ => false,
+        }
+    }
+}
+
+fn is_pure(specifier: &str) -> bool {
+    // Only imports from "inferno" are collected, see `visit_mut_module`.
+    matches!(
+        specifier,
+        "createComponentVNode"
+            | "createFragment"
+            | "createPortal"
+            | "createRef"
+            | "createRenderer"
+            | "createTextVNode"
+            | "createVNode"
+            | "forwardRef"
+            | "directClone"
+            | "findDOMFromVNode"
+            | "getFlagsForElementVnode"
+            | "linkEvent"
+            | "createElement"
+            | "createClass"
+    )
 }

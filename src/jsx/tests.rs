@@ -1414,18 +1414,11 @@ struct FixtureOptions {
     #[serde(flatten)]
     options: Options,
 
-    #[serde(default = "true_by_default")]
-    pure: bool,
-
     #[serde(default)]
     throws: Option<String>,
 
     #[serde(default, alias = "useBuiltIns")]
     use_builtins: bool,
-}
-
-fn true_by_default() -> bool {
-    true
 }
 
 fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {

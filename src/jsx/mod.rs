@@ -51,6 +51,10 @@ pub struct Options {
     #[serde(default)]
     pub development: Option<bool>,
 
+    /// Emit `/*#__PURE__*/` annotations. Defaults to `true`.
+    #[serde(default)]
+    pub pure: Option<bool>,
+
     #[serde(default, deserialize_with = "deserialize_refresh")]
     // default to disabled since this is still considered as experimental by now
     pub refresh: Option<RefreshOptions>,
@@ -182,6 +186,7 @@ where
         import_create_fragment: None,
         import_normalize_props: None,
 
+        pure: options.pure.unwrap_or(true),
         comments,
         top_level_node: true,
     })
@@ -202,6 +207,7 @@ where
     import_normalize_props: Option<Ident>,
     top_level_node: bool,
 
+    pure: bool,
     comments: Option<C>,
 }
 
@@ -279,7 +285,9 @@ where
     fn jsx_frag_to_expr(&mut self, el: JSXFragment) -> Expr {
         let span = el.span();
 
-        if let Some(comments) = &self.comments {
+        if self.pure
+            && let Some(comments) = &self.comments
+        {
             comments.add_pure_comment(span.lo);
         }
 
@@ -386,7 +394,9 @@ where
         self.top_level_node = false;
         let unresolved_ctxt = SyntaxContext::empty().apply_mark(self.unresolved_mark);
 
-        if let Some(comments) = &self.comments {
+        if self.pure
+            && let Some(comments) = &self.comments
+        {
             comments.add_pure_comment(span.lo);
         }
 

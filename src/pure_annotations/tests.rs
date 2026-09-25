@@ -61,6 +61,10 @@ fn emit(
 }
 
 fn run_test(input: &str, expected: &str) {
+    run_test_with(input, expected, Default::default())
+}
+
+fn run_test_with(input: &str, expected: &str, options: crate::Options) {
     Tester::run(|tester| {
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
@@ -71,7 +75,7 @@ fn run_test(input: &str, expected: &str) {
             .apply(&mut crate::inferno(
                 actual_sm.clone(),
                 Some(&actual_comments),
-                Default::default(),
+                options,
                 top_level_mark,
                 unresolved_mark,
             ));
@@ -247,3 +251,81 @@ test!(
   foo.createElement('hi');
   "#
 );
+
+test!(
+    normalize_props_existing_vnode,
+    r#"
+  import {normalizeProps} from 'inferno';
+  function normalize(vNode) {
+    normalizeProps(vNode);
+    return vNode;
+  }
+  "#,
+    r#"
+  import {normalizeProps} from 'inferno';
+  function normalize(vNode) {
+    normalizeProps(vNode);
+    return vNode;
+  }
+  "#
+);
+
+test!(
+    normalize_props_namespace_existing_vnode,
+    r#"
+  import * as Inferno from 'inferno';
+  Inferno.normalizeProps(vNode);
+  "#,
+    r#"
+  import * as Inferno from 'inferno';
+  Inferno.normalizeProps(vNode);
+  "#
+);
+
+test!(
+    normalize_props_fresh_vnode,
+    r#"
+  import {normalizeProps, createVNode} from 'inferno';
+  const x = normalizeProps(createVNode(1, "div"));
+  "#,
+    r#"
+  import {normalizeProps, createVNode} from 'inferno';
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div"));
+  "#
+);
+
+test!(
+    normalize_props_nested_existing_vnode,
+    r#"
+  import {normalizeProps} from 'inferno';
+  const x = normalizeProps(normalizeProps(vNode));
+  "#,
+    r#"
+  import {normalizeProps} from 'inferno';
+  const x = normalizeProps(normalizeProps(vNode));
+  "#
+);
+
+#[test]
+fn pure_false_disables_annotations() {
+    run_test_with(
+        r#"
+  import {forwardRef} from 'inferno';
+  const Comp = forwardRef((props, ref) => <div {...props} />);
+  const x = <><span /></>;
+  "#,
+        r#"
+  import { forwardRef, createVNode, normalizeProps, createFragment } from 'inferno';
+  const Comp = forwardRef((props, ref) => normalizeProps(createVNode(1, "div", null, null, 1, {
+    ...props
+  })));
+  const x = createFragment([
+    createVNode(1, "span")
+  ], 4);
+  "#,
+        crate::Options {
+            pure: Some(false),
+            ..Default::default()
+        },
+    )
+}
