@@ -7,7 +7,7 @@ include       = ["Cargo.toml", "src/**/*.rs"]
 license       = "MIT"
 name          = "swc-plugin-inferno"
 repository    = "https://github.com/infernojs/swc-plugin-inferno.git"
-rust-version  = "1.88"
+rust-version  = "1.98"
 version       = "3.0.0"
 
 [lints.rust]
