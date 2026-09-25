@@ -7,6 +7,7 @@ use self::{
 };
 use rustc_hash::FxHashSet;
 use std::borrow::Cow;
+use swc_core::atoms::Atom;
 use swc_core::ecma::visit::visit_mut_pass;
 use swc_core::{
     common::{
@@ -42,8 +43,13 @@ enum Persist {
     Component(Ident),
     None,
 }
+/// Whether a name looks like a component: it starts with a capital letter
+fn is_componentish(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_uppercase())
+}
+
 fn get_persistent_id(ident: &Ident) -> Persist {
-    if ident.sym.starts_with(|c: char| c.is_ascii_uppercase()) {
+    if is_componentish(&ident.sym) {
         debug_assert!(
             ident.ctxt != SyntaxContext::empty(),
             "`{ident}` should be resolved"
@@ -65,15 +71,39 @@ where
     S: SourceMapper,
 {
     visit_mut_pass(Refresh {
+        refresh_reg: options.refresh_reg.into(),
+        refresh_sig: options.refresh_sig.into(),
+        emit_full_signatures: options.emit_full_signatures,
         cm,
         comments,
         should_reset: false,
-        options,
     })
 }
 
+/// Whether `get_persistent_id_from_possible_hoc` registers `call`: a call of a name or a member
+/// expression whose first argument is a function, a component, or such a call.
+///
+/// Checking first avoids creating registration handles (a host call each in the wasm plugin) for
+/// calls that are not registered.
+fn is_possible_hoc(call: &CallExpr) -> bool {
+    let (Some(first), Callee::Expr(callee)) = (call.args.first(), &call.callee) else {
+        return false;
+    };
+    if !matches!(&**callee, Expr::Ident(_) | Expr::Member(_)) {
+        return false;
+    }
+    match &*first.expr {
+        Expr::Call(inner) => is_possible_hoc(inner),
+        Expr::Fn(_) | Expr::Arrow(_) => true,
+        Expr::Ident(ident) => is_componentish(&ident.sym),
+        _ => false,
+    }
+}
+
 struct Refresh<C: Comments, S: SourceMapper> {
-    options: RefreshOptions,
+    refresh_reg: Atom,
+    refresh_sig: Atom,
+    emit_full_signatures: bool,
     cm: Lrc<S>,
     should_reset: bool,
     comments: Option<C>,
@@ -118,7 +148,7 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
                         }
                     }
                     // Maybe a HOC.
-                    Expr::Call(call_expr) => {
+                    Expr::Call(call_expr) if is_possible_hoc(call_expr) => {
                         let res = self.get_persistent_id_from_possible_hoc(
                             call_expr,
                             vec![(private_ident!("_c"), persistent_id.to_id())],
@@ -153,13 +183,11 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
         mut reg: Vec<(Ident, Id)>,
         hook_reg: &mut HookRegister,
     ) -> Persist {
-        let first_arg = match call_expr.args.as_mut_slice() {
-            [first, ..] => &mut first.expr,
-            _ => return Persist::None,
+        let [first, ..] = call_expr.args.as_mut_slice() else {
+            return Persist::None;
         };
-        let callee = if let Callee::Expr(expr) = &call_expr.callee {
-            expr
-        } else {
+        let first_arg = &mut first.expr;
+        let Callee::Expr(callee) = &call_expr.callee else {
             return Persist::None;
         };
         let hoc_name: Cow<'_, str> = match callee.as_ref() {
@@ -170,15 +198,13 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
             }
             _ => return Persist::None,
         };
-        let reg_name = match reg.last() {
-            Some((_, id)) => id.0.as_ref(),
-            None => return Persist::None,
+        let Some((_, (reg_name, _))) = reg.last() else {
+            return Persist::None;
         };
-        let mut reg_str_value = String::with_capacity(reg_name.len() + 1 + hoc_name.len());
-        reg_str_value.push_str(reg_name);
-        reg_str_value.push('$');
-        reg_str_value.push_str(hoc_name.as_ref());
-        let reg_str = (reg_str_value.into(), SyntaxContext::empty());
+        let reg_str = (
+            format!("{reg_name}${hoc_name}").into(),
+            SyntaxContext::empty(),
+        );
         match first_arg.as_mut() {
             Expr::Call(expr) => {
                 let reg_ident = private_ident!("_c");
@@ -300,7 +326,8 @@ impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
         let mut refresh_regs = Vec::<(Ident, Id)>::new();
 
         let mut hook_visitor = HookRegister {
-            options: &self.options,
+            refresh_sig: &self.refresh_sig,
+            emit_full_signatures: self.emit_full_signatures,
             ident: Vec::new(),
             extra_stmt: Vec::new(),
             current_scope: vec![top_level_ctxt(module_items)],
@@ -350,8 +377,9 @@ impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
                     expr,
                     span,
                 })) => {
-                    if let Expr::Call(call) = expr.as_mut() {
-                        if let Persist::Hoc(Hoc { reg, hook, .. }) = self
+                    if let Expr::Call(call) = expr.as_mut()
+                        && is_possible_hoc(call)
+                        && let Persist::Hoc(Hoc { reg, hook, .. }) = self
                             .get_persistent_id_from_possible_hoc(
                                 call,
                                 vec![(
@@ -360,23 +388,20 @@ impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
                                 )],
                                 &mut hook_visitor,
                             )
-                        {
-                            if let Some(hook) = hook {
-                                make_hook_reg(expr.as_mut(), hook)
-                            }
-                            item = ExportDefaultExpr {
-                                expr: Box::new(make_assign_stmt(reg[0].0.clone(), expr.take())),
-                                span: *span,
-                            }
-                            .into();
-                            Persist::Hoc(Hoc {
-                                insert: false,
-                                reg,
-                                hook: None,
-                            })
-                        } else {
-                            Persist::None
+                    {
+                        if let Some(hook) = hook {
+                            make_hook_reg(expr.as_mut(), hook);
                         }
+                        item = ExportDefaultExpr {
+                            expr: Box::new(make_assign_stmt(reg[0].0.clone(), expr.take())),
+                            span: *span,
+                        }
+                        .into();
+                        Persist::Hoc(Hoc {
+                            insert: false,
+                            reg,
+                            hook: None,
+                        })
                     } else {
                         Persist::None
                     }
@@ -476,13 +501,12 @@ impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
         // $RefreshReg$(_c, "Hello");
         // $RefreshReg$(_c1, "Foo");
         // ```
-        let refresh_reg = self.options.refresh_reg.as_str();
         for (handle, persistent_id) in refresh_regs {
             items.push(
                 ExprStmt {
                     span: DUMMY_SP,
                     expr: CallExpr {
-                        callee: quote_ident!(refresh_reg).as_callee(),
+                        callee: quote_ident!(self.refresh_reg.clone()).as_callee(),
                         args: vec![handle.as_arg(), quote_str!(persistent_id.0).as_arg()],
                         ..Default::default()
                     }

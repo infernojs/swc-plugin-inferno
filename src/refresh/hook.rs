@@ -11,7 +11,7 @@ use swc_core::ecma::visit::{
 };
 
 use super::util::{is_builtin_hook, make_call_expr, make_call_stmt};
-use crate::RefreshOptions;
+use swc_core::atoms::Atom;
 
 // function that use hooks
 struct HookSig {
@@ -40,7 +40,9 @@ enum HookCall {
     Member(Box<Expr>, IdentName), // for obj and prop
 }
 pub struct HookRegister<'a> {
-    pub options: &'a RefreshOptions,
+    /// The function that creates a signature handle
+    pub refresh_sig: &'a Atom,
+    pub emit_full_signatures: bool,
     pub ident: Vec<Ident>,
     pub extra_stmt: Vec<Stmt>,
     pub current_scope: Vec<SyntaxContext>,
@@ -61,7 +63,7 @@ impl<'a> HookRegister<'a> {
                     span: DUMMY_SP,
                     name: id.into(),
                     init: Some(Box::new(make_call_expr(
-                        quote_ident!(self.options.refresh_sig.clone()).into(),
+                        quote_ident!(self.refresh_sig.clone()).into(),
                     ))),
                     definite: false,
                 })
@@ -96,7 +98,7 @@ impl<'a> HookRegister<'a> {
         }
 
         let sign = sign.join("\n");
-        let sign = if self.options.emit_full_signatures {
+        let sign = if self.emit_full_signatures {
             sign
         } else {
             let mut hasher = Sha1::new();
