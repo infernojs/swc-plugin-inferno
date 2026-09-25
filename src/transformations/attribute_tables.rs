@@ -1,86 +1,77 @@
 //! Attribute tables of babel-plugin-inferno (`lib/attributeTransforms.js`, `lib/lowerCaseAttributes.js`
 //! and `lib/attrsSVG.js`). They only apply to elements, never to components.
 
-/// React attribute names that Inferno spells differently
-pub fn react_attribute(name: &str) -> Option<&'static str> {
+/// The prop name of an element attribute that Inferno spells differently than React
+pub fn element_attribute(name: &str) -> Option<&'static str> {
     Some(match name {
+        // React attribute names that Inferno spells differently
         "acceptCharset" => "accept-charset",
         "transformOrigin" => "transform-origin",
         "textAnchor" => "text-anchor",
         "httpEquiv" => "http-equiv",
         "htmlFor" => "for",
-        _ => return None,
-    })
-}
-
-/// React-style camelCase names of lowercase attributes
-pub fn is_lowercase_attribute(name: &str) -> bool {
-    matches!(
-        name,
-        "accessKey"
-            | "autoComplete"
-            | "autoCorrect"
-            | "autoPictureInPicture"
-            | "autoPlay"
-            | "autoCapitalize"
-            | "autoFocus"
-            | "autoSave"
-            | "cellPadding"
-            | "cellSpacing"
-            | "charSet"
-            | "classID"
-            | "codeBase"
-            | "colSpan"
-            | "contextMenu"
-            | "controlsList"
-            | "crossOrigin"
-            | "dateTime"
-            | "encType"
-            | "enterKeyHint"
-            | "exportParts"
-            | "fetchPriority"
-            | "formAction"
-            | "formEncType"
-            | "formMethod"
-            | "formNoValidate"
-            | "formTarget"
-            | "frameBorder"
-            | "hrefLang"
-            | "imageSizes"
-            | "imageSrcSet"
-            | "inputMode"
-            | "isMap"
-            | "itemID"
-            | "itemProp"
-            | "itemRef"
-            | "itemScope"
-            | "itemType"
-            | "keyParams"
-            | "keyType"
-            | "marginHeight"
-            | "maxLength"
-            | "mediaGroup"
-            | "minLength"
-            | "noModule"
-            | "noValidate"
-            | "popoverTarget"
-            | "popoverTargetAction"
-            | "radioGroup"
-            | "readOnly"
-            | "referrerPolicy"
-            | "rowSpan"
-            | "spellCheck"
-            | "srcDoc"
-            | "srcLang"
-            | "srcSet"
-            | "tabIndex"
-            | "useMap"
-    )
-}
-
-/// React-style camelCase names of hyphenated and namespaced SVG attributes
-pub fn svg_attribute(name: &str) -> Option<&'static str> {
-    Some(match name {
+        // React-style camelCase names of lowercase attributes
+        "accessKey" => "accesskey",
+        "autoComplete" => "autocomplete",
+        "autoCorrect" => "autocorrect",
+        "autoPictureInPicture" => "autopictureinpicture",
+        "autoPlay" => "autoplay",
+        "autoCapitalize" => "autocapitalize",
+        "autoFocus" => "autofocus",
+        "autoSave" => "autosave",
+        "cellPadding" => "cellpadding",
+        "cellSpacing" => "cellspacing",
+        "charSet" => "charset",
+        "classID" => "classid",
+        "codeBase" => "codebase",
+        "colSpan" => "colspan",
+        "contextMenu" => "contextmenu",
+        "controlsList" => "controlslist",
+        "crossOrigin" => "crossorigin",
+        "dateTime" => "datetime",
+        "encType" => "enctype",
+        "enterKeyHint" => "enterkeyhint",
+        "exportParts" => "exportparts",
+        "fetchPriority" => "fetchpriority",
+        "formAction" => "formaction",
+        "formEncType" => "formenctype",
+        "formMethod" => "formmethod",
+        "formNoValidate" => "formnovalidate",
+        "formTarget" => "formtarget",
+        "frameBorder" => "frameborder",
+        "hrefLang" => "hreflang",
+        "imageSizes" => "imagesizes",
+        "imageSrcSet" => "imagesrcset",
+        "inputMode" => "inputmode",
+        "isMap" => "ismap",
+        "itemID" => "itemid",
+        "itemProp" => "itemprop",
+        "itemRef" => "itemref",
+        "itemScope" => "itemscope",
+        "itemType" => "itemtype",
+        "keyParams" => "keyparams",
+        "keyType" => "keytype",
+        "marginHeight" => "marginheight",
+        "maxLength" => "maxlength",
+        "mediaGroup" => "mediagroup",
+        "minLength" => "minlength",
+        "noModule" => "nomodule",
+        "noValidate" => "novalidate",
+        "popoverTarget" => "popovertarget",
+        "popoverTargetAction" => "popovertargetaction",
+        "radioGroup" => "radiogroup",
+        "readOnly" => "readonly",
+        "referrerPolicy" => "referrerpolicy",
+        "rowSpan" => "rowspan",
+        "spellCheck" => "spellcheck",
+        "srcDoc" => "srcdoc",
+        "srcLang" => "srclang",
+        "srcSet" => "srcset",
+        "tabIndex" => "tabindex",
+        "useMap" => "usemap",
+        // Inferno's name of the dblclick event
+        "onDoubleClick" => "onDblClick",
+        // React-style camelCase names of hyphenated and namespaced SVG attributes
         "accentHeight" => "accent-height",
         "alignmentBaseline" => "alignment-baseline",
         "arabicForm" => "arabic-form",

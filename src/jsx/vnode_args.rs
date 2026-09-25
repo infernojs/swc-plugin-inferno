@@ -35,15 +35,12 @@ fn null_arg() -> ExprOrSpread {
 }
 
 fn num_arg(value: u16) -> ExprOrSpread {
-    Box::new(Expr::from(value as f64)).as_arg()
+    Box::new(Expr::from(f64::from(value))).as_arg()
 }
 
 /// `isAstNull` of babel-plugin-inferno
-pub(super) fn is_ast_null(expr: &Option<Box<Expr>>) -> bool {
-    match expr {
-        None => true,
-        Some(expr) => is_empty_array(expr),
-    }
+pub(super) fn is_ast_null(expr: Option<&Expr>) -> bool {
+    expr.is_none_or(is_empty_array)
 }
 
 pub(super) fn is_empty_array(expr: &Expr) -> bool {
@@ -70,12 +67,12 @@ pub(super) struct CreateVNodeArgs {
 
 impl CreateVNodeArgs {
     pub(super) fn into_args(self) -> Vec<ExprOrSpread> {
-        let has_class_name = !is_ast_null(&self.class_name);
-        let has_children = !is_ast_null(&self.children);
+        let has_class_name = !is_ast_null(self.class_name.as_deref());
+        let has_children = !is_ast_null(self.children.as_deref());
         let has_child_flags = !self.child_flags.is(ChildFlags::HasInvalidChildren);
         let has_props = !self.props.props.is_empty();
-        let has_key = !is_ast_null(&self.key);
-        let has_ref = !is_ast_null(&self.reference);
+        let has_key = !is_ast_null(self.key.as_deref());
+        let has_ref = !is_ast_null(self.reference.as_deref());
         let mut args = vec![self.flags.into_arg(), self.tag.as_arg()];
 
         if has_class_name {
@@ -122,9 +119,9 @@ pub(super) fn create_fragment_vnode_args(
     key: Option<Box<Expr>>,
 ) -> Vec<ExprOrSpread> {
     let mut args = vec![];
-    let has_children = !is_ast_null(&children);
+    let has_children = !is_ast_null(children.as_deref());
     let has_child_flags = has_children && !child_flags.is(ChildFlags::HasInvalidChildren);
-    let has_key = !is_ast_null(&key);
+    let has_key = !is_ast_null(key.as_deref());
 
     if let Some(children) = children.filter(|_| has_children) {
         if child_flags.is(ChildFlags::HasNonKeyedChildren)
@@ -167,8 +164,8 @@ pub(super) fn create_component_vnode_args(
     reference: Option<Box<Expr>>,
 ) -> Vec<ExprOrSpread> {
     let has_props = !props.props.is_empty();
-    let has_key = !is_ast_null(&key);
-    let has_ref = !is_ast_null(&reference);
+    let has_key = !is_ast_null(key.as_deref());
+    let has_ref = !is_ast_null(reference.as_deref());
     let mut args = vec![flags.into_arg(), tag.as_arg()];
 
     if has_props {
