@@ -38,20 +38,36 @@ fn num_arg(value: u16) -> ExprOrSpread {
     Box::new(Expr::from(f64::from(value))).as_arg()
 }
 
-/// `isAstNull` of babel-plugin-inferno
-pub(super) fn is_ast_null(expr: Option<&Expr>) -> bool {
-    expr.is_none_or(is_empty_array)
+fn invalid_children_arg() -> ExprOrSpread {
+    num_arg(ChildFlags::HasInvalidChildren as u16)
 }
 
 pub(super) fn is_empty_array(expr: &Expr) -> bool {
     matches!(expr, Expr::Array(ArrayLit { elems, .. }) if elems.is_empty())
 }
 
-fn push_or_null(args: &mut Vec<ExprOrSpread>, expr: Option<Box<Expr>>) {
-    args.push(match expr {
-        Some(expr) => expr.as_arg(),
-        None => null_arg(),
-    })
+/// An optional argument, or `None` when it is not given, like `isAstNull` of babel-plugin-inferno
+fn given(expr: Option<Box<Expr>>) -> Option<ExprOrSpread> {
+    expr.filter(|expr| !is_empty_array(expr))
+        .map(ExprFactory::as_arg)
+}
+
+/// An optional argument, and the default passed in its place when a later argument is given
+type Optional = (Option<ExprOrSpread>, fn() -> ExprOrSpread);
+
+/// Appends the optional arguments up to the last one given
+fn push_optional<const N: usize>(args: &mut Vec<ExprOrSpread>, optional: [Optional; N]) {
+    let count = optional
+        .iter()
+        .rposition(|(value, _)| value.is_some())
+        .map_or(0, |last| last + 1);
+
+    args.extend(
+        optional
+            .into_iter()
+            .take(count)
+            .map(|(value, default)| value.unwrap_or_else(default)),
+    );
 }
 
 pub(super) struct CreateVNodeArgs {
@@ -67,48 +83,24 @@ pub(super) struct CreateVNodeArgs {
 
 impl CreateVNodeArgs {
     pub(super) fn into_args(self) -> Vec<ExprOrSpread> {
-        let has_class_name = !is_ast_null(self.class_name.as_deref());
-        let has_children = !is_ast_null(self.children.as_deref());
-        let has_child_flags = !self.child_flags.is(ChildFlags::HasInvalidChildren);
-        let has_props = !self.props.props.is_empty();
-        let has_key = !is_ast_null(self.key.as_deref());
-        let has_ref = !is_ast_null(self.reference.as_deref());
-        let mut args = vec![self.flags.into_arg(), self.tag.as_arg()];
+        let child_flags = (!self.child_flags.is(ChildFlags::HasInvalidChildren))
+            .then(|| self.child_flags.into_arg());
+        let props = (!self.props.props.is_empty()).then(|| self.props.as_arg());
+        let mut args = Vec::with_capacity(8);
 
-        if has_class_name {
-            push_or_null(&mut args, self.class_name);
-        } else if has_children || has_child_flags || has_props || has_key || has_ref {
-            args.push(null_arg());
-        }
-
-        if has_children {
-            push_or_null(&mut args, self.children);
-        } else if has_child_flags || has_props || has_key || has_ref {
-            args.push(null_arg());
-        }
-
-        if has_child_flags {
-            args.push(self.child_flags.into_arg());
-        } else if has_props || has_key || has_ref {
-            args.push(num_arg(ChildFlags::HasInvalidChildren as u16));
-        }
-
-        if has_props {
-            args.push(self.props.as_arg());
-        } else if has_key || has_ref {
-            args.push(null_arg());
-        }
-
-        if has_key {
-            push_or_null(&mut args, self.key);
-        } else if has_ref {
-            args.push(null_arg());
-        }
-
-        if has_ref {
-            push_or_null(&mut args, self.reference);
-        }
-
+        args.push(self.flags.into_arg());
+        args.push(self.tag.as_arg());
+        push_optional(
+            &mut args,
+            [
+                (given(self.class_name), null_arg),
+                (given(self.children), null_arg),
+                (child_flags, invalid_children_arg),
+                (props, null_arg),
+                (given(self.key), null_arg),
+                (given(self.reference), null_arg),
+            ],
+        );
         args
     }
 }
@@ -118,41 +110,36 @@ pub(super) fn create_fragment_vnode_args(
     child_flags: Flag,
     key: Option<Box<Expr>>,
 ) -> Vec<ExprOrSpread> {
-    let mut args = vec![];
-    let has_children = !is_ast_null(children.as_deref());
-    let has_child_flags = has_children && !child_flags.is(ChildFlags::HasInvalidChildren);
-    let has_key = !is_ast_null(key.as_deref());
-
-    if let Some(children) = children.filter(|_| has_children) {
-        if child_flags.is(ChildFlags::HasNonKeyedChildren)
-            || child_flags.is(ChildFlags::HasKeyedChildren)
-            || child_flags.is(ChildFlags::UnknownChildren)
-            || matches!(*children, Expr::Array(_))
-        {
-            args.push(children.as_arg());
-        } else {
-            args.push(
+    let children = children
+        .filter(|children| !is_empty_array(children))
+        .map(|children| {
+            if child_flags.is(ChildFlags::HasNonKeyedChildren)
+                || child_flags.is(ChildFlags::HasKeyedChildren)
+                || child_flags.is(ChildFlags::UnknownChildren)
+                || matches!(*children, Expr::Array(_))
+            {
+                children.as_arg()
+            } else {
                 Expr::Array(ArrayLit {
                     span: DUMMY_SP,
                     elems: vec![Some(children.as_arg())],
                 })
-                .as_arg(),
-            );
-        }
-    } else if has_child_flags || has_key {
-        args.push(null_arg());
-    }
+                .as_arg()
+            }
+        });
+    // Child flags only count with children
+    let child_flags = (children.is_some() && !child_flags.is(ChildFlags::HasInvalidChildren))
+        .then(|| child_flags.into_arg());
+    let mut args = Vec::with_capacity(3);
 
-    if has_child_flags {
-        args.push(child_flags.into_arg());
-    } else if has_key {
-        args.push(num_arg(ChildFlags::HasInvalidChildren as u16));
-    }
-
-    if has_key {
-        push_or_null(&mut args, key);
-    }
-
+    push_optional(
+        &mut args,
+        [
+            (children, null_arg),
+            (child_flags, invalid_children_arg),
+            (given(key), null_arg),
+        ],
+    );
     args
 }
 
@@ -163,26 +150,18 @@ pub(super) fn create_component_vnode_args(
     key: Option<Box<Expr>>,
     reference: Option<Box<Expr>>,
 ) -> Vec<ExprOrSpread> {
-    let has_props = !props.props.is_empty();
-    let has_key = !is_ast_null(key.as_deref());
-    let has_ref = !is_ast_null(reference.as_deref());
-    let mut args = vec![flags.into_arg(), tag.as_arg()];
+    let props = (!props.props.is_empty()).then(|| props.as_arg());
+    let mut args = Vec::with_capacity(5);
 
-    if has_props {
-        args.push(props.as_arg());
-    } else if has_key || has_ref {
-        args.push(null_arg());
-    }
-
-    if has_key {
-        push_or_null(&mut args, key);
-    } else if has_ref {
-        args.push(null_arg());
-    }
-
-    if has_ref {
-        push_or_null(&mut args, reference);
-    }
-
+    args.push(flags.into_arg());
+    args.push(tag.as_arg());
+    push_optional(
+        &mut args,
+        [
+            (props, null_arg),
+            (given(key), null_arg),
+            (given(reference), null_arg),
+        ],
+    );
     args
 }
