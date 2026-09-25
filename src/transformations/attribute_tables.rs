@@ -117,7 +117,6 @@ pub fn svg_attribute(name: &str) -> Option<&'static str> {
         "markerEnd" => "marker-end",
         "markerMid" => "marker-mid",
         "markerStart" => "marker-start",
-        "markerHeight" => "markerHeight",
         "maskType" => "mask-type",
         "overlinePosition" => "overline-position",
         "overlineThickness" => "overline-thickness",

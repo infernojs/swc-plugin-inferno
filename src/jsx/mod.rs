@@ -8,17 +8,13 @@ use crate::inferno_flags::{ChildFlags, VNodeFlags};
 use crate::refresh::options::{RefreshOptions, deserialize_refresh};
 use crate::transformations::parse_vnode_flag::parse_vnode_flag;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use swc_config::merge::Merge;
 use swc_core::atoms::{Atom, Wtf8Atom, atom};
 use swc_core::common::comments::Comments;
 use swc_core::common::util::take::Take;
-use swc_core::common::{DUMMY_SP, FileName, Mark, SourceMap, Span, Spanned, SyntaxContext};
+use swc_core::common::{DUMMY_SP, Mark, Span, Spanned, SyntaxContext};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::utils::{ExprFactory, drop_span, prepend_stmt};
+use swc_core::ecma::utils::{ExprFactory, prepend_stmt};
 use swc_core::ecma::visit::{VisitMut, VisitMutWith, noop_visit_mut_type, visit_mut_pass};
-use swc_core::plugin::errors::HANDLER;
-use swc_ecma_parser::{Syntax, parse_file_as_expr};
 
 #[cfg(test)]
 mod tests;
@@ -37,15 +33,10 @@ use self::vnode_args::{
     CreateVNodeArgs, Flag, create_component_vnode_args, create_fragment_vnode_args, is_empty_array,
 };
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, Merge)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct Options {
-    /// If this is `true`, swc will behave just like babel 8 with
-    /// `BABEL_8_BREAKING: true`.
-    #[serde(skip, default)]
-    pub next: Option<bool>,
-
     #[serde(default)]
     pub import_source: Option<String>,
 
@@ -61,66 +52,14 @@ pub struct Options {
     pub refresh: Option<RefreshOptions>,
 }
 
-pub fn default_import_source() -> String {
-    "inferno".into()
-}
-
-pub fn parse_expr_for_jsx(
-    cm: &SourceMap,
-    name: &str,
-    src: String,
-    top_level_mark: Mark,
-) -> Arc<Box<Expr>> {
-    let fm = cm.new_source_file(
-        FileName::Custom(format!("<jsx-config-{name}.js>")).into(),
-        src,
-    );
-
-    parse_file_as_expr(
-        &fm,
-        Syntax::default(),
-        Default::default(),
-        None,
-        &mut vec![],
-    )
-    .map_err(|e| {
-        HANDLER.with(|h| {
-            e.into_diagnostic(h)
-                .note("error detected while parsing option for classic jsx transform")
-                .emit()
-        })
-    })
-    .map(drop_span)
-    .map(|mut expr| {
-        apply_mark(&mut expr, top_level_mark);
-        expr
-    })
-    .map(Arc::new)
-    .unwrap_or_else(|()| Arc::new(Box::new(Expr::Invalid(Invalid { span: DUMMY_SP }))))
-}
-
-fn apply_mark(e: &mut Expr, mark: Mark) {
-    match e {
-        Expr::Ident(i) => {
-            i.ctxt = i.ctxt.apply_mark(mark);
-        }
-        Expr::Member(MemberExpr { obj, .. }) => {
-            apply_mark(obj, mark);
-        }
-        _ => {}
-    }
-}
+/// The module the helpers are imported from when `importSource` is not set
+const DEFAULT_IMPORT_SOURCE: &str = "inferno";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum VNodeType {
-    Element = 0,
-    Component = 1,
-    Fragment = 2,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct JsxDirectives {
-    pub import_source: Option<Atom>,
+enum VNodeType {
+    Element,
+    Component,
+    Fragment,
 }
 
 /// The Inferno functions that the generated code calls, in the order they are imported
@@ -153,12 +92,9 @@ impl Helper {
     }
 }
 
+/// Turns JSX into Inferno function calls.
 ///
-/// Turn JSX into Inferno function calls
-///
-///
-/// `top_level_mark` should be [Mark] passed to
-/// [swc_ecma_transforms_base::resolver::resolver_with_mark].
+/// `unresolved_mark` should be the unresolved [Mark] passed to swc's `resolver`.
 pub fn jsx<C>(comments: Option<C>, options: Options, unresolved_mark: Mark) -> impl Pass
 where
     C: Comments,
@@ -167,7 +103,8 @@ where
         unresolved_mark,
         import_source: options
             .import_source
-            .unwrap_or_else(default_import_source)
+            .as_deref()
+            .unwrap_or(DEFAULT_IMPORT_SOURCE)
             .into(),
         pure: options.pure.unwrap_or(true),
         comments,

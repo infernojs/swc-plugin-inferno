@@ -1,25 +1,19 @@
+//! The flags of `inferno-vnode-flags` that the generated code uses.
+
 #[repr(u16)]
 #[derive(Copy, Clone)]
 pub enum VNodeFlags {
     HtmlElement = 1,
     ComponentUnknown = 2,
-    // ComponentClass = 4,
-    // ComponentFunction = 8,
-    // Text = 16,
     SvgElement = 32,
     InputElement = 64,
     TextareaElement = 128,
     SelectElement = 256,
-    // Void = 512,
-    // Portal = 1024,
     ReCreate = 2048,
     ContentEditable = 4096,
-    // FormElement = 448,
-    // Element = 481,
-    // Component = 14,
 }
 
-#[allow(clippy::enum_variant_names)]
+#[expect(clippy::enum_variant_names)]
 #[repr(u16)]
 #[derive(Copy, Clone)]
 pub enum ChildFlags {
@@ -29,5 +23,4 @@ pub enum ChildFlags {
     HasNonKeyedChildren = 4,
     HasKeyedChildren = 8,
     HasTextChildren = 16,
-    // MultipleChildren = 12,
 }

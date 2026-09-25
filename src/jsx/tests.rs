@@ -4,6 +4,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use swc_core::common::FileName;
 use swc_core::common::input::StringInput;
 use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;

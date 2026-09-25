@@ -31,10 +31,6 @@ pub fn is_body_arrow_fn(body: &ArrowFunctionBody) -> bool {
 }
 
 fn assert_hygiene(e: &Expr) {
-    if !cfg!(debug_assertions) {
-        return;
-    }
-
     if let Expr::Ident(i) = e {
         debug_assert!(i.ctxt != SyntaxContext::empty(), "`{i}` should be resolved");
     }

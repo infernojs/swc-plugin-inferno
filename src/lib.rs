@@ -1,8 +1,7 @@
 #![deny(clippy::all)]
-#![allow(clippy::arc_with_non_send_sync)]
 
 pub use self::{
-    jsx::*,
+    jsx::{Options, jsx},
     pure_annotations::pure_annotations,
     refresh::{options::RefreshOptions, refresh},
 };
@@ -19,15 +18,13 @@ mod pure_annotations;
 mod refresh;
 mod transformations;
 
+/// Runs the fast refresh pass (when enabled), the JSX transform and the pure annotation pass.
 ///
-/// `top_level_mark` should be [Mark] passed to
-/// [swc_ecma_transforms_base::resolver::resolver_with_mark].
-///
-///
+/// `top_level_mark` and `unresolved_mark` should be the marks passed to swc's `resolver`.
 ///
 /// # Note
 ///
-/// This pass uses [swc_ecma_utils::HANDLER].
+/// Errors are reported through `swc_core::common::errors::HANDLER`.
 pub fn inferno<C>(
     cm: Lrc<SourceMap>,
     comments: Option<C>,

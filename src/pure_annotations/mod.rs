@@ -8,7 +8,7 @@ use swc_core::ecma::visit::{VisitMut, VisitMutWith, noop_visit_mut_type, visit_m
 #[cfg(test)]
 mod tests;
 
-/// This pass adds a /*#__PURE__#/ annotation to calls to known pure top-level
+/// This pass adds a /*#__PURE__*/ annotation to calls to known pure top-level
 /// Inferno methods, so that terser and other minifiers can safely remove them
 /// during dead code elimination.
 pub fn pure_annotations<C>(comments: Option<C>) -> impl Pass

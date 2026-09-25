@@ -9,7 +9,7 @@ use super::*;
 fn parse(
     tester: &mut Tester,
     src: &str,
-) -> Result<(Program, Lrc<SourceMap>, Lrc<SingleThreadedComments>), ()> {
+) -> Result<(Program, Lrc<SourceMap>, SingleThreadedComments), ()> {
     let syntax = ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -17,7 +17,7 @@ fn parse(
     let source_map = Lrc::new(SourceMap::default());
     let source_file = source_map.new_source_file(FileName::Anon.into(), src.to_string());
 
-    let comments = Lrc::new(SingleThreadedComments::default());
+    let comments = SingleThreadedComments::default();
     let program = {
         let mut p = Parser::new(syntax, StringInput::from(&*source_file), Some(&comments));
         let res = p
@@ -34,11 +34,7 @@ fn parse(
     Ok((program, source_map, comments))
 }
 
-fn emit(
-    source_map: Lrc<SourceMap>,
-    comments: Lrc<SingleThreadedComments>,
-    program: &Program,
-) -> String {
+fn emit(source_map: Lrc<SourceMap>, comments: SingleThreadedComments, program: &Program) -> String {
     let mut src_map_buf = vec![];
     let mut buf = vec![];
     {
@@ -85,11 +81,7 @@ fn run_test_with(input: &str, expected: &str, options: crate::Options) {
         let (expected, expected_sm, expected_comments) = parse(tester, expected)?;
         let expected_src = emit(expected_sm, expected_comments, &expected);
 
-        if actual_src != expected_src {
-            println!(">>>>> Orig <<<<<\n{}", input);
-            println!(">>>>> Code <<<<<\n{}", actual_src);
-            panic!(r#"assertion failed: `(left == right)`"#,);
-        }
+        assert_eq!(actual_src, expected_src, "input:\n{input}");
 
         Ok(())
     });

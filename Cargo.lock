@@ -1299,7 +1299,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha-1",
- "swc_config",
  "swc_core",
  "swc_ecma_codegen",
  "swc_ecma_parser",
