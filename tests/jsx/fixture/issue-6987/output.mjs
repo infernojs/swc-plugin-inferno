@@ -7,7 +7,7 @@ const CheckmarkList = ({ children })=>{
                 return null;
             }
             const { children: liChildren, css: liCss, ...otherProps } = child.props;
-            return /*#__PURE__*/ normalizeProps(createVNode(1, "li", null, liChildren, 0, {
+            return /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "li", null, liChildren, 0, {
                 ...otherProps,
                 css: [
                     styles.listItem,

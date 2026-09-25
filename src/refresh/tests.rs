@@ -13,14 +13,12 @@ fn tr(t: &mut Tester) -> Box<dyn Pass> {
     Box::new((
         resolver(unresolved_mark, top_level_mark, false),
         refresh(
-            true,
-            Some(RefreshOptions {
+            RefreshOptions {
                 emit_full_signatures: true,
                 ..Default::default()
-            }),
+            },
             t.cm.clone(),
             Some(t.comments.clone()),
-            top_level_mark,
         ),
     ))
 }
@@ -554,14 +552,12 @@ test!(
         (
             resolver(unresolved_mark, top_level_mark, false),
             refresh(
-                true,
-                Some(RefreshOptions {
+                RefreshOptions {
                     emit_full_signatures: true,
                     ..Default::default()
-                }),
+                },
                 t.cm.clone(),
                 Some(t.comments.clone()),
-                top_level_mark,
             ),
             jsx(
                 Some(t.comments.clone()),
@@ -685,15 +681,13 @@ test!(
         (
             resolver(unresolved_mark, top_level_mark, false),
             refresh(
-                true,
-                Some(RefreshOptions {
+                RefreshOptions {
                     refresh_reg: "import_meta_refreshReg".to_string(),
                     refresh_sig: "import_meta_refreshSig".to_string(),
                     emit_full_signatures: true,
-                }),
+                },
                 t.cm.clone(),
                 Some(t.comments.clone()),
-                top_level_mark,
             ),
         )
     },
@@ -785,3 +779,346 @@ test!(
     }
 "#
 );
+
+// The module scope is read from the first binding the module declares, which may come after
+// other statements.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    imported_hook_after_a_statement_is_in_scope,
+    r#"
+    'use client';
+    console.log('loaded');
+    import { useFancyState } from './hooks';
+    export function App() {
+      const bar = useFancyState();
+      return <h1>{bar}</h1>;
+    }
+"#
+);
+
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    destructured_binding_gives_the_module_scope,
+    r#"
+    export const { theme } = globalThis.config;
+    function useTheme() {
+      return theme;
+    }
+    export function App() {
+      const t = useTheme();
+      return <h1>{t}</h1>;
+    }
+"#
+);
+
+// Without module bindings a hook can only be global, which forces a reset.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    hoc_default_export_without_bindings,
+    r#"
+    export default memo(() => {
+      const value = useGlobalValue();
+      return <h1>{value}</h1>;
+    });
+"#
+);
+
+// Signatures of components declared in a constructor stay in the constructor's scope.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    component_in_class_constructor,
+    r#"
+    import { Component } from 'inferno';
+    import { useState } from 'inferno-hooks';
+    export class Table extends Component {
+      constructor(props) {
+        super(props);
+        const Row = () => {
+          const [x] = useState(0);
+          return <tr>{x}</tr>;
+        };
+        this.row = Row;
+      }
+    }
+"#
+);
+
+// Each declarator is collected once.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    hooks_in_multiple_declarators,
+    r#"
+    import { useA, useB, useC } from './hooks';
+    export function App() {
+      const a = useA(), b = 1;
+      const c = f(useB()), d = f(useC());
+      return <div>{a}{b}{c}{d}</div>;
+    }
+"#
+);
+
+// A hook that calls itself is not in its own hooks array.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    self_recursive_hook,
+    r#"
+    import { useState } from 'inferno-hooks';
+    export function useCounter(depth) {
+      const [count] = useState(0);
+      return depth > 0 ? useCounter(depth - 1) : count;
+    }
+"#
+);
+
+// A component only used in an attribute value is registered.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    component_used_only_in_attribute,
+    r#"
+    const Header = styled.header`color: red;`;
+    export const Page = () => <Layout header={<Header />} />;
+"#
+);
+
+// A reset comment after code on the same line counts too.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    refresh_reset_comment_after_code,
+    r#"
+    import { useState } from 'inferno-hooks';
+    export function Counter() {
+      const [count] = useState(0); // @refresh reset
+      return <div>{count}</div>;
+    }
+"#
+);
+
+#[test]
+fn refresh_reset_comment_does_not_leak_into_the_next_module() {
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let syntax = ::swc_ecma_parser::Syntax::Es(Default::default());
+        let mut pass = refresh(
+            RefreshOptions {
+                emit_full_signatures: true,
+                ..Default::default()
+            },
+            t.cm.clone(),
+            Some(t.comments.clone()),
+        );
+
+        let first = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "first.js",
+            syntax,
+            Some(true),
+            "/* @refresh reset */\nexport function A() { useState(); return null; }",
+        )?;
+        let first = first.apply(&mut pass);
+        let second = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "second.js",
+            syntax,
+            Some(true),
+            "export function B() { useState(); return null; }",
+        )?;
+        let second = second.apply(&mut pass);
+
+        let comments = t.comments.clone();
+        let first = t.print(&first, &comments);
+        let second = t.print(&second, &comments);
+        assert!(first.contains(r#"_s(A, "useState{}", true);"#), "{first}");
+        assert!(second.contains(r#"_s(B, "useState{}");"#), "{second}");
+        Ok(())
+    });
+}
+
+// Directives stay at the start of the module and of functions.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    signatures_after_directives,
+    r#"
+    'use client';
+    import { useState } from 'inferno-hooks';
+    export function Counter() {
+      'use strict';
+      const [count] = useState(0);
+      function Inner() {
+        'use strict';
+        const Row = () => {
+          const [x] = useState(1);
+          return <b>{x}</b>;
+        };
+        return <Row />;
+      }
+      return <div>{count}<Inner /></div>;
+    }
+"#
+);
+
+/// Compiles `input` with fast refresh and full signatures, without hygiene
+fn transform(syntax: ::swc_ecma_parser::Syntax, input: &str) -> String {
+    let mut code = String::new();
+
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let is_ts = matches!(syntax, ::swc_ecma_parser::Syntax::Typescript(_));
+        let pass = (
+            resolver(unresolved_mark, top_level_mark, is_ts),
+            refresh(
+                RefreshOptions {
+                    emit_full_signatures: true,
+                    ..Default::default()
+                },
+                t.cm.clone(),
+                Some(t.comments.clone()),
+            ),
+        );
+        let program = t.apply_transform(pass, "input.js", syntax, Some(true), input)?;
+        let comments = t.comments.clone();
+
+        code = t.print(&program, &comments);
+        Ok(())
+    });
+    code
+}
+
+fn es_jsx() -> ::swc_ecma_parser::Syntax {
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        explicit_resource_management: true,
+        ..Default::default()
+    })
+}
+
+// `import x = require()` declares a module binding, so a hook read from it is in scope.
+#[test]
+fn import_equals_gives_the_module_scope() {
+    let code = transform(
+        ::swc_ecma_parser::Syntax::Typescript(::swc_ecma_parser::TsSyntax {
+            tsx: true,
+            ..Default::default()
+        }),
+        "import hooks = require('./hooks');
+         export default memo(() => {
+           const v = hooks.useFoo();
+           return <div>{v}</div>;
+         });",
+    );
+
+    assert!(
+        !code.contains(", true)"),
+        "the hook is out of scope:\n{code}"
+    );
+}
+
+// A `using` declaration declares a module binding too.
+#[test]
+fn using_declaration_gives_the_module_scope() {
+    let code = transform(
+        es_jsx(),
+        "using hooks = open();
+         export default memo(() => {
+           const v = hooks.useFoo();
+           return <div>{v}</div>;
+         });",
+    );
+
+    assert!(
+        !code.contains(", true)"),
+        "the hook is out of scope:\n{code}"
+    );
+}
+
+/// The hooks array in the signature call of `name`, or "" without one
+fn hooks_array_of<'a>(code: &'a str, name: &str) -> &'a str {
+    let start = code
+        .find(&format!("_s({name},"))
+        .unwrap_or_else(|| panic!("no signature call for {name}:\n{code}"));
+    let call = &code[start..];
+    let call = &call[..call.find(");").unwrap()];
+
+    call.find("return [").map_or("", |array| &call[array..])
+}
+
+// Hooks that call each other must not list each other: the refresh runtime computes the key of a
+// signature from the keys of its hooks, and recurses forever on a cycle.
+#[test]
+fn mutually_recursive_hooks_do_not_form_a_cycle() {
+    let code = transform(
+        es_jsx(),
+        "export function useA(n) { return n ? useB(n - 1) : 0; }
+         export function useB(n) { return useA(n); }",
+    );
+
+    assert!(
+        !(hooks_array_of(&code, "useA").contains("useB")
+            && hooks_array_of(&code, "useB").contains("useA")),
+        "the hooks arrays of useA and useB form a cycle:\n{code}"
+    );
+}
+
+// A recursive call is still part of the signature key, so adding or removing it is an edit of the
+// hook.
+#[test]
+fn self_recursive_hook_stays_in_its_signature_key() {
+    let code = transform(
+        es_jsx(),
+        "export function useCounter(depth) {
+           const [count] = useState(0);
+           return depth > 0 ? useCounter(depth - 1) : count;
+         }",
+    );
+
+    assert!(code.contains("useCounter{}"), "{code}");
+}
+
+// A function expression can call itself by its own name, which is another name of the variable.
+#[test]
+fn recursion_through_the_name_of_a_function_expression_is_left_out() {
+    let code = transform(
+        es_jsx(),
+        "export const useX = function useY(n) { return n ? useY(n - 1) : useState(); };",
+    );
+
+    assert_eq!(hooks_array_of(&code, "useX"), "", "{code}");
+    assert!(code.contains("useY{}"), "{code}");
+}

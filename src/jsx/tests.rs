@@ -4,6 +4,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use swc_core::common::FileName;
 use swc_core::common::input::StringInput;
 use swc_core::ecma::transforms::base::fixer::fixer;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
@@ -16,7 +17,7 @@ use testing::NormalizedOutput;
 
 use super::text::handle_white_space;
 use super::*;
-use crate::{inferno, pure_annotations};
+use crate::inferno;
 use swc_core::atoms::wtf8::Wtf8;
 
 test!(
@@ -1433,10 +1434,8 @@ fn fixture_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
             t.cm.clone(),
             Some(t.comments.clone()),
             options.options,
-            top_level_mark,
             unresolved_mark,
         ),
-        pure_annotations(Some(t.comments.clone())),
     ))
 }
 
@@ -1450,7 +1449,6 @@ fn integration_tr(t: &mut Tester, options: FixtureOptions) -> Box<dyn Pass> {
             t.cm.clone(),
             Some(t.comments.clone()),
             options.options,
-            top_level_mark,
             unresolved_mark,
         ),
     ))
@@ -2462,12 +2460,11 @@ fn test_script(src: &str, output: &Path, options: Options) {
         let unresolved_mark = Mark::new();
 
         let script = Program::Script(script).apply(&mut (
-            resolver(Mark::new(), top_level_mark, false),
+            resolver(unresolved_mark, top_level_mark, false),
             inferno(
                 tester.cm.clone(),
                 Some(&tester.comments),
                 options,
-                top_level_mark,
                 unresolved_mark,
             ),
             hygiene(),
@@ -2498,4 +2495,36 @@ fn test_script(src: &str, output: &Path, options: Options) {
 
         Ok(())
     })
+}
+
+#[test]
+fn jsx_text_edge_cases() {
+    // \r\n and \r are line breaks too
+    assert_eq!(jsx_text_to_str("a\r\n  b\rc"), "a b c");
+    // Tab-only lines are dropped
+    assert_eq!(jsx_text_to_str("a\n\t\t\nb"), "a b");
+    // Tabs inside non-ASCII text
+    assert_eq!(jsx_text_to_str("ä\tö"), "ä ö");
+    assert_eq!(jsx_text_to_str("ä\t\n\tö\t"), "ä ö ");
+    // The first line keeps its leading and the last line its trailing whitespace
+    assert_eq!(jsx_text_to_str("  a  \n  b  "), "  a b  ");
+    assert_eq!(jsx_text_to_str("  a  \n  "), "  a");
+}
+
+#[test]
+fn unchanged_text_is_borrowed() {
+    use std::borrow::Cow;
+
+    for text in ["Hello world", "  a  ", "ä ö", ""] {
+        assert!(
+            matches!(handle_white_space(Wtf8::from_str(text)), Cow::Borrowed(_)),
+            "{text:?}"
+        );
+    }
+    for text in ["a\tb", "a\nb", "\n  "] {
+        assert!(
+            matches!(handle_white_space(Wtf8::from_str(text)), Cow::Owned(_)),
+            "{text:?}"
+        );
+    }
 }

@@ -1,10 +1,9 @@
 //! Props of a JSX element, like `getVNodeProps` of babel-plugin-inferno.
 
-use super::text::collapse_attribute_line_breaks;
-use crate::transformations::attribute_tables::{
-    is_lowercase_attribute, react_attribute, svg_attribute,
-};
-use rustc_hash::FxHashMap;
+use super::text::{collapse_attribute_line_breaks, map_text};
+use crate::transformations::attribute_tables::element_attribute;
+use rustc_hash::{FxHashMap, FxHashSet};
+use std::collections::hash_map::Entry;
 use swc_core::{
     atoms::{Atom, Wtf8Atom},
     common::{DUMMY_SP, Span, Spanned},
@@ -47,7 +46,7 @@ pub(super) fn get_value(value: Option<JSXAttrValue>) -> Box<Expr> {
         // decoded value and collapse line breaks like Babel's react-jsx does.
         Some(JSXAttrValue::Str(s)) => Box::new(Expr::Lit(Lit::Str(Str {
             span: s.span,
-            value: collapse_attribute_line_breaks(&s.value).into(),
+            value: map_text(s.value, collapse_attribute_line_breaks),
             raw: None,
         }))),
         Some(JSXAttrValue::JSXElement(el)) => Box::new(Expr::JSXElement(el)),
@@ -58,7 +57,7 @@ pub(super) fn get_value(value: Option<JSXAttrValue>) -> Box<Expr> {
 }
 
 /// A key of the generated props object
-pub(super) fn prop_name(name: &str, span: Span) -> PropName {
+pub(super) fn prop_name(name: Atom, span: Span) -> PropName {
     if name == "__proto__" {
         // A non-computed __proto__ key would set the prototype of the props object instead of
         // creating a prop
@@ -70,8 +69,8 @@ pub(super) fn prop_name(name: &str, span: Span) -> PropName {
                 raw: None,
             }))),
         })
-    } else if is_valid_prop_ident(name) {
-        PropName::Ident(IdentName::new(name.into(), span))
+    } else if is_valid_prop_ident(&name) {
+        PropName::Ident(IdentName::new(name, span))
     } else {
         PropName::Str(Str {
             span,
@@ -97,15 +96,12 @@ pub(super) enum PropChildren {
     Other,
 }
 
-/// A prop, and whether it comes from a `children` attribute
-pub(super) struct PropItem {
-    pub(super) prop: PropOrSpread,
-    pub(super) is_children: bool,
-}
-
 #[derive(Default)]
 pub(super) struct VNodeProps {
-    pub(super) props: Vec<PropItem>,
+    pub(super) props: Vec<PropOrSpread>,
+    /// The index of the `children` prop in `props`. There is at most one: duplicate attributes
+    /// are rejected, and no other attribute becomes a `children` prop.
+    children_prop: Option<usize>,
     pub(super) key: Option<Box<Expr>>,
     pub(super) reference: Option<Box<Expr>>,
     pub(super) class_name: Option<Box<Expr>>,
@@ -122,29 +118,16 @@ pub(super) struct VNodeProps {
 }
 
 impl VNodeProps {
-    /// Removes every children prop and returns the removed values in source order
-    pub(super) fn remove_children_props(&mut self) -> Vec<Expr> {
-        let mut removed = vec![];
+    /// Removes the `children` prop and returns its value
+    pub(super) fn take_children_prop(&mut self) -> Option<Box<Expr>> {
+        let index = self.children_prop.take()?;
 
-        self.props.retain_mut(|item| {
-            if !item.is_children {
-                return true;
-            }
-            if let PropOrSpread::Prop(prop) = &mut item.prop
-                && let Prop::KeyValue(KeyValueProp { value, .. }) = &mut **prop
-            {
-                removed.push(*std::mem::replace(value, Expr::undefined(DUMMY_SP)));
-            }
-            false
-        });
-
-        removed
-    }
-
-    pub(super) fn into_object(props: Vec<PropItem>) -> ObjectLit {
-        ObjectLit {
-            span: DUMMY_SP,
-            props: props.into_iter().map(|item| item.prop).collect(),
+        if let PropOrSpread::Prop(prop) = self.props.remove(index)
+            && let Prop::KeyValue(KeyValueProp { value, .. }) = *prop
+        {
+            Some(value)
+        } else {
+            None
         }
     }
 }
@@ -160,7 +143,7 @@ fn attr_name(name: &JSXAttrName) -> Atom {
     }
 }
 
-fn prop_children(value: &Option<JSXAttrValue>) -> PropChildren {
+fn prop_children(value: Option<&JSXAttrValue>) -> PropChildren {
     match value {
         Some(JSXAttrValue::Str(s)) => PropChildren::Str(s.value.clone()),
         Some(JSXAttrValue::JSXExprContainer(container)) => match &container.expr {
@@ -180,17 +163,15 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
     let mut hooks: Option<Vec<PropOrSpread>> = None;
     // Duplicates need two attributes, which most elements do not have
     let check_duplicates = attrs.len() > 1;
-    let mut seen_props: FxHashMap<Atom, ()> = FxHashMap::default();
-    let mut output_props: FxHashMap<Atom, Atom> = FxHashMap::default();
+    let mut seen_props = FxHashSet::<Atom>::default();
+    // Prop name -> the attribute that set it
+    let mut output_props = FxHashMap::<Atom, Atom>::default();
 
     for attr in attrs {
         let attr = match attr {
             JSXAttrOrSpread::SpreadElement(spread) => {
                 result.needs_normalization = true;
-                result.props.push(PropItem {
-                    prop: PropOrSpread::Spread(spread),
-                    is_children: false,
-                });
+                result.props.push(PropOrSpread::Spread(spread));
                 continue;
             }
             JSXAttrOrSpread::JSXAttr(attr) => attr,
@@ -200,41 +181,44 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
         let span = attr.span();
         let name = attr_name(&attr.name);
 
-        if check_duplicates {
-            if seen_props.contains_key(&name) {
-                emit_error(
-                    span,
-                    &format!(
-                        "Multiple {name} props are not supported. Remove the duplicate {name} prop."
-                    ),
-                );
-                continue;
-            }
-            seen_props.insert(name.clone(), ());
+        if check_duplicates && !seen_props.insert(name.clone()) {
+            emit_error(
+                span,
+                &format!(
+                    "Multiple {name} props are not supported. Remove the duplicate {name} prop."
+                ),
+            );
+            continue;
         }
 
         // Adds a prop and rejects attributes that end up as the same prop, e.g. htmlFor and for
-        let mut add_prop = |result: &mut VNodeProps,
-                            output_name: &str,
-                            value: Option<JSXAttrValue>| {
-            if check_duplicates {
-                if let Some(previous) = output_props.get(&Atom::from(output_name)) {
-                    emit_error(
-                        span,
-                        &format!(
-                            "{previous} and {name} both set the {output_name} prop. Remove one of \
-                             them."
-                        ),
-                    );
-                    return;
+        let mut add_prop =
+            |result: &mut VNodeProps, output_name: Atom, value: Option<JSXAttrValue>| {
+                if check_duplicates {
+                    match output_props.entry(output_name.clone()) {
+                        Entry::Occupied(previous) => {
+                            emit_error(
+                                span,
+                                &format!(
+                                    "{} and {name} both set the {output_name} prop. Remove one of \
+                                 them.",
+                                    previous.get()
+                                ),
+                            );
+                            return;
+                        }
+                        Entry::Vacant(entry) => {
+                            entry.insert(name.clone());
+                        }
+                    }
                 }
-                output_props.insert(output_name.into(), name.clone());
-            }
-            result.props.push(PropItem {
-                prop: key_value(prop_name(output_name, span), get_value(value)),
-                is_children: output_name == "children",
-            });
-        };
+                if output_name == "children" {
+                    result.children_prop = Some(result.props.len());
+                }
+                result
+                    .props
+                    .push(key_value(prop_name(output_name, span), get_value(value)));
+            };
 
         if !is_component && (name == "className" || name == "class") {
             if result.class_name.is_some() {
@@ -245,19 +229,12 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
                 continue;
             }
             result.class_name = Some(get_value(attr.value));
-        } else if let Some(output_name) = react_attribute(&name).filter(|_| !is_component) {
-            add_prop(&mut result, output_name, attr.value);
-        } else if !is_component && is_lowercase_attribute(&name) {
-            add_prop(&mut result, &name.to_lowercase(), attr.value);
-        } else if !is_component && name == "onDoubleClick" {
-            add_prop(&mut result, "onDblClick", attr.value);
+        } else if !is_component && let Some(output_name) = element_attribute(&name) {
+            add_prop(&mut result, output_name.into(), attr.value);
         } else if is_component && name.starts_with("onComponent") {
             hooks
                 .get_or_insert_with(Vec::new)
-                .push(key_value(prop_name(&name, span), get_value(attr.value)));
-        } else if let Some(output_name) = svg_attribute(&name).filter(|_| !is_component) {
-            // React compatibility for SVG attributes
-            add_prop(&mut result, output_name, attr.value);
+                .push(key_value(prop_name(name, span), get_value(attr.value)));
         } else {
             match &*name {
                 "$ChildFlag" => {
@@ -292,12 +269,12 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
                 "$ReCreate" => result.has_re_create_flag = true,
                 _ => {
                     if name == "children" {
-                        result.prop_children = Some(prop_children(&attr.value));
+                        result.prop_children = Some(prop_children(attr.value.as_ref()));
                     }
-                    if name.len() == 15 && name.eq_ignore_ascii_case("contenteditable") {
+                    if name.eq_ignore_ascii_case("contenteditable") {
                         result.content_editable = true;
                     }
-                    add_prop(&mut result, &name, attr.value);
+                    add_prop(&mut result, name.clone(), attr.value);
                 }
             }
         }

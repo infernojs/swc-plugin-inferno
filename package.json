@@ -1,6 +1,6 @@
 {
   "name": "swc-plugin-inferno",
-  "version": "2.17.0",
+  "version": "3.0.0",
   "description": "Inferno JSX plugin for SWC `@swc/core`",
   "main": "swc_plugin_inferno.wasm",
   "files": [
@@ -19,12 +19,12 @@
   "homepage": "https://github.com/infernojs/swc-plugin-inferno",
   "repository": {
     "type": "git",
-    "url": "+https://github.com/infernojs/swc-plugin-inferno.git"
+    "url": "git+https://github.com/infernojs/swc-plugin-inferno.git"
   },
   "bugs": {
     "url": "https://github.com/infernojs/swc-plugin-inferno/issues"
   },
-  "author": "Sampo Kivistö <havunen>",
+  "author": "Sampo Kivistö (https://github.com/havunen)",
   "keywords": [
     "inferno",
     "jsx",

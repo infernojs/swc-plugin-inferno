@@ -9,7 +9,7 @@
 // the transform function was even entered. The hard timeout below is the guard
 // against that class of regression: a hang must fail the build, not wait.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -143,6 +143,11 @@ const withDefaults = transformWith({});
 if (!/\/\*#__PURE__\*\/ ?forwardRef\(/.test(withDefaults)) {
   fail(`default options: forwardRef(...) is not annotated #__PURE__:\n${withDefaults}`);
 }
+// Both the normalizeProps call of a spread element and the vNode it wraps are annotated, so that
+// a minifier can drop an unused element completely.
+if (!/\/\*#__PURE__\*\/ ?normalizeProps\(\/\*#__PURE__\*\/ ?createVNode\(1, "div"/.test(withDefaults)) {
+  fail(`default options: the vNode inside normalizeProps(...) is not annotated #__PURE__:\n${withDefaults}`);
+}
 // normalizeProps mutates its argument, so a minifier must never drop this call.
 if (/#__PURE__\*\/ ?normalizeProps\(vNode\)/.test(withDefaults)) {
   fail(`normalizeProps(vNode) must not be annotated #__PURE__:\n${withDefaults}`);
@@ -153,21 +158,57 @@ if (withPureFalse.includes("#__PURE__")) {
   fail(`{ pure: false }: output still contains #__PURE__:\n${withPureFalse}`);
 }
 
-// Invalid options must fail loudly. The plugin's panic message only reaches
-// stderr, so run the transform in a child process and check what it printed.
-const invalid = spawnSync(
-  process.execPath,
-  [
-    "--input-type=module",
-    "-e",
-    `import { transformSync } from "@swc/core";
-     transformSync("", { filename: "x.js", jsc: { experimental: { plugins: [[${JSON.stringify(wasmPath)}, { bogus: 1 }]] } } });`,
-  ],
-  { cwd: here, encoding: "utf8", timeout: TIMEOUT_MS },
-);
-if (invalid.status === 0) fail("invalid plugin options were accepted");
-if (!invalid.stderr.includes("swc-plugin-inferno: invalid plugin options")) {
-  fail(`invalid plugin options did not report a clear error:\n${invalid.stderr}`);
+// Invalid options must fail the transform with a clear error. The plugin
+// reports them as a diagnostic, which @swc/core turns into a thrown error.
+let invalidError = null;
+try {
+  transformWith({ bogus: 1 });
+} catch (err) {
+  invalidError = err;
+}
+if (invalidError === null) fail("invalid plugin options were accepted");
+if (!String(invalidError.message ?? invalidError).includes("swc-plugin-inferno: invalid plugin options")) {
+  fail(`invalid plugin options did not report a clear error:\n${invalidError.message ?? invalidError}`);
+}
+
+// A `null` config means the defaults.
+if (!/\/\*#__PURE__\*\/ ?forwardRef\(/.test(transformWith(null))) {
+  fail("null plugin options: defaults were not applied");
+}
+
+// Fast refresh reads the host's source map and the module scope that the host's resolver set,
+// which only the wasm guest sees.
+const refreshed = transformSync(
+  `
+import { useState } from "inferno-hooks";
+import { useFancyState } from "./hooks";
+export function App() {
+  const [count, setCount] = useState(0);
+  const [value] = useFancyState();
+  return <h1>{count}{value}</h1>;
+}
+export const Card = Inferno.memo(() => <div />);
+`,
+  {
+    filename: "refresh.jsx",
+    jsc: {
+      parser: { syntax: "ecmascript", jsx: true },
+      experimental: { plugins: [[wasmPath, { development: true, refresh: { emitFullSignatures: true } }]] },
+      target: "es2022",
+    },
+  },
+).code;
+const refreshExpectations = [
+  // Hook keys include the source text of the bindings and of useState's initial value.
+  [/"useState\{\[count, setCount\]\(0\)\}\\nuseFancyState\{\[value\]\}"/, "hook signature with source text"],
+  // An imported custom hook is in scope: no forced reset, listed in the hooks array.
+  [/, false, function\(\) \{\s*return \[\s*useFancyState\s*\];/, "imported custom hook in scope"],
+  // A member expression HOC is named after its source text.
+  [/\$RefreshReg\$\(_c\d*, "Card\$Inferno\.memo"\)/, "HOC registration name"],
+];
+const refreshFailures = refreshExpectations.filter(([re]) => !re.test(refreshed)).map(([, what]) => what);
+if (refreshFailures.length > 0) {
+  fail(`fast refresh output is missing: ${refreshFailures.join(", ")}\n${refreshed}`);
 }
 
 console.error(`[e2e] OK - ${bundle.length} byte bundle, all assertions passed`);

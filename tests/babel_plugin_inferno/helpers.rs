@@ -154,13 +154,7 @@ pub fn compile_with(setup: Setup, input: &str, before: impl Pass) -> Result<Comp
         let mut program = program.apply((
             resolver(unresolved_mark, top_level_mark, is_tsx),
             before,
-            inferno(
-                cm.clone(),
-                Some(comments.clone()),
-                options,
-                top_level_mark,
-                unresolved_mark,
-            ),
+            inferno(cm.clone(), Some(comments.clone()), options, unresolved_mark),
         ));
 
         if handler.has_errors() {

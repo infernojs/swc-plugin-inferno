@@ -1,46 +1,109 @@
+//! Fast refresh registrations, a port of swc's React refresh transform.
+
 use self::{
+    cycles::HookCycles,
     hook::HookRegister,
-    util::{collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_stmt},
+    util::{
+        collect_ident_in_jsx, is_body_arrow_fn, is_directive, is_import_or_require,
+        make_assign_expr, make_assign_stmt, top_level_ctxt, var_decl,
+    },
 };
 use rustc_hash::FxHashSet;
 use std::borrow::Cow;
-use swc_core::ecma::visit::visit_mut_pass;
 use swc_core::{
+    atoms::{Atom, atom},
     common::{
-        BytePos, DUMMY_SP, Mark, SourceMap, SourceMapper, Span, Spanned, SyntaxContext,
-        comments::Comments, sync::Lrc, util::take::Take,
+        BytePos, DUMMY_SP, SourceMapper, Span, SyntaxContext,
+        comments::{Comment, Comments},
+        sync::Lrc,
+        util::take::Take,
     },
-    ecma::ast::*,
-    ecma::utils::{ExprFactory, private_ident, quote_ident, quote_str},
-    ecma::visit::{Visit, VisitMut, VisitMutWith},
+    ecma::{
+        ast::*,
+        utils::{ExprFactory, private_ident, quote_ident, quote_str},
+        visit::{Visit, VisitMut, VisitMutWith, noop_visit_mut_type, visit_mut_pass},
+    },
 };
 
 pub mod options;
 use options::RefreshOptions;
+mod cycles;
 mod hook;
 mod util;
 
 #[cfg(test)]
 mod tests;
 
+/// The name of the variables that hold registered components
+const REGISTRATION_HANDLE: &str = "_c";
+
+/// A `$RefreshReg$(handle, "name")` registration
+struct Reg {
+    handle: Ident,
+    name: Atom,
+}
+
+impl Reg {
+    fn new(name: Atom) -> Self {
+        Reg {
+            handle: private_ident!(REGISTRATION_HANDLE),
+            name,
+        }
+    }
+}
+
+/// A registered HOC call chain
 struct Hoc {
-    insert: bool,
-    reg: Vec<(Ident, Id)>,
+    /// The registrations from the outermost call to the component
+    regs: Vec<Reg>,
+    /// The signature call of the component, which wraps each HOC call too
     hook: Option<HocHook>,
 }
+
 struct HocHook {
     callee: Callee,
     rest_arg: Vec<ExprOrSpread>,
 }
+
+impl HocHook {
+    /// `callee(expr, ...rest_arg)`. The call has no position: a position shared with `expr` would
+    /// take the comments of `expr`, like its pure annotation.
+    fn wrap(&self, expr: Expr) -> Expr {
+        let mut args = Vec::with_capacity(1 + self.rest_arg.len());
+        args.push(expr.as_arg());
+        args.extend(self.rest_arg.iter().cloned());
+
+        CallExpr {
+            span: DUMMY_SP,
+            callee: self.callee.clone(),
+            args,
+            ..Default::default()
+        }
+        .into()
+    }
+}
+
+/// What a module item declares
 enum Persist {
-    Hoc(Hoc),
+    /// A HOC call chain, with its registrations from the outermost call. The outermost handle is
+    /// assigned from `target` after the declaration, or in place when there is no target.
+    Hoc {
+        regs: Vec<Reg>,
+        target: Option<Ident>,
+    },
     Component(Ident),
     None,
 }
+
+/// Whether a name looks like a component: it starts with a capital letter
+fn is_componentish(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_uppercase())
+}
+
 fn get_persistent_id(ident: &Ident) -> Persist {
-    if ident.sym.starts_with(|c: char| c.is_ascii_uppercase()) {
+    if is_componentish(&ident.sym) {
         debug_assert!(
-            !cfg!(debug_assertions) || ident.ctxt != SyntaxContext::empty(),
+            ident.ctxt != SyntaxContext::empty(),
             "`{ident}` should be resolved"
         );
         Persist::Component(ident.clone())
@@ -49,116 +112,202 @@ fn get_persistent_id(ident: &Ident) -> Persist {
     }
 }
 
-/// `react-refresh/babel`
-/// https://github.com/facebook/react/blob/main/packages/react-refresh/src/ReactFreshBabelPlugin.js
-pub fn refresh<C: Comments>(
-    dev: bool,
-    options: Option<RefreshOptions>,
-    cm: Lrc<SourceMap>,
-    comments: Option<C>,
-    global_mark: Mark,
-) -> impl Pass {
+/// Fast refresh registrations, like `react-refresh/babel`
+/// (<https://github.com/facebook/react/blob/main/packages/react-refresh/src/ReactFreshBabelPlugin.js>).
+///
+/// It must run after swc's `resolver`. `cm` is used to read the source text of hook calls: pass
+/// the program's `SourceMap`, or the plugin metadata's source map proxy.
+pub fn refresh<C, S>(options: RefreshOptions, cm: Lrc<S>, comments: Option<C>) -> impl Pass
+where
+    C: Comments,
+    S: SourceMapper,
+{
     visit_mut_pass(Refresh {
-        enable: dev && options.is_some(),
+        refresh_reg: options.refresh_reg.into(),
+        refresh_sig: options.refresh_sig.into(),
+        emit_full_signatures: options.emit_full_signatures,
         cm,
         comments,
         should_reset: false,
-        options: options.unwrap_or_default(),
-        global_mark,
     })
 }
 
-struct Refresh<C: Comments> {
-    enable: bool,
-    options: RefreshOptions,
-    cm: Lrc<SourceMap>,
-    should_reset: bool,
-    comments: Option<C>,
-    global_mark: Mark,
+/// Whether `get_persistent_id_from_possible_hoc` registers `call`: a call of a name or a member
+/// expression whose first argument is a function, a component, or such a call.
+///
+/// Checking first avoids creating registration handles (a host call each in the wasm plugin) for
+/// calls that are not registered.
+fn is_possible_hoc(call: &CallExpr) -> bool {
+    let (Some(first), Callee::Expr(callee)) = (call.args.first(), &call.callee) else {
+        return false;
+    };
+    if !matches!(&**callee, Expr::Ident(_) | Expr::Member(_)) {
+        return false;
+    }
+    match &*first.expr {
+        Expr::Call(inner) => is_possible_hoc(inner),
+        Expr::Fn(_) | Expr::Arrow(_) => true,
+        Expr::Ident(ident) => is_componentish(&ident.sym),
+        _ => false,
+    }
 }
 
-impl<C: Comments> Refresh<C> {
+struct Refresh<C: Comments, S: SourceMapper> {
+    refresh_reg: Atom,
+    refresh_sig: Atom,
+    emit_full_signatures: bool,
+    cm: Lrc<S>,
+    should_reset: bool,
+    comments: Option<C>,
+}
+
+impl<C: Comments, S: SourceMapper> Refresh<C, S> {
+    /// The component or HOC that a module item declares
+    fn persistent_id(
+        &self,
+        item: &mut ModuleItem,
+        used_in_jsx: &FxHashSet<Id>,
+        hook_reg: &mut HookRegister<S>,
+    ) -> Persist {
+        match item {
+            // function Foo() {}
+            ModuleItem::Stmt(Stmt::Decl(Decl::Fn(FnDecl { ident, .. })))
+            // export function Foo() {}
+            | ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
+                decl: Decl::Fn(FnDecl { ident, .. }),
+                ..
+            }))
+            // export default function Foo() {}
+            | ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(ExportDefaultDecl {
+                decl:
+                    DefaultDecl::Fn(FnExpr {
+                        // We don't currently handle anonymous default exports.
+                        ident: Some(ident),
+                        ..
+                    }),
+                ..
+            })) => get_persistent_id(ident),
+
+            // const Foo = () => {}
+            // export const Foo = () => {}
+            ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl)))
+            | ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
+                decl: Decl::Var(var_decl),
+                ..
+            })) => self.get_persistent_id_from_var_decl(var_decl, used_in_jsx, hook_reg),
+
+            ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(export)) => {
+                self.get_persistent_id_from_default_export(export, hook_reg)
+            }
+
+            _ => Persist::None,
+        }
+    }
+
     fn get_persistent_id_from_var_decl(
         &self,
         var_decl: &mut VarDecl,
         used_in_jsx: &FxHashSet<Id>,
-        hook_reg: &mut HookRegister,
+        hook_reg: &mut HookRegister<S>,
     ) -> Persist {
         // We only handle the case when a single variable is declared
-        if let [
+        let [
             VarDeclarator {
                 name: Pat::Ident(binding),
                 init: Some(init_expr),
                 ..
             },
         ] = var_decl.decls.as_mut_slice()
+        else {
+            return Persist::None;
+        };
+
+        if used_in_jsx.contains(&binding.to_id())
+            && !is_import_or_require(init_expr)
+            // TaggedTpl is for something like styled.div`...`
+            && matches!(
+                **init_expr,
+                Expr::Arrow(_) | Expr::Fn(_) | Expr::TaggedTpl(_) | Expr::Call(_)
+            )
         {
-            if used_in_jsx.contains(&binding.to_id()) && !is_import_or_require(init_expr) {
-                match init_expr.as_ref() {
-                    // TaggedTpl is for something like styled.div`...`
-                    Expr::Arrow(_) | Expr::Fn(_) | Expr::TaggedTpl(_) | Expr::Call(_) => {
-                        return Persist::Component(Ident::from(&*binding));
-                    }
-                    _ => (),
+            return Persist::Component(Ident::from(&*binding));
+        }
+
+        let Persist::Component(persistent_id) = get_persistent_id(&Ident::from(&*binding)) else {
+            return Persist::None;
+        };
+        match &mut **init_expr {
+            Expr::Fn(_) => Persist::Component(persistent_id),
+            Expr::Arrow(ArrowExpr { body, .. }) => {
+                // Ignore complex function expressions like
+                // let Foo = () => () => {}
+                if is_body_arrow_fn(body) {
+                    Persist::None
+                } else {
+                    Persist::Component(persistent_id)
                 }
             }
-
-            if let Persist::Component(persistent_id) = get_persistent_id(&Ident::from(&*binding)) {
-                return match init_expr.as_mut() {
-                    Expr::Fn(_) => Persist::Component(persistent_id),
-                    Expr::Arrow(ArrowExpr { body, .. }) => {
-                        // Ignore complex function expressions like
-                        // let Foo = () => () => {}
-                        if is_body_arrow_fn(body) {
-                            Persist::None
-                        } else {
-                            Persist::Component(persistent_id)
-                        }
-                    }
-                    // Maybe a HOC.
-                    Expr::Call(call_expr) => {
-                        let res = self.get_persistent_id_from_possible_hoc(
-                            call_expr,
-                            vec![(private_ident!("_c"), persistent_id.to_id())],
-                            hook_reg,
-                        );
-                        if let Persist::Hoc(Hoc {
-                            insert,
-                            reg,
-                            hook: Some(hook),
-                        }) = res
-                        {
-                            make_hook_reg(init_expr.as_mut(), hook);
-                            Persist::Hoc(Hoc {
-                                insert,
-                                reg,
-                                hook: None,
-                            })
-                        } else {
-                            res
-                        }
-                    }
-                    _ => Persist::None,
+            // Maybe a HOC.
+            Expr::Call(call_expr) if is_possible_hoc(call_expr) => {
+                let root = Reg::new(persistent_id.sym.clone());
+                let Some(Hoc { regs, hook }) =
+                    self.get_persistent_id_from_possible_hoc(call_expr, vec![root], hook_reg)
+                else {
+                    return Persist::None;
                 };
+                if let Some(hook) = hook {
+                    **init_expr = hook.wrap(init_expr.as_mut().take());
+                }
+                Persist::Hoc {
+                    regs,
+                    target: Some(Ident::new(persistent_id.sym, DUMMY_SP, persistent_id.ctxt)),
+                }
             }
+            _ => Persist::None,
         }
-        Persist::None
+    }
+
+    /// Handles nested cases like `export default memo(() => {})`. In those cases it is more
+    /// plausible people will omit names so they're worth handling despite possible false
+    /// positives.
+    fn get_persistent_id_from_default_export(
+        &self,
+        export: &mut ExportDefaultExpr,
+        hook_reg: &mut HookRegister<S>,
+    ) -> Persist {
+        let Expr::Call(call) = &mut *export.expr else {
+            return Persist::None;
+        };
+        if !is_possible_hoc(call) {
+            return Persist::None;
+        }
+        let root = Reg::new(atom!("%default%"));
+        let Some(Hoc { regs, hook }) =
+            self.get_persistent_id_from_possible_hoc(call, vec![root], hook_reg)
+        else {
+            return Persist::None;
+        };
+
+        if let Some(hook) = hook {
+            *export.expr = hook.wrap(export.expr.as_mut().take());
+        }
+        *export.expr = make_assign_expr(regs[0].handle.clone(), export.expr.take());
+
+        Persist::Hoc { regs, target: None }
     }
 
     fn get_persistent_id_from_possible_hoc(
         &self,
         call_expr: &mut CallExpr,
-        mut reg: Vec<(Ident, Id)>,
-        hook_reg: &mut HookRegister,
-    ) -> Persist {
-        let first_arg = match call_expr.args.as_mut_slice() {
-            [first, ..] => &mut first.expr,
-            _ => return Persist::None,
+        mut regs: Vec<Reg>,
+        hook_reg: &mut HookRegister<S>,
+    ) -> Option<Hoc> {
+        let [first, ..] = call_expr.args.as_mut_slice() else {
+            return None;
         };
-        let callee = if let Callee::Expr(expr) = &call_expr.callee {
-            expr
-        } else {
-            return Persist::None;
+        let first_arg = &mut first.expr;
+        let Callee::Expr(callee) = &call_expr.callee else {
+            return None;
         };
         let hoc_name: Cow<'_, str> = match callee.as_ref() {
             Expr::Ident(fn_name) => Cow::Borrowed(fn_name.sym.as_ref()),
@@ -166,231 +315,73 @@ impl<C: Comments> Refresh<C> {
             Expr::Member(member) => {
                 Cow::Owned(self.cm.span_to_snippet(member.span).unwrap_or_default())
             }
-            _ => return Persist::None,
+            _ => return None,
         };
-        let reg_name = match reg.last() {
-            Some((_, id)) => id.0.as_ref(),
-            None => return Persist::None,
-        };
-        let mut reg_str_value = String::with_capacity(reg_name.len() + 1 + hoc_name.len());
-        reg_str_value.push_str(reg_name);
-        reg_str_value.push('$');
-        reg_str_value.push_str(hoc_name.as_ref());
-        let reg_str = (reg_str_value.into(), SyntaxContext::empty());
+        let name: Atom = format!("{}${hoc_name}", regs.last()?.name).into();
+
         match first_arg.as_mut() {
             Expr::Call(expr) => {
-                let reg_ident = private_ident!("_c");
-                reg.push((reg_ident.clone(), reg_str));
-                if let Persist::Hoc(hoc) =
-                    self.get_persistent_id_from_possible_hoc(expr, reg, hook_reg)
-                {
-                    let mut first = first_arg.take();
-                    if let Some(HocHook { callee, rest_arg }) = &hoc.hook {
-                        let span = first.span();
-                        let mut args = Vec::with_capacity(1 + rest_arg.len());
-                        args.push(first.as_arg());
-                        args.extend(rest_arg.iter().cloned());
-                        first = CallExpr {
-                            span,
-                            callee: callee.clone(),
-                            args,
-                            ..Default::default()
-                        }
-                        .into()
-                    }
-                    **first_arg = make_assign_stmt(reg_ident, first);
-
-                    Persist::Hoc(hoc)
-                } else {
-                    Persist::None
+                let handle = private_ident!(REGISTRATION_HANDLE);
+                regs.push(Reg {
+                    handle: handle.clone(),
+                    name,
+                });
+                let hoc = self.get_persistent_id_from_possible_hoc(expr, regs, hook_reg)?;
+                let mut first = first_arg.take();
+                if let Some(hook) = &hoc.hook {
+                    first = Box::new(hook.wrap(*first));
                 }
+                **first_arg = make_assign_expr(handle, first);
+
+                Some(hoc)
             }
             Expr::Fn(_) | Expr::Arrow(_) => {
-                let reg_ident = private_ident!("_c");
+                let handle = private_ident!(REGISTRATION_HANDLE);
                 let mut first = first_arg.take();
                 first.visit_mut_with(hook_reg);
-                let hook = if let Expr::Call(call) = first.as_ref() {
-                    let res = Some(HocHook {
+                let hook = match &*first {
+                    Expr::Call(call) => Some(HocHook {
                         callee: call.callee.clone(),
-                        rest_arg: call.args[1..].to_owned(),
-                    });
-                    **first_arg = make_assign_stmt(reg_ident.clone(), first);
-                    res
-                } else {
-                    **first_arg = make_assign_stmt(reg_ident.clone(), first);
-                    None
+                        rest_arg: call.args.get(1..).unwrap_or_default().to_vec(),
+                    }),
+                    _ => None,
                 };
-                reg.push((reg_ident, reg_str));
-                Persist::Hoc(Hoc {
-                    reg,
-                    insert: true,
-                    hook,
-                })
+                **first_arg = make_assign_expr(handle.clone(), first);
+                regs.push(Reg { handle, name });
+
+                Some(Hoc { regs, hook })
             }
             // export default hoc(Foo)
             // const X = hoc(Foo)
-            Expr::Ident(ident) => {
-                if let Persist::Component(_) = get_persistent_id(ident) {
-                    Persist::Hoc(Hoc {
-                        reg,
-                        insert: true,
-                        hook: None,
-                    })
-                } else {
-                    Persist::None
-                }
-            }
-            _ => Persist::None,
+            Expr::Ident(ident) => matches!(get_persistent_id(ident), Persist::Component(_))
+                .then_some(Hoc { regs, hook: None }),
+            _ => None,
         }
     }
-}
 
-/// We let user do /* @refresh reset */ to reset state in the whole file.
-impl<C> Visit for Refresh<C>
-where
-    C: Comments,
-{
-    fn visit_span(&mut self, n: &Span) {
-        if self.should_reset {
-            return;
-        }
-
-        let mut should_refresh = self.should_reset;
-        if let Some(comments) = &self.comments {
-            if !n.hi.is_dummy() {
-                comments.with_leading(n.hi - BytePos(1), |comments| {
-                    if comments.iter().any(|c| c.text.contains("@refresh reset")) {
-                        should_refresh = true
-                    }
-                });
-            }
-
-            comments.with_leading(n.lo, |comments| {
-                if comments.iter().any(|c| c.text.contains("@refresh reset")) {
-                    should_refresh = true
-                }
-            });
-
-            comments.with_trailing(n.lo, |comments| {
-                if comments.iter().any(|c| c.text.contains("@refresh reset")) {
-                    should_refresh = true
-                }
-            });
-        }
-
-        self.should_reset = should_refresh;
-    }
-}
-
-// TODO: figure out if we can insert all registers at once
-impl<C: Comments> VisitMut for Refresh<C> {
-    // Does anyone write react without esmodule?
-    // fn visit_mut_script(&mut self, _: &mut Script) {}
-
-    fn visit_mut_module(&mut self, n: &mut Module) {
-        if !self.enable {
-            return;
-        }
-
-        // to collect comments
-        self.visit_module(n);
-
-        self.visit_mut_module_items(&mut n.body);
-    }
-
-    fn visit_mut_module_items(&mut self, module_items: &mut Vec<ModuleItem>) {
+    /// Registers the components of a module and the signatures of its hooks
+    fn transform_items(&self, module_items: &mut Vec<ModuleItem>) {
         let used_in_jsx = collect_ident_in_jsx(module_items);
 
         let mut items = Vec::with_capacity(module_items.len());
-        let mut refresh_regs = Vec::<(Ident, Id)>::new();
+        let mut refresh_regs = Vec::<Reg>::new();
 
+        let cycles = HookCycles::find(module_items);
         let mut hook_visitor = HookRegister {
-            options: &self.options,
+            cycles: &cycles,
+            refresh_sig: &self.refresh_sig,
+            emit_full_signatures: self.emit_full_signatures,
             ident: Vec::new(),
             extra_stmt: Vec::new(),
-            current_scope: vec![SyntaxContext::empty().apply_mark(self.global_mark)],
-            cm: &self.cm,
+            current_scope: vec![top_level_ctxt(module_items)],
+            cm: &*self.cm,
             should_reset: self.should_reset,
         };
 
         for mut item in module_items.take() {
-            let persistent_id = match &mut item {
-                // function Foo() {}
-                ModuleItem::Stmt(Stmt::Decl(Decl::Fn(FnDecl { ident, .. }))) => {
-                    get_persistent_id(ident)
-                }
+            let persistent_id = self.persistent_id(&mut item, &used_in_jsx, &mut hook_visitor);
 
-                // export function Foo() {}
-                ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                    decl: Decl::Fn(FnDecl { ident, .. }),
-                    ..
-                })) => get_persistent_id(ident),
-
-                // export default function Foo() {}
-                ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultDecl(ExportDefaultDecl {
-                    decl:
-                        DefaultDecl::Fn(FnExpr {
-                            // We don't currently handle anonymous default exports.
-                            ident: Some(ident),
-                            ..
-                        }),
-                    ..
-                })) => get_persistent_id(ident),
-
-                // const Foo = () => {}
-                // export const Foo = () => {}
-                ModuleItem::Stmt(Stmt::Decl(Decl::Var(var_decl)))
-                | ModuleItem::ModuleDecl(ModuleDecl::ExportDecl(ExportDecl {
-                    decl: Decl::Var(var_decl),
-                    ..
-                })) => {
-                    self.get_persistent_id_from_var_decl(var_decl, &used_in_jsx, &mut hook_visitor)
-                }
-
-                // This code path handles nested cases like:
-                // export default memo(() => {})
-                // In those cases it is more plausible people will omit names
-                // so they're worth handling despite possible false positives.
-                ModuleItem::ModuleDecl(ModuleDecl::ExportDefaultExpr(ExportDefaultExpr {
-                    expr,
-                    span,
-                })) => {
-                    if let Expr::Call(call) = expr.as_mut() {
-                        if let Persist::Hoc(Hoc { reg, hook, .. }) = self
-                            .get_persistent_id_from_possible_hoc(
-                                call,
-                                vec![(
-                                    private_ident!("_c"),
-                                    ("%default%".into(), SyntaxContext::empty()),
-                                )],
-                                &mut hook_visitor,
-                            )
-                        {
-                            if let Some(hook) = hook {
-                                make_hook_reg(expr.as_mut(), hook)
-                            }
-                            item = ExportDefaultExpr {
-                                expr: Box::new(make_assign_stmt(reg[0].0.clone(), expr.take())),
-                                span: *span,
-                            }
-                            .into();
-                            Persist::Hoc(Hoc {
-                                insert: false,
-                                reg,
-                                hook: None,
-                            })
-                        } else {
-                            Persist::None
-                        }
-                    } else {
-                        Persist::None
-                    }
-                }
-
-                _ => Persist::None,
-            };
-
-            if let Persist::Hoc(_) = persistent_id {
+            if let Persist::Hoc { .. } = persistent_id {
                 // we need to make hook transform happens after component for
                 // HOC
                 items.push(item);
@@ -398,57 +389,34 @@ impl<C: Comments> VisitMut for Refresh<C> {
                 item.visit_mut_children_with(&mut hook_visitor);
 
                 items.push(item);
-                items.extend(
-                    hook_visitor
-                        .extra_stmt
-                        .take()
-                        .into_iter()
-                        .map(ModuleItem::Stmt),
-                );
+                items.extend(hook_visitor.extra_stmt.drain(..).map(ModuleItem::Stmt));
             }
 
             match persistent_id {
                 Persist::None => (),
                 Persist::Component(persistent_id) => {
-                    let registration_handle = private_ident!("_c");
+                    let reg = Reg::new(persistent_id.sym.clone());
 
-                    refresh_regs.push((registration_handle.clone(), persistent_id.to_id()));
-
-                    items.push(
-                        ExprStmt {
-                            span: DUMMY_SP,
-                            expr: Box::new(make_assign_stmt(
-                                registration_handle,
-                                persistent_id.into(),
-                            )),
-                        }
-                        .into(),
-                    );
+                    items.push(make_assign_stmt(reg.handle.clone(), persistent_id.into()).into());
+                    refresh_regs.push(reg);
                 }
-
-                Persist::Hoc(mut hoc) => {
-                    hoc.reg.reverse();
-                    if hoc.insert
-                        && let Some((ident, name)) = hoc.reg.last()
-                    {
-                        items.push(
-                            ExprStmt {
-                                span: DUMMY_SP,
-                                expr: Box::new(make_assign_stmt(
-                                    ident.clone(),
-                                    Ident::new(name.0.clone(), DUMMY_SP, name.1).into(),
-                                )),
-                            }
-                            .into(),
-                        )
+                Persist::Hoc { mut regs, target } => {
+                    if let Some(target) = target {
+                        items.push(make_assign_stmt(regs[0].handle.clone(), target.into()).into());
                     }
-                    refresh_regs.append(&mut hoc.reg);
+                    // The component is registered first
+                    regs.reverse();
+                    refresh_regs.append(&mut regs);
                 }
             }
         }
 
         if !hook_visitor.ident.is_empty() {
-            items.insert(0, hook_visitor.gen_hook_handle().into());
+            let prologue = items
+                .iter()
+                .take_while(|item| matches!(item, ModuleItem::Stmt(stmt) if is_directive(stmt)))
+                .count();
+            items.insert(prologue, hook_visitor.gen_hook_handle().into());
         }
 
         // Insert
@@ -457,21 +425,17 @@ impl<C: Comments> VisitMut for Refresh<C> {
         // ```
         if !refresh_regs.is_empty() {
             items.push(
-                VarDecl {
-                    span: DUMMY_SP,
-                    kind: VarDeclKind::Var,
-                    declare: false,
-                    decls: refresh_regs
+                var_decl(
+                    refresh_regs
                         .iter()
-                        .map(|(handle, _)| VarDeclarator {
+                        .map(|reg| VarDeclarator {
                             span: DUMMY_SP,
-                            name: handle.clone().into(),
+                            name: reg.handle.clone().into(),
                             init: None,
                             definite: false,
                         })
                         .collect(),
-                    ..Default::default()
-                }
+                )
                 .into(),
             );
         }
@@ -481,14 +445,13 @@ impl<C: Comments> VisitMut for Refresh<C> {
         // $RefreshReg$(_c, "Hello");
         // $RefreshReg$(_c1, "Foo");
         // ```
-        let refresh_reg = self.options.refresh_reg.as_str();
-        for (handle, persistent_id) in refresh_regs {
+        for Reg { handle, name } in refresh_regs {
             items.push(
                 ExprStmt {
                     span: DUMMY_SP,
                     expr: CallExpr {
-                        callee: quote_ident!(refresh_reg).as_callee(),
-                        args: vec![handle.as_arg(), quote_str!(persistent_id.0).as_arg()],
+                        callee: quote_ident!(self.refresh_reg.clone()).as_callee(),
+                        args: vec![handle.as_arg(), quote_str!(name).as_arg()],
                         ..Default::default()
                     }
                     .into(),
@@ -497,21 +460,58 @@ impl<C: Comments> VisitMut for Refresh<C> {
             );
         }
 
-        *module_items = items
+        *module_items = items;
     }
-
-    fn visit_mut_ts_module_decl(&mut self, _: &mut TsModuleDecl) {}
 }
 
-fn make_hook_reg(expr: &mut Expr, mut hook: HocHook) {
-    let span = expr.span();
-    let mut args = vec![expr.take().as_arg()];
-    args.append(&mut hook.rest_arg);
-    *expr = CallExpr {
-        span,
-        callee: hook.callee,
-        args,
-        ..Default::default()
+/// A comment containing this resets the state of every component in the file on each edit
+const REFRESH_RESET: &str = "@refresh reset";
+
+fn has_refresh_reset(comments: &[Comment]) -> bool {
+    comments
+        .iter()
+        .any(|comment| comment.text.contains(REFRESH_RESET))
+}
+
+/// We let user do /* @refresh reset */ to reset state in the whole file.
+impl<C, S> Visit for Refresh<C, S>
+where
+    C: Comments,
+    S: SourceMapper,
+{
+    fn visit_span(&mut self, n: &Span) {
+        if self.should_reset {
+            return;
+        }
+        let Some(comments) = &self.comments else {
+            return;
+        };
+        // `has_*` is a cheap check; `with_*` takes the comments and puts them back
+        let leading =
+            |pos| comments.has_leading(pos) && comments.with_leading(pos, has_refresh_reset);
+        let trailing =
+            |pos| comments.has_trailing(pos) && comments.with_trailing(pos, has_refresh_reset);
+
+        self.should_reset = (!n.hi.is_dummy() && leading(n.hi - BytePos(1)))
+            || leading(n.lo)
+            || trailing(n.lo)
+            // A comment after code on the same line
+            || trailing(n.hi);
     }
-    .into();
+}
+
+impl<C: Comments, S: SourceMapper> VisitMut for Refresh<C, S> {
+    noop_visit_mut_type!();
+
+    fn visit_mut_module(&mut self, n: &mut Module) {
+        // A reset comment only applies to its own file
+        self.should_reset = false;
+        // to collect comments
+        self.visit_module(n);
+
+        self.transform_items(&mut n.body);
+    }
+
+    /// Components are only registered in ES modules
+    fn visit_mut_script(&mut self, _: &mut Script) {}
 }

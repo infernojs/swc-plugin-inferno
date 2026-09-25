@@ -60,3 +60,28 @@ fn should_map_normalize_props_and_the_call_it_wraps_to_the_opening_tag() {
         at(11, 4)
     );
 }
+
+/// The input position mapped from exactly where `needle` starts, without falling back to an
+/// earlier mapping on the line like `original_position`
+fn exact_position(compiled: &Compiled, needle: &str) -> Option<Position> {
+    let (line, column) = compiled.code.lines().enumerate().find_map(|(i, line)| {
+        line.find(needle)
+            .map(|byte| (i + 1, line[..byte].chars().count()))
+    })?;
+
+    compiled
+        .mappings
+        .iter()
+        .find(|m| m.generated.line == line && m.generated.column == column)
+        .map(|m| m.original)
+}
+
+// babel-plugin-inferno maps both normalizeProps and the call it wraps to the opening tag. The
+// wrapped call has a mapping of its own, where its annotated expression starts.
+#[test]
+fn should_map_the_call_wrapped_by_normalize_props_itself() {
+    assert_eq!(
+        exact_position(&compile(), r#"/*#__PURE__*/ createVNode(1, "b""#),
+        at(11, 4)
+    );
+}

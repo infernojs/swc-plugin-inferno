@@ -2,19 +2,19 @@ import { createVNode, normalizeProps } from "inferno";
 /*#__PURE__*/ createVNode(1, "p", null, "text", 16, {
     prop: true
 });
-/*#__PURE__*/ normalizeProps(createVNode(1, "p", null, "text", 16, {
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "p", null, "text", 16, {
     ...{
         prop,
         prop
     }
 }));
-/*#__PURE__*/ normalizeProps(createVNode(1, "p", null, "text", 16, {
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "p", null, "text", 16, {
     prop: true,
     ...{
         prop
     }
 }));
-/*#__PURE__*/ normalizeProps(createVNode(1, "p", null, "text", 16, {
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "p", null, "text", 16, {
     ...{
         prop
     },

@@ -1,99 +1,83 @@
 #![deny(clippy::all)]
-#![allow(clippy::arc_with_non_send_sync)]
 
 pub use self::{
-    jsx::*,
+    jsx::{Options, jsx},
     pure_annotations::pure_annotations,
     refresh::{options::RefreshOptions, refresh},
 };
-use swc_core::ecma::ast::Pass;
 use swc_core::{
-    common::{Mark, SourceMap, comments::Comments, sync::Lrc},
-    ecma::ast::Program,
-    plugin::{plugin_transform, proxies::TransformPluginProgramMetadata},
+    common::{Mark, SourceMapper, comments::Comments, sync::Lrc},
+    ecma::ast::{Pass, Program},
+    plugin::{errors::HANDLER, plugin_transform, proxies::TransformPluginProgramMetadata},
 };
 
 mod inferno_flags;
 mod jsx;
+mod program_bindings;
 mod pure_annotations;
 mod refresh;
 mod transformations;
 
+/// Runs the fast refresh pass (when enabled), the pure annotation pass and the JSX transform.
 ///
-/// `top_level_mark` should be [Mark] passed to
-/// [swc_ecma_transforms_base::resolver::resolver_with_mark].
-///
-///
+/// The program must have been processed by swc's `resolver`; `unresolved_mark` is the unresolved
+/// [Mark] passed to it. `cm` is only read by the fast refresh pass: pass the program's
+/// `SourceMap`, or the plugin metadata's source map proxy.
 ///
 /// # Note
 ///
-/// This pass uses [swc_ecma_utils::HANDLER].
-pub fn inferno<C>(
-    cm: Lrc<SourceMap>,
+/// Errors are reported through `swc_core::common::errors::HANDLER`.
+pub fn inferno<C, S>(
+    cm: Lrc<S>,
     comments: Option<C>,
     mut options: Options,
-    top_level_mark: Mark,
     unresolved_mark: Mark,
 ) -> impl Pass
 where
     C: Comments + Clone,
+    S: SourceMapper,
 {
-    let Options {
-        development, pure, ..
-    } = options;
-    let development = development.unwrap_or(false);
-    let pure = pure.unwrap_or(true);
+    let development = options.development();
+    let refresh_pass = options
+        .refresh
+        .take()
+        .filter(|_| development)
+        .map(|refresh_options| refresh(refresh_options, cm, comments.clone()));
+    let pure_pass = options
+        .pure()
+        .then(|| pure_annotations(comments.clone(), options.import_source().into()));
 
-    let refresh_options = options.refresh.take();
-
+    // The pure annotation pass runs first: the JSX transform annotates the calls it generates,
+    // and a file without hand-written Inferno imports is not walked again
     (
-        refresh(
-            development,
-            refresh_options,
-            cm.clone(),
-            comments.clone(),
-            top_level_mark,
-        ),
-        jsx(comments.clone(), options, unresolved_mark),
-        pure_annotations(comments.filter(|_| pure)),
+        refresh_pass,
+        pure_pass,
+        jsx(comments, options, unresolved_mark),
     )
 }
 
 #[plugin_transform]
-fn inferno_jsx_plugin(mut program: Program, metadata: TransformPluginProgramMetadata) -> Program {
-    let top_level_mark = Mark::new();
-    let cm = Lrc::new(SourceMap::default());
-    let unresolved_mark = metadata.unresolved_mark;
-
-    let options: Options = metadata
+fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata) -> Program {
+    let options = match metadata
         .get_transform_plugin_config()
-        .map(|config| {
-            serde_json::from_str(&config)
-                .unwrap_or_else(|err| panic!("swc-plugin-inferno: invalid plugin options: {err}"))
-        })
-        .unwrap_or_default();
-    let development = options.development.unwrap_or(false);
-    let pure = options.pure.unwrap_or(true);
+        .map(|config| serde_json::from_str::<Option<Options>>(&config))
+    {
+        None => Options::default(),
+        Some(Ok(options)) => options.unwrap_or_default(),
+        Some(Err(err)) => {
+            HANDLER.with(|handler| {
+                handler.err(&format!(
+                    "swc-plugin-inferno: invalid plugin options: {err}"
+                ))
+            });
+            return program;
+        }
+    };
 
-    if development {
-        let refresh_options = options.clone().refresh;
-        let mut refresh_pass = refresh(
-            development,
-            refresh_options,
-            cm.clone(),
-            Some(&metadata.comments),
-            top_level_mark,
-        );
-        program = program.apply(&mut refresh_pass);
-    }
-
-    let mut jsx_pass = jsx(Some(&metadata.comments), options, unresolved_mark);
-    program = program.apply(&mut jsx_pass);
-
-    if pure {
-        let mut pure_pass = pure_annotations(Some(&metadata.comments));
-        program = program.apply(&mut pure_pass);
-    }
-
-    program
+    program.apply(inferno(
+        Lrc::new(metadata.source_map),
+        metadata.comments,
+        options,
+        metadata.unresolved_mark,
+    ))
 }

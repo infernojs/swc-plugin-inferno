@@ -1,4 +1,7 @@
-use swc_core::common::{FileName, Mark, SourceMap, comments::SingleThreadedComments, sync::Lrc};
+use swc_core::atoms::atom;
+use swc_core::common::{
+    FileName, Mark, SourceMap, SyntaxContext, comments::SingleThreadedComments, sync::Lrc,
+};
 use swc_core::ecma::transforms::base::resolver;
 use swc_ecma_codegen::{Emitter, text_writer::JsWriter};
 use swc_ecma_parser::{Parser, StringInput};
@@ -9,7 +12,7 @@ use super::*;
 fn parse(
     tester: &mut Tester,
     src: &str,
-) -> Result<(Program, Lrc<SourceMap>, Lrc<SingleThreadedComments>), ()> {
+) -> Result<(Program, Lrc<SourceMap>, SingleThreadedComments), ()> {
     let syntax = ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
         jsx: true,
         ..Default::default()
@@ -17,7 +20,7 @@ fn parse(
     let source_map = Lrc::new(SourceMap::default());
     let source_file = source_map.new_source_file(FileName::Anon.into(), src.to_string());
 
-    let comments = Lrc::new(SingleThreadedComments::default());
+    let comments = SingleThreadedComments::default();
     let program = {
         let mut p = Parser::new(syntax, StringInput::from(&*source_file), Some(&comments));
         let res = p
@@ -34,11 +37,7 @@ fn parse(
     Ok((program, source_map, comments))
 }
 
-fn emit(
-    source_map: Lrc<SourceMap>,
-    comments: Lrc<SingleThreadedComments>,
-    program: &Program,
-) -> String {
+fn emit(source_map: Lrc<SourceMap>, comments: SingleThreadedComments, program: &Program) -> String {
     let mut src_map_buf = vec![];
     let mut buf = vec![];
     {
@@ -76,7 +75,6 @@ fn run_test_with(input: &str, expected: &str, options: crate::Options) {
                 actual_sm.clone(),
                 Some(&actual_comments),
                 options,
-                top_level_mark,
                 unresolved_mark,
             ));
 
@@ -85,11 +83,7 @@ fn run_test_with(input: &str, expected: &str, options: crate::Options) {
         let (expected, expected_sm, expected_comments) = parse(tester, expected)?;
         let expected_src = emit(expected_sm, expected_comments, &expected);
 
-        if actual_src != expected_src {
-            println!(">>>>> Orig <<<<<\n{}", input);
-            println!(">>>>> Code <<<<<\n{}", actual_src);
-            panic!(r#"assertion failed: `(left == right)`"#,);
-        }
+        assert_eq!(actual_src, expected_src, "input:\n{input}");
 
         Ok(())
     });
@@ -331,4 +325,275 @@ fn pure_false_disables_annotations() {
             ..Default::default()
         },
     )
+}
+
+#[test]
+fn import_source_factories_are_pure() {
+    run_test_with(
+        r#"
+  import { forwardRef } from 'inferno-compat';
+  import { createRef } from 'inferno';
+  const Comp = forwardRef((props, ref) => null);
+  const ref = createRef();
+  "#,
+        r#"
+  import { forwardRef } from 'inferno-compat';
+  import { createRef } from 'inferno';
+  const Comp = /*#__PURE__*/ forwardRef((props, ref) => null);
+  const ref = /*#__PURE__*/ createRef();
+  "#,
+        crate::Options {
+            import_source: Some("inferno-compat".into()),
+            ..Default::default()
+        },
+    );
+}
+
+test!(
+    other_modules_are_not_the_import_source,
+    r#"
+  import { forwardRef } from 'inferno-compat';
+  const Comp = forwardRef((props, ref) => null);
+  "#,
+    r#"
+  import { forwardRef } from 'inferno-compat';
+  const Comp = forwardRef((props, ref) => null);
+  "#
+);
+
+test!(
+    aliased_import,
+    r#"
+  import { createVNode as cv } from 'inferno';
+  cv(1, "div");
+  "#,
+    r#"
+  import { createVNode as cv } from 'inferno';
+  /*#__PURE__*/ cv(1, "div");
+  "#
+);
+
+test!(
+    shadowed_import,
+    r#"
+  import { createRef } from 'inferno';
+  function make(createRef) {
+    return createRef();
+  }
+  "#,
+    r#"
+  import { createRef } from 'inferno';
+  function make(createRef) {
+    return createRef();
+  }
+  "#
+);
+
+test!(
+    normalize_props_of_jsx,
+    r#"
+  import { normalizeProps } from 'inferno';
+  const x = normalizeProps(<div {...p} />);
+  const y = normalizeProps(<Foo />);
+  "#,
+    r#"
+  import { createVNode, createComponentVNode } from "inferno";
+  import { normalizeProps } from 'inferno';
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+    ...p
+  })));
+  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo));
+  "#
+);
+
+// Both calls are annotated, so that a minifier drops an unused element with a spread.
+test!(
+    spread_element,
+    r#"
+  const x = <div {...p} />;
+  const y = <Foo {...p} />;
+  "#,
+    r#"
+  import { createVNode, createComponentVNode, normalizeProps } from "inferno";
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+    ...p
+  }));
+  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo, {
+    ...p
+  }));
+  "#
+);
+
+test!(
+    default_import_by_name,
+    r#"
+  import { default as Inferno } from 'inferno';
+  Inferno.createRef();
+  "#,
+    r#"
+  import { default as Inferno } from 'inferno';
+  /*#__PURE__*/ Inferno.createRef();
+  "#
+);
+
+// An export named "*" is not the module object.
+test!(
+    export_named_star,
+    r#"
+  import { "*" as star } from 'inferno';
+  star.createRef();
+  "#,
+    r#"
+  import { "*" as star } from 'inferno';
+  star.createRef();
+  "#
+);
+
+/// Compiles `input` and returns the code and the number of leading comments registered
+fn compile(input: &str, options: crate::Options) -> (String, usize) {
+    let mut result = (String::new(), 0);
+
+    Tester::run(|tester| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let (program, source_map, comments) = parse(tester, input)?;
+        let program = program
+            .apply(&mut resolver(unresolved_mark, top_level_mark, false))
+            .apply(&mut crate::inferno(
+                source_map.clone(),
+                Some(&comments),
+                options,
+                unresolved_mark,
+            ));
+        let count = comments.borrow_all().0.values().map(Vec::len).sum();
+
+        result = (emit(source_map, comments, &program), count);
+        Ok(())
+    });
+    result
+}
+
+// The fast refresh wrappers `_s(...)` and `_c = ...` must not take the annotation of the factory
+// call they wrap.
+#[test]
+fn refresh_wrappers_do_not_take_the_annotation_of_the_factory() {
+    let (code, _) = compile(
+        r#"
+  import { forwardRef } from 'inferno';
+  import { useState } from 'inferno-hooks';
+  export const Comp = forwardRef((p, r) => { useState(1); return <div />; });
+  export default forwardRef(function X() { return <p />; });
+  "#,
+        crate::Options {
+            development: Some(true),
+            refresh: Some(crate::RefreshOptions::default()),
+            ..Default::default()
+        },
+    );
+
+    assert!(!code.contains("/*#__PURE__*/ _s("), "{code}");
+    assert!(!code.contains("/*#__PURE__*/ _c"), "{code}");
+    assert_eq!(
+        code.matches("/*#__PURE__*/ forwardRef(").count(),
+        2,
+        "{code}"
+    );
+}
+
+// Fast refresh turns an expression body with hooks into a block that returns it; the annotation
+// stays on the returned call instead of moving in front of `return`.
+#[test]
+fn refresh_return_does_not_take_the_annotation_of_the_body() {
+    let (code, _) = compile(
+        r#"
+  import { useThing } from './hooks';
+  export const Card = () => <div>{useThing()}</div>;
+  "#,
+        crate::Options {
+            development: Some(true),
+            refresh: Some(crate::RefreshOptions::default()),
+            ..Default::default()
+        },
+    );
+
+    assert!(!code.contains("/*#__PURE__*/ return"), "{code}");
+    assert!(code.contains("return /*#__PURE__*/ createVNode("), "{code}");
+}
+
+// A Fragment with a spread gets no normalizeProps call, so no annotation for one is registered.
+#[test]
+fn fragment_with_spread_registers_only_printed_annotations() {
+    let (code, comments) = compile(
+        "const x = <Fragment {...p}>x</Fragment>;",
+        crate::Options::default(),
+    );
+
+    assert_eq!(comments, code.matches("#__PURE__").count(), "{code}");
+}
+
+// A pass applied to several programs must not keep the imports of the earlier ones.
+#[test]
+fn reused_pass_forgets_the_imports_of_the_previous_module() {
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let syntax = ::swc_ecma_parser::Syntax::Es(Default::default());
+        let mut pass = pure_annotations(Some(t.comments.clone()), atom!("inferno"));
+
+        let first = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "first.js",
+            syntax,
+            Some(true),
+            "import { createRef } from 'inferno';\ncreateRef();",
+        )?;
+        let _ = first.apply(&mut pass);
+        let second = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "second.js",
+            syntax,
+            Some(true),
+            "function createRef() { sideEffect(); }\ncreateRef();",
+        )?;
+        let second = second.apply(&mut pass);
+
+        let comments = t.comments.clone();
+        let code = t.print(&second, &comments);
+        assert!(!code.contains("#__PURE__"), "{code}");
+        Ok(())
+    });
+}
+
+// Scripts cannot import Inferno, so the pass does not walk them. The pass is given an import that
+// matches a call in the script, which makes a walk visible as an annotation.
+#[test]
+fn scripts_are_not_walked() {
+    Tester::run(|t| {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
+        let syntax = ::swc_ecma_parser::Syntax::Es(Default::default());
+        let script = t.apply_transform(
+            resolver(unresolved_mark, top_level_mark, false),
+            "script.js",
+            syntax,
+            Some(false),
+            "function createRef() { sideEffect(); }\ncreateRef();",
+        )?;
+        let id = (
+            atom!("createRef"),
+            SyntaxContext::empty().apply_mark(top_level_mark),
+        );
+        let mut imports = FxHashMap::default();
+        imports.insert(id, InfernoImport::Named(atom!("createRef")));
+        let script = script.apply(visit_mut_pass(PureAnnotations {
+            imports,
+            import_source: atom!("inferno"),
+            comments: Some(t.comments.clone()),
+        }));
+
+        let comments = t.comments.clone();
+        let code = t.print(&script, &comments);
+        assert!(!code.contains("#__PURE__"), "{code}");
+        Ok(())
+    });
 }

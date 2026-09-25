@@ -1,10 +1,24 @@
+use crate::program_bindings::for_each_module_binding;
 use rustc_hash::FxHashSet;
 use swc_core::{
-    common::{DUMMY_SP, Spanned, SyntaxContext},
+    common::{DUMMY_SP, SyntaxContext},
     ecma::ast::*,
     ecma::utils::ExprFactory,
     ecma::visit::{Visit, VisitWith, noop_visit_type},
 };
+
+/// The context that swc's `resolver` gives the bindings declared in the module scope.
+///
+/// A plugin only receives the unresolved mark, so the top-level context is read from the first
+/// binding the module declares. Without any binding no module-level hook can be in scope, and
+/// `SyntaxContext::empty()` matches no resolved identifier.
+pub fn top_level_ctxt(items: &[ModuleItem]) -> SyntaxContext {
+    let mut ctxt = None;
+    for_each_module_binding(items, |ident| {
+        ctxt.get_or_insert(ident.ctxt);
+    });
+    ctxt.unwrap_or_default()
+}
 
 pub fn is_builtin_hook(name: &str) -> bool {
     matches!(
@@ -31,23 +45,53 @@ pub fn is_body_arrow_fn(body: &ArrowFunctionBody) -> bool {
 }
 
 fn assert_hygiene(e: &Expr) {
-    if !cfg!(debug_assertions) {
-        return;
-    }
-
     if let Expr::Ident(i) = e {
         debug_assert!(i.ctxt != SyntaxContext::empty(), "`{i}` should be resolved");
     }
 }
 
-pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Expr {
+/// `handle = expr`. The assignment has no position: a position shared with `expr` would take the
+/// comments of `expr`, like its pure annotation.
+pub fn make_assign_expr(handle: Ident, expr: Box<Expr>) -> Expr {
     assert_hygiene(&expr);
 
     AssignExpr {
-        span: expr.span(),
+        span: DUMMY_SP,
         op: op!("="),
         left: handle.into(),
         right: expr,
+    }
+    .into()
+}
+
+/// `handle = expr;`
+pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Stmt {
+    ExprStmt {
+        span: DUMMY_SP,
+        expr: Box::new(make_assign_expr(handle, expr)),
+    }
+    .into()
+}
+
+/// Whether a statement is a directive like `'use strict'`, which must stay at the start of a
+/// module or function body
+pub fn is_directive(stmt: &Stmt) -> bool {
+    matches!(stmt, Stmt::Expr(ExprStmt { expr, .. }) if matches!(**expr, Expr::Lit(Lit::Str(_))))
+}
+
+/// The position after the directives at the start of statements
+pub fn after_directives(stmts: &[Stmt]) -> usize {
+    stmts.iter().take_while(|stmt| is_directive(stmt)).count()
+}
+
+/// `var` with the given declarators
+pub fn var_decl(decls: Vec<VarDeclarator>) -> Stmt {
+    VarDecl {
+        span: DUMMY_SP,
+        kind: VarDeclKind::Var,
+        declare: false,
+        decls,
+        ..Default::default()
     }
     .into()
 }
@@ -121,6 +165,8 @@ impl Visit for UsedInJsx {
         if let JSXElementName::Ident(ident) = &n.name {
             self.0.insert(ident.to_id());
         }
+        // Components also appear in JSX attribute values
+        n.visit_children_with(self);
     }
 }
 
