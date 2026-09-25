@@ -402,3 +402,28 @@ test!(
   const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo));
   "#
 );
+
+test!(
+    default_import_by_name,
+    r#"
+  import { default as Inferno } from 'inferno';
+  Inferno.createRef();
+  "#,
+    r#"
+  import { default as Inferno } from 'inferno';
+  /*#__PURE__*/ Inferno.createRef();
+  "#
+);
+
+// An export named "*" is not the module object.
+test!(
+    export_named_star,
+    r#"
+  import { "*" as star } from 'inferno';
+  star.createRef();
+  "#,
+    r#"
+  import { "*" as star } from 'inferno';
+  star.createRef();
+  "#
+);

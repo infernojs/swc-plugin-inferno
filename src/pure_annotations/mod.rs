@@ -1,5 +1,5 @@
 use rustc_hash::FxHashMap;
-use swc_core::atoms::{Atom, atom};
+use swc_core::atoms::Atom;
 use swc_core::common::Span;
 use swc_core::common::comments::Comments;
 use swc_core::ecma::ast::*;
@@ -25,11 +25,19 @@ where
     })
 }
 
+/// What an import from the Inferno module binds
+enum InfernoImport {
+    /// A named export
+    Named(Atom),
+    /// The module object or the default export, whose properties are the exports
+    Object,
+}
+
 struct PureAnnotations<C>
 where
     C: Comments,
 {
-    imports: FxHashMap<Id, Atom>,
+    imports: FxHashMap<Id, InfernoImport>,
     import_source: Atom,
     comments: Option<C>,
 }
@@ -63,13 +71,17 @@ where
                                 #[cfg(swc_ast_unknown)]
                                 Some(_) => continue,
                             };
-                            self.imports.insert(named.local.to_id(), imported);
+                            // `import { default as Inferno }` is a default import
+                            let import = if imported == "default" {
+                                InfernoImport::Object
+                            } else {
+                                InfernoImport::Named(imported)
+                            };
+                            self.imports.insert(named.local.to_id(), import);
                         }
-                        ImportSpecifier::Default(default) => {
-                            self.imports.insert(default.local.to_id(), atom!("default"));
-                        }
-                        ImportSpecifier::Namespace(ns) => {
-                            self.imports.insert(ns.local.to_id(), atom!("*"));
+                        ImportSpecifier::Default(ImportDefaultSpecifier { local, .. })
+                        | ImportSpecifier::Namespace(ImportStarAsSpecifier { local, .. }) => {
+                            self.imports.insert(local.to_id(), InfernoImport::Object);
                         }
                         #[cfg(swc_ast_unknown)]
                         _ => (),
@@ -114,20 +126,22 @@ where
         };
 
         match &**expr {
-            Expr::Ident(ident) => self.imports.get(&ident.to_id()),
-            Expr::Member(member) => {
-                let Expr::Ident(obj) = &*member.obj else {
-                    return None;
-                };
-                let specifier = self.imports.get(&obj.to_id())?;
-                if &**specifier != "default" && &**specifier != "*" {
-                    return None;
+            Expr::Ident(ident) => match self.imports.get(&ident.to_id())? {
+                InfernoImport::Named(name) => Some(name),
+                InfernoImport::Object => None,
+            },
+            Expr::Member(MemberExpr {
+                obj,
+                prop: MemberProp::Ident(prop),
+                ..
+            }) => match &**obj {
+                Expr::Ident(obj)
+                    if matches!(self.imports.get(&obj.to_id()), Some(InfernoImport::Object)) =>
+                {
+                    Some(&prop.sym)
                 }
-                match &member.prop {
-                    MemberProp::Ident(prop) => Some(&prop.sym),
-                    _ => None,
-                }
-            }
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -154,38 +168,39 @@ where
         };
 
         match self.inferno_export(&call.callee).map(|name| &**name) {
-            Some(
-                "createVNode"
-                | "createComponentVNode"
-                | "createFragment"
-                | "createTextVNode"
-                | "createPortal"
-                | "directClone",
-            ) => true,
             Some("normalizeProps") => self.should_annotate(call),
-            _ => false,
+            Some(name) => creates_vnode(name),
+            None => false,
         }
     }
 }
 
-fn is_pure(specifier: &str) -> bool {
+/// Inferno exports that return a new vNode
+fn creates_vnode(name: &str) -> bool {
+    matches!(
+        name,
+        "createVNode"
+            | "createComponentVNode"
+            | "createFragment"
+            | "createTextVNode"
+            | "createPortal"
+            | "directClone"
+    )
+}
+
+fn is_pure(name: &str) -> bool {
     // Only imports from the Inferno module are collected, see `visit_mut_module`.
     // createElement and createClass are exported by inferno-compat.
-    matches!(
-        specifier,
-        "createComponentVNode"
-            | "createFragment"
-            | "createPortal"
-            | "createRef"
-            | "createRenderer"
-            | "createTextVNode"
-            | "createVNode"
-            | "forwardRef"
-            | "directClone"
-            | "findDOMFromVNode"
-            | "getFlagsForElementVnode"
-            | "linkEvent"
-            | "createElement"
-            | "createClass"
-    )
+    creates_vnode(name)
+        || matches!(
+            name,
+            "createRef"
+                | "createRenderer"
+                | "forwardRef"
+                | "findDOMFromVNode"
+                | "getFlagsForElementVnode"
+                | "linkEvent"
+                | "createElement"
+                | "createClass"
+        )
 }
