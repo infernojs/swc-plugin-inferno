@@ -119,7 +119,8 @@ pub(super) fn create_fragment_vnode_args(
     let children = children
         .filter(|children| !is_empty_array(children))
         .map(|children| {
-            if child_flags.is(ChildFlags::HasNonKeyedChildren)
+            if child_flags.is(ChildFlags::HasVNodeChildren)
+                || child_flags.is(ChildFlags::HasNonKeyedChildren)
                 || child_flags.is(ChildFlags::HasKeyedChildren)
                 || child_flags.is(ChildFlags::UnknownChildren)
                 || matches!(*children, Expr::Array(_))

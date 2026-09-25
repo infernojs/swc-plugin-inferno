@@ -153,6 +153,8 @@ struct ChildrenResult {
     parent_can_be_keyed: bool,
     children: Box<Expr>,
     found_text: bool,
+    /// A child is an element or a fragment
+    found_vnode: bool,
     parent_can_be_non_keyed: bool,
     requires_normalization: bool,
     has_single_child: bool,
@@ -400,22 +402,23 @@ where
     }
 
     /// `transformTextNodes` of babel-plugin-inferno: text children become text vNodes when
-    /// the children are not normalized at runtime
-    fn transform_text_nodes(&mut self, children: Expr) -> Option<Box<Expr>> {
-        self.used[Helper::CreateTextVNode as usize] = true;
-
-        match children {
-            Expr::Array(mut array) => {
-                for element in array.elems.iter_mut().flatten() {
-                    if element.spread.is_none() && matches!(*element.expr, Expr::Lit(Lit::Str(_))) {
-                        element.expr = self.text_vnode(element.expr.take());
-                    }
+    /// the children are not normalized at runtime. `createTextVNode` is imported with the first
+    /// text vNode.
+    fn transform_text_nodes(&mut self, mut children: Box<Expr>, found_vnode: bool) -> Box<Expr> {
+        if let Expr::Array(array) = &mut *children {
+            for element in array.elems.iter_mut().flatten() {
+                if element.spread.is_none() && matches!(*element.expr, Expr::Lit(Lit::Str(_))) {
+                    element.expr = self.text_vnode(element.expr.take());
                 }
-                Some(Box::new(Expr::Array(array)))
             }
-            text @ Expr::Lit(Lit::Str(_)) => Some(self.text_vnode(Box::new(text))),
-            _ => None,
+            return children;
         }
+        // A single child is a string, or any expression that $HasTextChildren declares as text on
+        // a fragment. JSX stays a vNode whatever the flag says.
+        if found_vnode || matches!(*children, Expr::JSXElement(_) | Expr::JSXFragment(_)) {
+            return children;
+        }
+        self.text_vnode(children)
     }
 
     /// `createVNode` of babel-plugin-inferno for a child of an element or a fragment
@@ -465,6 +468,7 @@ where
         let mut parent_can_be_keyed = false;
         let mut requires_normalization = false;
         let mut found_text = false;
+        let mut found_vnode = false;
         let mut has_spread_child = false;
 
         for child in ast_children {
@@ -479,6 +483,9 @@ where
                 JSXElementChild::JSXSpreadChild(_) => {
                     requires_normalization = true;
                     has_spread_child = true;
+                }
+                JSXElementChild::JSXElement(_) | JSXElementChild::JSXFragment(_) => {
+                    found_vnode = true;
                 }
                 _ => {}
             }
@@ -502,6 +509,7 @@ where
                 array(children)
             },
             found_text,
+            found_vnode,
             parent_can_be_non_keyed: !has_single_child
                 && !parent_can_be_keyed
                 && !requires_normalization
@@ -518,6 +526,7 @@ where
             parent_can_be_keyed,
             children,
             found_text,
+            found_vnode,
             requires_normalization,
             has_single_child,
             ..
@@ -539,16 +548,16 @@ where
             )
         };
         let children = if found_text {
-            self.transform_text_nodes(*children)
+            self.transform_text_nodes(children, found_vnode)
         } else {
-            Some(children)
+            children
         };
 
         self.call(
             span,
             Helper::CreateFragment,
             create_fragment_vnode_args(
-                children,
+                Some(children),
                 child_flags.into(),
                 // short syntax fragments cannot have a key
                 None,
@@ -569,6 +578,7 @@ where
             parent_can_be_keyed,
             children,
             mut found_text,
+            found_vnode,
             parent_can_be_non_keyed,
             requires_normalization,
             mut has_single_child,
@@ -580,6 +590,9 @@ where
             VType::Component(_) | VType::Fragment => VNodeFlags::ComponentUnknown as u16,
         };
         let mut overridden = None;
+        // A single fragment child that $HasTextChildren declares as text, which goes in an array
+        // like a static one
+        let mut single_text_child = false;
 
         if vprops.has_re_create_flag {
             flags |= VNodeFlags::ReCreate as u16;
@@ -613,10 +626,8 @@ where
                         let text = map_text(value, handle_white_space);
 
                         if !text.is_empty() {
-                            if !is_fragment {
-                                found_text = true;
-                                has_single_child = true;
-                            }
+                            found_text = true;
+                            has_single_child = true;
                             children = Some(Box::new(Expr::Lit(Lit::Str(Str {
                                 span: DUMMY_SP,
                                 value: text,
@@ -659,8 +670,14 @@ where
                     } else {
                         ChildFlags::HasTextChildren
                     };
+                    single_text_child = is_fragment
+                        && children
+                            .as_deref()
+                            .is_some_and(|children| !matches!(children, Expr::Array(_)));
                 } else if has_single_child {
-                    child_flags = if is_fragment {
+                    // A static fragment child is put in an array below, a dynamic one declared by
+                    // $HasVNodeChildren is passed as is
+                    child_flags = if is_fragment && !requires_normalization {
                         ChildFlags::HasNonKeyedChildren
                     } else {
                         ChildFlags::HasVNodeChildren
@@ -677,7 +694,7 @@ where
         }
 
         if found_text {
-            children = children.and_then(|children| self.transform_text_nodes(*children));
+            children = children.map(|children| self.transform_text_nodes(children, found_vnode));
         }
 
         let child_flags = match vprops.child_flags {
@@ -724,7 +741,7 @@ where
                 self.call(span, Helper::CreateVNode, args)
             }
             VType::Fragment => {
-                if !requires_normalization && has_single_child {
+                if single_text_child || (!requires_normalization && has_single_child) {
                     children = children.map(|children| array(vec![children.as_arg()]));
                 }
                 let args = create_fragment_vnode_args(children, child_flags, vprops.key);
