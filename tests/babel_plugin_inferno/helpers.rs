@@ -7,10 +7,14 @@
 //! (indentation, quoted keys, string escapes, pure annotations), so
 //! [`assert_js_eq`] compares the two after [`normalize`].
 
+use std::sync::{Arc, Mutex};
 use swc_core::{
     common::{
-        BytePos, FileName, LineCol, Mark, SourceFile, SourceMap, comments::SingleThreadedComments,
-        sync::Lrc, util::take::Take,
+        BytePos, FileName, LineCol, Mark, SourceFile, SourceMap, SourceMapper, Span,
+        comments::SingleThreadedComments,
+        errors::{self, Diagnostic, DiagnosticBuilder, HANDLER, Handler, Level},
+        sync::Lrc,
+        util::take::Take,
     },
     ecma::{
         ast::*,
@@ -76,6 +80,51 @@ pub struct Compiled {
     /// Maps positions in `code` to positions in the input. Lines start from 1,
     /// columns from 0, like in babel's source maps.
     pub mappings: Vec<Mapping>,
+    /// The warnings the plugin reported.
+    pub warnings: Vec<Warning>,
+}
+
+/// A warning of the plugin, like the ones babel-plugin-inferno passes to
+/// `console.warn`. swc prints the code frame itself, so the tests check the
+/// code the warning points at instead.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Warning {
+    /// `file:line:column`, with columns from 1 like in babel-plugin-inferno's
+    /// warnings, or `None` for code without a position in the input.
+    pub location: Option<String>,
+    pub message: String,
+    /// The code the warning points at.
+    pub snippet: String,
+}
+
+impl Warning {
+    fn new(cm: &SourceMap, diagnostic: &Diagnostic) -> Self {
+        let span = diagnostic
+            .span
+            .primary_span()
+            .filter(|span| !span.is_dummy());
+
+        Warning {
+            location: span.map(|span| {
+                let loc = cm.lookup_char_pos(span.lo);
+                format!("{}:{}:{}", loc.file.name, loc.line, loc.col.0 + 1)
+            }),
+            message: diagnostic.message(),
+            snippet: span
+                .and_then(|span: Span| cm.span_to_snippet(span).ok())
+                .unwrap_or_default(),
+        }
+    }
+}
+
+/// Keeps the diagnostics reported to its handler.
+#[derive(Clone, Default)]
+struct Collector(Arc<Mutex<Vec<Diagnostic>>>);
+
+impl errors::Emitter for Collector {
+    fn emit(&mut self, db: &mut DiagnosticBuilder<'_>) {
+        self.0.lock().unwrap().push((**db).clone());
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,12 +200,26 @@ pub fn compile_with(setup: Setup, input: &str, before: impl Pass) -> Result<Comp
 
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
-        let mut program = program.apply((
-            resolver(unresolved_mark, top_level_mark, is_tsx),
-            before,
-            inferno(cm.clone(), Some(comments.clone()), options, unresolved_mark),
-        ));
+        // The plugin reports to its own handler, which keeps the warnings out of the
+        // test output like the collectWarnings helper of babel-plugin-inferno
+        let collector = Collector::default();
+        let plugin_handler = Handler::with_emitter(true, false, Box::new(collector.clone()));
+        let mut program = HANDLER.set(&plugin_handler, || {
+            program.apply((
+                resolver(unresolved_mark, top_level_mark, is_tsx),
+                before,
+                inferno(cm.clone(), Some(comments.clone()), options, unresolved_mark),
+            ))
+        });
+        let mut warnings = vec![];
 
+        for diagnostic in collector.0.lock().unwrap().drain(..) {
+            if diagnostic.level == Level::Warning {
+                warnings.push(Warning::new(&cm, &diagnostic));
+            } else {
+                DiagnosticBuilder::new_diagnostic(handler, diagnostic).emit();
+            }
+        }
         if handler.has_errors() {
             return Err(());
         }
@@ -183,7 +246,11 @@ pub fn compile_with(setup: Setup, input: &str, before: impl Pass) -> Result<Comp
         let code = print(&cm, &program, Some(&comments), Some(&mut srcmap));
         let mappings = mappings(&cm, &fm, &code, &srcmap);
 
-        Ok(Compiled { code, mappings })
+        Ok(Compiled {
+            code,
+            mappings,
+            warnings,
+        })
     })
     .map_err(|err| err.to_string())
 }
@@ -220,6 +287,27 @@ pub fn transform_tsx(options: &str, input: &str) -> String {
 /// Compiles `input` and panics with the reported errors when compilation fails.
 pub fn compile_ok(setup: Setup, input: &str) -> String {
     compile(setup, input).unwrap_or_else(|err| panic!("failed to compile {input:?}:\n{err}"))
+}
+
+/// Like [`compile_ok`], but returns the warnings too.
+pub fn compile_warnings(setup: Setup, input: &str) -> Compiled {
+    compile_with(setup, input, noop_pass())
+        .unwrap_or_else(|err| panic!("failed to compile {input:?}:\n{err}"))
+}
+
+/// Like `transformWarnings` of babel-plugin-inferno: compiles `input` with the
+/// plugin options `options` and returns the code without the import the plugin
+/// adds, and the warnings.
+pub fn transform_warnings(options: &str, input: &str) -> (String, Vec<Warning>) {
+    let compiled = compile_warnings(
+        Setup {
+            options,
+            ..Default::default()
+        },
+        input,
+    );
+
+    (strip_inferno_import(&compiled.code), compiled.warnings)
 }
 
 /// Removes the first `import ... from "inferno";` line, like `stripInfernoImport`.

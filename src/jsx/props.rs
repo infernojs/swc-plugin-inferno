@@ -1,6 +1,7 @@
 //! Props of a JSX element, like `getVNodeProps` of babel-plugin-inferno.
 
 use super::text::{collapse_attribute_line_breaks, map_text};
+use super::useless_flags::FlagAttr;
 use crate::transformations::attribute_tables::element_attribute;
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::hash_map::Entry;
@@ -90,7 +91,9 @@ pub(super) enum PropChildren {
     Str(Wtf8Atom),
     /// `children={}` or `children={null}`
     Empty,
-    /// `children={expression}`, `children=<element />` or `children=<></>`
+    /// `children={<element />}`, `children=<element />` or a fragment
+    Jsx,
+    /// `children={expression}`
     Expr,
     /// `children` without a value
     Other,
@@ -115,6 +118,8 @@ pub(super) struct VNodeProps {
     pub(super) content_editable: bool,
     pub(super) has_text_children: bool,
     pub(super) flags_override: Option<Box<Expr>>,
+    /// The compile-time flag attributes, for the useless flag checks
+    pub(super) flag_attrs: Vec<(FlagAttr, Span)>,
 }
 
 impl VNodeProps {
@@ -148,12 +153,15 @@ fn prop_children(value: Option<&JSXAttrValue>) -> PropChildren {
         Some(JSXAttrValue::Str(s)) => PropChildren::Str(s.value.clone()),
         Some(JSXAttrValue::JSXExprContainer(container)) => match &container.expr {
             JSXExpr::JSXEmptyExpr(_) => PropChildren::Empty,
-            JSXExpr::Expr(expr) if matches!(expr.unwrap_parens(), Expr::Lit(Lit::Null(_))) => {
-                PropChildren::Empty
-            }
-            _ => PropChildren::Expr,
+            JSXExpr::Expr(expr) => match expr.unwrap_parens() {
+                Expr::Lit(Lit::Null(_)) => PropChildren::Empty,
+                Expr::JSXElement(_) | Expr::JSXFragment(_) => PropChildren::Jsx,
+                _ => PropChildren::Expr,
+            },
+            #[cfg(swc_ast_unknown)]
+            _ => panic!("unable to access unknown nodes"),
         },
-        Some(JSXAttrValue::JSXElement(_) | JSXAttrValue::JSXFragment(_)) => PropChildren::Expr,
+        Some(JSXAttrValue::JSXElement(_) | JSXAttrValue::JSXFragment(_)) => PropChildren::Jsx,
         _ => PropChildren::Other,
     }
 }
@@ -238,20 +246,32 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
         } else {
             match &*name {
                 "$ChildFlag" => {
+                    result.flag_attrs.push((FlagAttr::ChildFlag, span));
                     result.children_known = true;
                     result.child_flags = Some(get_value(attr.value));
                 }
-                "$HasVNodeChildren" => result.children_known = true,
-                "$Flags" => result.flags_override = Some(get_value(attr.value)),
+                "$HasVNodeChildren" => {
+                    result.flag_attrs.push((FlagAttr::HasVNodeChildren, span));
+                    result.children_known = true;
+                }
+                "$Flags" => {
+                    result.flag_attrs.push((FlagAttr::Flags, span));
+                    result.flags_override = Some(get_value(attr.value));
+                }
                 "$HasTextChildren" => {
+                    result.flag_attrs.push((FlagAttr::HasTextChildren, span));
                     result.children_known = true;
                     result.has_text_children = true;
                 }
                 "$HasNonKeyedChildren" => {
+                    result
+                        .flag_attrs
+                        .push((FlagAttr::HasNonKeyedChildren, span));
                     result.children_known = true;
                     result.has_non_keyed_children = true;
                 }
                 "$HasKeyedChildren" => {
+                    result.flag_attrs.push((FlagAttr::HasKeyedChildren, span));
                     result.children_known = true;
                     result.has_keyed_children = true;
                 }
@@ -266,7 +286,10 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
                     }
                     result.key = Some(get_value(attr.value));
                 }
-                "$ReCreate" => result.has_re_create_flag = true,
+                "$ReCreate" => {
+                    result.flag_attrs.push((FlagAttr::ReCreate, span));
+                    result.has_re_create_flag = true;
+                }
                 _ => {
                     if name == "children" {
                         result.prop_children = Some(prop_children(attr.value.as_ref()));

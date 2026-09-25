@@ -49,6 +49,7 @@ Unknown plugin options are rejected with an error. The options are:
 | `importSource` | `"inferno"` | The module the helpers are imported from, see [Options](#options).                          |
 | `development`  | `false`     | Enables fast refresh together with `refresh`. On its own it changes nothing.                 |
 | `refresh`      | off         | Fast refresh: `true`, or `{ "refreshReg": "$RefreshReg$", "refreshSig": "$RefreshSig$", "emitFullSignatures": false }`. Only applies when `development` is `true`. |
+| `uselessFlags` | `"warn"`    | What to do about [useless flags](#useless-flags): `"warn"`, `"error"` or `"off"`.           |
 
 With `"pure": true` the plugin adds `/*#__PURE__*/` to the calls it generates from JSX, and also to hand-written calls
 of Inferno factories such as `forwardRef`, `createRef`, `createPortal` and `createVNode` imported from `inferno` or from
@@ -134,6 +135,79 @@ This plugin provides few special compile time flags that can be used to optimize
 // Functional flags
 <div $ReCreate /> - This flag tells inferno to always remove and add the node. It can be used to replace key={Math.random()}
 <div $Flags={expression} /> - Replaces the vNode flags the plugin computes. See inferno-vnode-flags (VNodeFlags) for possible values
+```
+
+### Useless flags
+
+Child flags are only needed for children whose shape the plugin cannot see, such as `{expression}` children or a `children={expression}` prop.
+When the children are written as JSX, the plugin sets the child flags itself.
+It warns about flags that cannot improve the output:
+
+```js
+// The children are known at compile time: the plugin already compiles them with HasVNodeChildren
+<div $HasVNodeChildren>
+  <h1>Hi</h1>
+</div>
+
+// Components get their children in props.children, so child flags do nothing
+<Foo $HasKeyedChildren>{items}</Foo>
+
+// Only one child flag applies. The order is $ChildFlag, $HasKeyedChildren, $HasNonKeyedChildren,
+// $HasTextChildren, $HasVNodeChildren
+<div $HasKeyedChildren $HasNonKeyedChildren>{items}</div>
+
+// $Flags replaces all the vNode flags, including ReCreate
+<div $ReCreate $Flags={1} />
+
+// Fragments have no vNode flags
+<Fragment $Flags={1} $ReCreate>{items}</Fragment>
+```
+
+The `uselessFlags` option sets what the plugin does about them:
+
+- `"warn"` (default): print a warning.
+- `"error"`: fail the build with an error for each useless flag. For example, CI can use it to keep useless flags out.
+- `"off"`: do nothing.
+
+```json
+["swc-plugin-inferno", { "uselessFlags": "error" }]
+```
+
+swc does not show the warnings of plugins, so the plugin prints them to stderr itself, in the same format as
+babel-plugin-inferno. A warning shows the file, line and column, the reason and the code around the flag:
+
+```
+swc-plugin-inferno: /project/src/App.jsx:3:10: $HasVNodeChildren is not needed: the children are known at compile time, so the plugin sets their child flags. Child flags only help with dynamic children such as {expression}.
+  1 | function App() {
+  2 |   return (
+> 3 |     <div $HasVNodeChildren>
+    |          ^^^^^^^^^^^^^^^^^
+  4 |       <h1>Hi</h1>
+  5 |     </div>
+  6 |   );
+```
+
+With `"error"` swc reports the same messages as errors, with its own code frames. Any value other than `"warn"`,
+`"error"` or `"off"` fails with an error, so a typo does not turn the check off silently.
+
+To use a different level in CI, set the plugin options in a JavaScript config, such as the `swc-loader` options in
+`webpack.config.js`. A folder can get its own level from a separate webpack rule.
+
+```js
+{
+  loader: 'swc-loader',
+  options: {
+    jsc: {
+      parser: { syntax: 'ecmascript', jsx: true },
+      experimental: {
+        plugins: [['swc-plugin-inferno', {
+          // Most CI services set CI=true
+          uselessFlags: process.env.CI ? 'error' : 'warn'
+        }]]
+      }
+    }
+  }
+}
 ```
 
 ## Options

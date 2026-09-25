@@ -1,12 +1,15 @@
 #![deny(clippy::all)]
 
 pub use self::{
-    jsx::{Options, jsx},
+    jsx::{Options, UselessFlags, jsx},
     pure_annotations::pure_annotations,
     refresh::{options::RefreshOptions, refresh},
 };
 use swc_core::{
-    common::{Mark, SourceMapper, comments::Comments, sync::Lrc},
+    common::{
+        Mark, SourceMapper, comments::Comments,
+        plugin::metadata::TransformPluginMetadataContextKind, sync::Lrc,
+    },
     ecma::ast::{Pass, Program},
     plugin::{errors::HANDLER, plugin_transform, proxies::TransformPluginProgramMetadata},
 };
@@ -17,6 +20,7 @@ mod program_bindings;
 mod pure_annotations;
 mod refresh;
 mod transformations;
+mod warnings;
 
 /// Runs the fast refresh pass (when enabled), the pure annotation pass and the JSX transform.
 ///
@@ -26,7 +30,7 @@ mod transformations;
 ///
 /// # Note
 ///
-/// Errors are reported through `swc_core::common::errors::HANDLER`.
+/// Errors and warnings are reported through `swc_core::common::errors::HANDLER`.
 pub fn inferno<C, S>(
     cm: Lrc<S>,
     comments: Option<C>,
@@ -74,10 +78,24 @@ fn inferno_jsx_plugin(program: Program, metadata: TransformPluginProgramMetadata
         }
     };
 
-    program.apply(inferno(
-        Lrc::new(metadata.source_map),
-        metadata.comments,
-        options,
-        metadata.unresolved_mark,
-    ))
+    let filename = metadata
+        .get_context(&TransformPluginMetadataContextKind::Filename)
+        .unwrap_or_else(|| "unknown file".into());
+    let cm = Lrc::new(metadata.source_map);
+    let (program, warnings) = warnings::collect_warnings(&*cm, &filename, || {
+        program.apply(inferno(
+            cm.clone(),
+            metadata.comments,
+            options,
+            metadata.unresolved_mark,
+        ))
+    });
+
+    // swc drops the warnings of a transform that succeeds, so they are printed like
+    // babel-plugin-inferno prints them with console.warn
+    for warning in warnings {
+        eprintln!("{warning}");
+    }
+
+    program
 }

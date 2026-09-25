@@ -9,7 +9,7 @@
 // the transform function was even entered. The hard timeout below is the guard
 // against that class of regression: a hang must fail the build, not wait.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -174,6 +174,71 @@ if (!String(invalidError.message ?? invalidError).includes("swc-plugin-inferno: 
 // A `null` config means the defaults.
 if (!/\/\*#__PURE__\*\/ ?forwardRef\(/.test(transformWith(null))) {
   fail("null plugin options: defaults were not applied");
+}
+
+// swc drops the warnings of a transform that succeeds, so the plugin prints its useless flag
+// warnings itself. They go to the stderr of the process, which only a child process can read.
+const uselessFlagSource = "<div $HasVNodeChildren><h1>Hi</h1></div>;";
+const uselessFlagMessage =
+  "$HasVNodeChildren is not needed: the children are known at compile time, so the plugin sets their child flags.";
+
+function transformUselessFlag(pluginOptions) {
+  return transformSync(uselessFlagSource, {
+    filename: "flags.jsx",
+    jsc: {
+      parser: { syntax: "ecmascript", jsx: true },
+      experimental: { plugins: [[wasmPath, pluginOptions]] },
+    },
+  }).code;
+}
+
+function uselessFlagWarnings(pluginOptions) {
+  const script = `
+    const { transformSync } = require("@swc/core");
+    transformSync(${JSON.stringify(uselessFlagSource)}, {
+      filename: "flags.jsx",
+      jsc: {
+        parser: { syntax: "ecmascript", jsx: true },
+        experimental: { plugins: [[${JSON.stringify(wasmPath)}, ${JSON.stringify(pluginOptions)}]] },
+      },
+    });
+  `;
+  const child = spawnSync(process.execPath, ["-e", script], { cwd: here, encoding: "utf8", timeout: TIMEOUT_MS });
+
+  if (child.status !== 0) fail(`useless flag transform failed with ${JSON.stringify(pluginOptions)}:\n${child.stderr}`);
+  return child.stderr;
+}
+
+const expectedWarning =
+  `swc-plugin-inferno: flags.jsx:1:6: ${uselessFlagMessage}`;
+const printedWarning = uselessFlagWarnings({});
+if (!printedWarning.includes(expectedWarning) || !printedWarning.includes("    |      ^^^^^^^^^^^^^^^^^")) {
+  fail(`useless flag: the warning with its code frame was not printed:\n${printedWarning}`);
+}
+if (uselessFlagWarnings({ uselessFlags: "off" }).includes("swc-plugin-inferno")) {
+  fail('{ uselessFlags: "off" }: a warning was printed');
+}
+
+let uselessFlagError = null;
+try {
+  transformUselessFlag({ uselessFlags: "error" });
+} catch (err) {
+  uselessFlagError = err;
+}
+if (uselessFlagError === null) fail('{ uselessFlags: "error" }: the useless flag was accepted');
+if (!String(uselessFlagError.message ?? uselessFlagError).includes(uselessFlagMessage)) {
+  fail(`{ uselessFlags: "error" }: the error does not explain the flag:\n${uselessFlagError.message ?? uselessFlagError}`);
+}
+
+let levelError = null;
+try {
+  transformUselessFlag({ uselessFlags: "warning" });
+} catch (err) {
+  levelError = err;
+}
+if (levelError === null) fail('{ uselessFlags: "warning" }: the unknown level was accepted');
+if (!String(levelError.message ?? levelError).includes('the uselessFlags option must be "warn", "error" or "off", got "warning".')) {
+  fail(`{ uselessFlags: "warning" }: the unknown level did not report a clear error:\n${levelError.message ?? levelError}`);
 }
 
 // Fast refresh reads the host's source map and the module scope that the host's resolver set,

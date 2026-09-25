@@ -22,11 +22,15 @@ mod tests;
 mod bindings;
 mod props;
 mod text;
+mod useless_flags;
 mod vnode_args;
+
+pub use self::useless_flags::UselessFlags;
 
 use self::bindings::{HelperBindings, generate_uid, module_bindings, script_bindings, used_names};
 use self::props::{PropChildren, emit_error, get_vnode_props, key_value, unparen};
 use self::text::{handle_white_space, map_text};
+use self::useless_flags::check_flags;
 use self::vnode_args::{
     CreateVNodeArgs, Flag, create_component_vnode_args, create_fragment_vnode_args, is_empty_array,
 };
@@ -48,6 +52,10 @@ pub struct Options {
     #[serde(default, deserialize_with = "deserialize_refresh")]
     // default to disabled since this is still considered as experimental by now
     pub refresh: Option<RefreshOptions>,
+
+    /// What to do about compile-time flags that cannot change the compiled output
+    #[serde(default)]
+    pub useless_flags: UselessFlags,
 }
 
 impl Options {
@@ -120,6 +128,7 @@ where
         unresolved_ctxt: SyntaxContext::empty().apply_mark(unresolved_mark),
         import_source: options.import_source().into(),
         pure: options.pure(),
+        useless_flags: options.useless_flags,
         comments,
         used: [false; HELPER_COUNT],
         bindings: [None; HELPER_COUNT],
@@ -134,6 +143,7 @@ where
     unresolved_ctxt: SyntaxContext,
     import_source: Wtf8Atom,
     pure: bool,
+    useless_flags: UselessFlags,
     comments: Option<C>,
     /// Helpers called by the generated code
     used: [bool; HELPER_COUNT],
@@ -607,6 +617,19 @@ where
         let is_component = matches!(vtype, VType::Component(_));
         let is_fragment = matches!(vtype, VType::Fragment);
         let mut vprops = get_vnode_props(el.opening.attrs, is_component);
+        let children_result =
+            self.get_vnode_children(el.children, vprops.children_known || is_component);
+
+        if !vprops.flag_attrs.is_empty() && self.useless_flags != UselessFlags::Off {
+            check_flags(
+                self.useless_flags,
+                &vprops.flag_attrs,
+                &vtype,
+                &children_result,
+                vprops.prop_children.as_ref(),
+            );
+        }
+
         let ChildrenResult {
             parent_can_be_keyed,
             children,
@@ -615,7 +638,7 @@ where
             parent_can_be_non_keyed,
             requires_normalization,
             mut has_single_child,
-        } = self.get_vnode_children(el.children, vprops.children_known || is_component);
+        } = children_result;
         let mut children = Some(children);
         let mut child_flags = ChildFlags::HasInvalidChildren;
         let mut flags = match &vtype {
@@ -667,13 +690,10 @@ where
                             children = None;
                         }
                     }
-                    PropChildren::Expr => {
+                    kind @ (PropChildren::Jsx | PropChildren::Expr) => {
                         // children={expression}, or children=<element /> without braces. It is
                         // passed as the children argument instead of as a prop.
-                        let value = vprops.take_children_prop();
-                        let is_jsx = value.as_deref().is_some_and(|value| {
-                            matches!(value, Expr::JSXElement(_) | Expr::JSXFragment(_))
-                        });
+                        let is_jsx = matches!(kind, PropChildren::Jsx);
 
                         // Only JSX is known to be a single vNode; other values are normalized at
                         // runtime like {expression} children
@@ -682,7 +702,7 @@ where
                         } else {
                             ChildFlags::UnknownChildren
                         };
-                        children = value;
+                        children = vprops.take_children_prop();
                     }
                     PropChildren::Empty | PropChildren::Other => children = None,
                 }

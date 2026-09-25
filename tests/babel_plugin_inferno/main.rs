@@ -36,4 +36,5 @@ mod svg_attributes;
 mod tag_names;
 mod transforms;
 mod tsx;
+mod useless_flags;
 mod whitespace_text;
