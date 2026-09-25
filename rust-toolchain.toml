@@ -11,7 +11,7 @@
 # `e2e/` (`npm run test:e2e`). The upstream swc plugins repo pins its toolchain
 # for the same reason.
 [toolchain]
-channel    = "1.97.1"
+channel    = "1.98"
 profile    = "minimal"
 components = ["rustfmt", "clippy"]
 targets    = ["wasm32-wasip1"]
