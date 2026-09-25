@@ -10,7 +10,7 @@ use swc_core::ecma::visit::{
     Visit, VisitMut, VisitMutWith, VisitWith, noop_visit_mut_type, noop_visit_type,
 };
 
-use super::util::{is_builtin_hook, make_call_expr, make_call_stmt, var_decl};
+use super::util::{after_directives, is_builtin_hook, make_call_expr, make_call_stmt, var_decl};
 use swc_core::atoms::Atom;
 
 /// The name of the variables that hold signature handles
@@ -208,7 +208,7 @@ impl<'a> HookRegister<'a> {
         }
 
         if !self.ident.is_empty() {
-            stmts.insert(0, self.gen_hook_handle())
+            stmts.insert(after_directives(stmts), self.gen_hook_handle());
         }
 
         self.current_scope.pop();
@@ -381,7 +381,7 @@ fn collect_hooks(stmts: &mut Vec<Stmt>, cm: &dyn SourceMapper, self_ids: &[Id]) 
 
     if !hook.state.is_empty() {
         let sig = HookSig::new(hook.state);
-        stmts.insert(0, make_call_stmt(sig.handle.clone()));
+        stmts.insert(after_directives(stmts), make_call_stmt(sig.handle.clone()));
 
         Some(sig)
     } else {

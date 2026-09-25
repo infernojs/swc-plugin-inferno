@@ -965,3 +965,30 @@ fn refresh_reset_comment_does_not_leak_into_the_next_module() {
         Ok(())
     });
 }
+
+// Directives stay at the start of the module and of functions.
+test!(
+    ::swc_ecma_parser::Syntax::Es(::swc_ecma_parser::EsSyntax {
+        jsx: true,
+        ..Default::default()
+    }),
+    tr,
+    signatures_after_directives,
+    r#"
+    'use client';
+    import { useState } from 'inferno-hooks';
+    export function Counter() {
+      'use strict';
+      const [count] = useState(0);
+      function Inner() {
+        'use strict';
+        const Row = () => {
+          const [x] = useState(1);
+          return <b>{x}</b>;
+        };
+        return <Row />;
+      }
+      return <div>{count}<Inner /></div>;
+    }
+"#
+);

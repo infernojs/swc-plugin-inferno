@@ -106,6 +106,17 @@ pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Stmt {
     .into()
 }
 
+/// Whether a statement is a directive like `'use strict'`, which must stay at the start of a
+/// module or function body
+pub fn is_directive(stmt: &Stmt) -> bool {
+    matches!(stmt, Stmt::Expr(ExprStmt { expr, .. }) if matches!(**expr, Expr::Lit(Lit::Str(_))))
+}
+
+/// The position after the directives at the start of statements
+pub fn after_directives(stmts: &[Stmt]) -> usize {
+    stmts.iter().take_while(|stmt| is_directive(stmt)).count()
+}
+
 /// `var` with the given declarators
 pub fn var_decl(decls: Vec<VarDeclarator>) -> Stmt {
     VarDecl {

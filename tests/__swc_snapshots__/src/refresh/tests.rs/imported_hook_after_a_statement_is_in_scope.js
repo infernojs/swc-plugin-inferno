@@ -1,5 +1,5 @@
-var _s = $RefreshSig$();
 'use client';
+var _s = $RefreshSig$();
 console.log('loaded');
 import { useFancyState } from './hooks';
 export function App() {

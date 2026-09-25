@@ -3,8 +3,8 @@
 use self::{
     hook::HookRegister,
     util::{
-        collect_ident_in_jsx, is_body_arrow_fn, is_import_or_require, make_assign_expr,
-        make_assign_stmt, top_level_ctxt, var_decl,
+        collect_ident_in_jsx, is_body_arrow_fn, is_directive, is_import_or_require,
+        make_assign_expr, make_assign_stmt, top_level_ctxt, var_decl,
     },
 };
 use rustc_hash::FxHashSet;
@@ -408,7 +408,11 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
         }
 
         if !hook_visitor.ident.is_empty() {
-            items.insert(0, hook_visitor.gen_hook_handle().into());
+            let prologue = items
+                .iter()
+                .take_while(|item| matches!(item, ModuleItem::Stmt(stmt) if is_directive(stmt)))
+                .count();
+            items.insert(prologue, hook_visitor.gen_hook_handle().into());
         }
 
         // Insert
