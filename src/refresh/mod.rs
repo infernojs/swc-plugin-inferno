@@ -1,6 +1,7 @@
 //! Fast refresh registrations, a port of swc's React refresh transform.
 
 use self::{
+    cycles::HookCycles,
     hook::HookRegister,
     util::{
         collect_ident_in_jsx, is_body_arrow_fn, is_directive, is_import_or_require,
@@ -26,6 +27,7 @@ use swc_core::{
 
 pub mod options;
 use options::RefreshOptions;
+mod cycles;
 mod hook;
 mod util;
 
@@ -364,7 +366,9 @@ impl<C: Comments, S: SourceMapper> Refresh<C, S> {
         let mut items = Vec::with_capacity(module_items.len());
         let mut refresh_regs = Vec::<Reg>::new();
 
+        let cycles = HookCycles::find(module_items);
         let mut hook_visitor = HookRegister {
+            cycles: &cycles,
             refresh_sig: &self.refresh_sig,
             emit_full_signatures: self.emit_full_signatures,
             ident: Vec::new(),

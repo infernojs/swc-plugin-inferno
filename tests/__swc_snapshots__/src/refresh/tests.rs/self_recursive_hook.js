@@ -5,4 +5,4 @@ export function useCounter(depth) {
     const [count] = useState(0);
     return depth > 0 ? useCounter(depth - 1) : count;
 }
-_s(useCounter, "useState{[count](0)}");
+_s(useCounter, "useState{[count](0)}\nuseCounter{}");

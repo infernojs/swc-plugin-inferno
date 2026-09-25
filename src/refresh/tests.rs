@@ -1067,3 +1067,58 @@ fn using_declaration_gives_the_module_scope() {
         "the hook is out of scope:\n{code}"
     );
 }
+
+/// The hooks array in the signature call of `name`, or "" without one
+fn hooks_array_of<'a>(code: &'a str, name: &str) -> &'a str {
+    let start = code
+        .find(&format!("_s({name},"))
+        .unwrap_or_else(|| panic!("no signature call for {name}:\n{code}"));
+    let call = &code[start..];
+    let call = &call[..call.find(");").unwrap()];
+
+    call.find("return [").map_or("", |array| &call[array..])
+}
+
+// Hooks that call each other must not list each other: the refresh runtime computes the key of a
+// signature from the keys of its hooks, and recurses forever on a cycle.
+#[test]
+fn mutually_recursive_hooks_do_not_form_a_cycle() {
+    let code = transform(
+        es_jsx(),
+        "export function useA(n) { return n ? useB(n - 1) : 0; }
+         export function useB(n) { return useA(n); }",
+    );
+
+    assert!(
+        !(hooks_array_of(&code, "useA").contains("useB")
+            && hooks_array_of(&code, "useB").contains("useA")),
+        "the hooks arrays of useA and useB form a cycle:\n{code}"
+    );
+}
+
+// A recursive call is still part of the signature key, so adding or removing it is an edit of the
+// hook.
+#[test]
+fn self_recursive_hook_stays_in_its_signature_key() {
+    let code = transform(
+        es_jsx(),
+        "export function useCounter(depth) {
+           const [count] = useState(0);
+           return depth > 0 ? useCounter(depth - 1) : count;
+         }",
+    );
+
+    assert!(code.contains("useCounter{}"), "{code}");
+}
+
+// A function expression can call itself by its own name, which is another name of the variable.
+#[test]
+fn recursion_through_the_name_of_a_function_expression_is_left_out() {
+    let code = transform(
+        es_jsx(),
+        "export const useX = function useY(n) { return n ? useY(n - 1) : useState(); };",
+    );
+
+    assert_eq!(hooks_array_of(&code, "useX"), "", "{code}");
+    assert!(code.contains("useY{}"), "{code}");
+}
