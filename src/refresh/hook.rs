@@ -5,13 +5,16 @@ use sha1::{Digest, Sha1};
 use swc_core::common::util::take::Take;
 use swc_core::common::{DUMMY_SP, SourceMapper, Spanned, SyntaxContext};
 use swc_core::ecma::ast::*;
-use swc_core::ecma::utils::{ExprFactory, private_ident, quote_ident};
+use swc_core::ecma::utils::{ExprFactory, private_ident, quote_ident, quote_str};
 use swc_core::ecma::visit::{
     Visit, VisitMut, VisitMutWith, VisitWith, noop_visit_mut_type, noop_visit_type,
 };
 
-use super::util::{is_builtin_hook, make_call_expr, make_call_stmt};
+use super::util::{is_builtin_hook, make_call_expr, make_call_stmt, var_decl};
 use swc_core::atoms::Atom;
+
+/// The name of the variables that hold signature handles
+const SIGNATURE_HANDLE: &str = "_s";
 
 // function that use hooks
 struct HookSig {
@@ -23,7 +26,7 @@ struct HookSig {
 impl HookSig {
     fn new(hooks: Vec<Hook>) -> Self {
         HookSig {
-            handle: private_ident!("_s"),
+            handle: private_ident!(SIGNATURE_HANDLE),
             hooks,
         }
     }
@@ -39,6 +42,50 @@ enum HookCall {
     Ident(Ident),
     Member(Box<Expr>, IdentName), // for obj and prop
 }
+
+impl HookCall {
+    fn name(&self) -> &Atom {
+        match self {
+            HookCall::Ident(ident) => &ident.sym,
+            HookCall::Member(_, prop) => &prop.sym,
+        }
+    }
+}
+
+/// `function() { return [hooks] }`, which gives the refresh runtime the custom hooks to compare
+fn hooks_closure(hooks: Vec<HookCall>) -> Function {
+    let elems = hooks
+        .into_iter()
+        .map(|hook| {
+            Some(
+                match hook {
+                    HookCall::Ident(ident) => Expr::from(ident),
+                    HookCall::Member(obj, prop) => MemberExpr {
+                        span: DUMMY_SP,
+                        obj,
+                        prop: MemberProp::Ident(prop),
+                    }
+                    .into(),
+                }
+                .as_arg(),
+            )
+        })
+        .collect();
+
+    Function {
+        body: Some(FunctionBody {
+            span: DUMMY_SP,
+            stmts: vec![Stmt::Return(ReturnStmt {
+                span: DUMMY_SP,
+                arg: Some(Box::new(Expr::Array(ArrayLit {
+                    span: DUMMY_SP,
+                    elems,
+                }))),
+            })],
+        }),
+        ..Default::default()
+    }
+}
 pub struct HookRegister<'a> {
     /// The function that creates a signature handle
     pub refresh_sig: &'a Atom,
@@ -51,12 +98,10 @@ pub struct HookRegister<'a> {
 }
 
 impl<'a> HookRegister<'a> {
+    /// `var _s = $RefreshSig$(), ...` for the signature handles used in the scope
     pub fn gen_hook_handle(&mut self) -> Stmt {
-        VarDecl {
-            span: DUMMY_SP,
-            kind: VarDeclKind::Var,
-            decls: self
-                .ident
+        var_decl(
+            self.ident
                 .take()
                 .into_iter()
                 .map(|id| VarDeclarator {
@@ -68,64 +113,47 @@ impl<'a> HookRegister<'a> {
                     definite: false,
                 })
                 .collect(),
-            declare: false,
-            ..Default::default()
-        }
-        .into()
+        )
     }
 
-    // The second call is around the function itself. This is used to associate a
-    // type with a signature.
-    // Unlike with $RefreshReg$, this needs to work for nested declarations too.
-    fn wrap_with_register(&self, handle: Ident, func: Expr, hooks: Vec<Hook>) -> Expr {
-        let mut args = vec![func.as_arg()];
-        let mut sign = Vec::new();
-        let mut custom_hook = Vec::new();
+    /// The signature key of the hooks: their names and keys, hashed unless
+    /// `emitFullSignatures` is set
+    fn signature_key(&self, hooks: &[Hook]) -> String {
+        let key = hooks
+            .iter()
+            .map(|hook| format!("{}{{{}}}", hook.callee.name(), hook.key))
+            .collect::<Vec<_>>()
+            .join("\n");
 
-        for hook in hooks {
-            let (name, is_custom) = match &hook.callee {
-                HookCall::Ident(ident) => (&ident.sym, !is_builtin_hook(&ident.sym)),
+        if self.emit_full_signatures {
+            key
+        } else {
+            let mut hasher = Sha1::new();
+            hasher.update(key);
+            BASE64_STANDARD.encode(hasher.finalize())
+        }
+    }
+
+    /// The custom hooks that the refresh runtime can compare, and whether the component has to
+    /// be remounted because some custom hook is out of scope
+    fn custom_hooks_in_scope(&self, hooks: Vec<Hook>) -> (Vec<HookCall>, bool) {
+        let mut should_reset = self.should_reset;
+        let mut in_scope = Vec::new();
+
+        for Hook { callee, .. } in hooks {
+            let (ident, is_custom) = match &callee {
+                HookCall::Ident(ident) => (Some(ident), !is_builtin_hook(&ident.sym)),
                 HookCall::Member(obj, prop) => (
-                    &prop.sym,
+                    obj.as_ident(),
                     !is_builtin_hook(&prop.sym)
                         && matches!(&**obj, Expr::Ident(obj) if obj.sym != "React"),
                 ),
             };
-            sign.push(format!("{name}{{{}}}", hook.key));
-            if is_custom {
-                custom_hook.push(hook.callee);
+            if !is_custom {
+                continue;
             }
-        }
-
-        let sign = sign.join("\n");
-        let sign = if self.emit_full_signatures {
-            sign
-        } else {
-            let mut hasher = Sha1::new();
-            hasher.update(sign);
-            BASE64_STANDARD.encode(hasher.finalize())
-        };
-
-        args.push(
-            Lit::Str(Str {
-                span: DUMMY_SP,
-                raw: None,
-                value: sign.into(),
-            })
-            .as_arg(),
-        );
-
-        let mut should_reset = self.should_reset;
-
-        let mut custom_hook_in_scope = Vec::new();
-
-        for hook in custom_hook {
-            let ident = match &hook {
-                HookCall::Ident(ident) => Some(ident),
-                HookCall::Member(obj, _) => obj.as_ident(),
-            };
             if ident.is_some_and(|ident| self.current_scope.contains(&ident.ctxt)) {
-                custom_hook_in_scope.push(hook);
+                in_scope.push(callee);
             } else {
                 // We don't have anything to put in the array because Hook is out of scope.
                 // Since it could potentially have been edited, remount the component.
@@ -133,49 +161,22 @@ impl<'a> HookRegister<'a> {
             }
         }
 
-        if should_reset || !custom_hook_in_scope.is_empty() {
+        (in_scope, should_reset)
+    }
+
+    // The second call is around the function itself. This is used to associate a
+    // type with a signature.
+    // Unlike with $RefreshReg$, this needs to work for nested declarations too.
+    fn wrap_with_register(&self, handle: Ident, func: Expr, hooks: Vec<Hook>) -> Expr {
+        let key = self.signature_key(&hooks);
+        let (custom_hooks, should_reset) = self.custom_hooks_in_scope(hooks);
+        let mut args = vec![func.as_arg(), quote_str!(key).as_arg()];
+
+        if should_reset || !custom_hooks.is_empty() {
             args.push(should_reset.as_arg());
         }
-
-        if !custom_hook_in_scope.is_empty() {
-            let elems = custom_hook_in_scope
-                .into_iter()
-                .map(|hook| {
-                    Some(
-                        match hook {
-                            HookCall::Ident(ident) => Expr::from(ident),
-                            HookCall::Member(obj, prop) => MemberExpr {
-                                span: DUMMY_SP,
-                                obj,
-                                prop: MemberProp::Ident(prop),
-                            }
-                            .into(),
-                        }
-                        .as_arg(),
-                    )
-                })
-                .collect();
-            args.push(
-                Function {
-                    is_generator: false,
-                    is_async: false,
-                    params: Vec::new(),
-                    decorators: Vec::new(),
-                    span: DUMMY_SP,
-                    body: Some(FunctionBody {
-                        span: DUMMY_SP,
-                        stmts: vec![Stmt::Return(ReturnStmt {
-                            span: DUMMY_SP,
-                            arg: Some(Box::new(Expr::Array(ArrayLit {
-                                span: DUMMY_SP,
-                                elems,
-                            }))),
-                        })],
-                    }),
-                    ..Default::default()
-                }
-                .as_arg(),
-            );
+        if !custom_hooks.is_empty() {
+            args.push(hooks_closure(custom_hooks).as_arg());
         }
 
         CallExpr {

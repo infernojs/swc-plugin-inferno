@@ -84,7 +84,8 @@ fn assert_hygiene(e: &Expr) {
     }
 }
 
-pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Expr {
+/// `handle = expr`
+pub fn make_assign_expr(handle: Ident, expr: Box<Expr>) -> Expr {
     assert_hygiene(&expr);
 
     AssignExpr {
@@ -92,6 +93,27 @@ pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Expr {
         op: op!("="),
         left: handle.into(),
         right: expr,
+    }
+    .into()
+}
+
+/// `handle = expr;`
+pub fn make_assign_stmt(handle: Ident, expr: Box<Expr>) -> Stmt {
+    ExprStmt {
+        span: DUMMY_SP,
+        expr: Box::new(make_assign_expr(handle, expr)),
+    }
+    .into()
+}
+
+/// `var` with the given declarators
+pub fn var_decl(decls: Vec<VarDeclarator>) -> Stmt {
+    VarDecl {
+        span: DUMMY_SP,
+        kind: VarDeclKind::Var,
+        declare: false,
+        decls,
+        ..Default::default()
     }
     .into()
 }
