@@ -1,5 +1,5 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, Child, {
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, Child, {
     children: i
 }, i, {
     onComponentDidAppear: childOnComponentDidAppear,

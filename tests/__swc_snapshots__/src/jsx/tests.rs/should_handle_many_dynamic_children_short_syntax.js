@@ -1,8 +1,8 @@
-import { createFragment, createTextVNode } from "inferno";
-/*#__PURE__*/ createFragment([
-    /*#__PURE__*/ createFragment([
+import { newFragment, newTextVNode } from "inferno";
+/*#__PURE__*/ newFragment(260, [
+    /*#__PURE__*/ newFragment(256, [
         Frag,
-        /*#__PURE__*/ createTextVNode("Text"),
+        /*#__PURE__*/ newTextVNode("Text"),
         Wohoo
-    ], 0)
-], 4);
+    ])
+]);

@@ -1,2 +1,2 @@
-import { createFragment } from "inferno";
-/** @jsxRuntime typo */ /*#__PURE__*/ createFragment();
+import { newFragment } from "inferno";
+/** @jsxRuntime typo */ /*#__PURE__*/ newFragment(272);

@@ -20,6 +20,7 @@ use swc_core::ecma::visit::{VisitMut, VisitMutWith, noop_visit_mut_type, visit_m
 mod tests;
 
 mod bindings;
+mod child_shape;
 mod props;
 mod text;
 mod useless_flags;
@@ -28,11 +29,13 @@ mod vnode_args;
 pub use self::useless_flags::UselessFlags;
 
 use self::bindings::{HelperBindings, generate_uid, module_bindings, script_bindings, used_names};
+use self::child_shape::{check_child_flag_shape, children_shape};
 use self::props::{PropChildren, emit_error, get_vnode_props, key_value, unparen};
 use self::text::{handle_white_space, map_text};
 use self::useless_flags::check_flags;
 use self::vnode_args::{
-    CreateVNodeArgs, Flag, create_component_vnode_args, create_fragment_vnode_args, is_empty_array,
+    Flag, VNodeArgs, create_component_vnode_args, create_fragment_args, is_empty_array,
+    new_fragment_args,
 };
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -80,25 +83,31 @@ impl Options {
     }
 }
 
-/// The Inferno functions that the generated code calls, in the order they are imported
+/// The Inferno functions that the generated code calls, in the order they are imported. The
+/// deprecated createVNode and createFragment are only called for a `$ChildFlag` that is known only
+/// at runtime.
 #[derive(Clone, Copy)]
 enum Helper {
+    NewVNode,
     CreateVNode,
+    NewFragment,
     CreateFragment,
-    CreateComponentVNode,
+    NewComponentVNode,
     NormalizeProps,
-    CreateTextVNode,
+    NewTextVNode,
 }
 
 const HELPERS: [Helper; HELPER_COUNT] = [
+    Helper::NewVNode,
     Helper::CreateVNode,
+    Helper::NewFragment,
     Helper::CreateFragment,
-    Helper::CreateComponentVNode,
+    Helper::NewComponentVNode,
     Helper::NormalizeProps,
-    Helper::CreateTextVNode,
+    Helper::NewTextVNode,
 ];
 
-const HELPER_COUNT: usize = 5;
+const HELPER_COUNT: usize = 7;
 
 impl Helper {
     /// The helper that a binding of this name declares
@@ -108,11 +117,13 @@ impl Helper {
 
     fn name(self) -> Atom {
         match self {
+            Helper::NewVNode => atom!("newVNode"),
             Helper::CreateVNode => atom!("createVNode"),
+            Helper::NewFragment => atom!("newFragment"),
             Helper::CreateFragment => atom!("createFragment"),
-            Helper::CreateComponentVNode => atom!("createComponentVNode"),
+            Helper::NewComponentVNode => atom!("newComponentVNode"),
             Helper::NormalizeProps => atom!("normalizeProps"),
-            Helper::CreateTextVNode => atom!("createTextVNode"),
+            Helper::NewTextVNode => atom!("newTextVNode"),
         }
     }
 }
@@ -153,7 +164,7 @@ where
 
 /// `getVNodeType` of babel-plugin-inferno
 enum VType {
-    Element { tag: Box<Expr>, flags: u16 },
+    Element { tag: Box<Expr>, flags: u32 },
     Component(Box<Expr>),
     Fragment,
 }
@@ -212,6 +223,14 @@ fn array(elems: Vec<ExprOrSpread>) -> Box<Expr> {
         span: DUMMY_SP,
         elems: elems.into_iter().map(Some).collect(),
     }))
+}
+
+/// The child flags of a numeric `$ChildFlag`, or `None` for one that is known only at runtime
+fn known_child_flags(expr: &Expr) -> Option<ChildFlags> {
+    match expr {
+        Expr::Lit(Lit::Num(Number { value, .. })) => ChildFlags::from_value(*value),
+        _ => None,
+    }
 }
 
 /// `mayHaveSideEffects` of babel-plugin-inferno
@@ -441,12 +460,12 @@ where
     fn text_vnode(&mut self, text: Box<Expr>) -> Box<Expr> {
         let span = self.annotate(text.span());
 
-        Box::new(self.call(span, Helper::CreateTextVNode, vec![text.as_arg()]))
+        Box::new(self.call(span, Helper::NewTextVNode, vec![text.as_arg()]))
     }
 
     /// `transformTextNodes` of babel-plugin-inferno: text children become text vNodes when
-    /// the children are not normalized at runtime. `createTextVNode` is imported with the first
-    /// text vNode.
+    /// the children are not normalized at runtime. `newTextVNode` is imported with the first text
+    /// vNode.
     fn transform_text_nodes(&mut self, mut children: Box<Expr>, found_vnode: bool) -> Box<Expr> {
         if let Expr::Array(array) = &mut *children {
             for element in array.elems.iter_mut().flatten() {
@@ -598,10 +617,10 @@ where
 
         self.call(
             span,
-            Helper::CreateFragment,
-            create_fragment_vnode_args(
+            Helper::NewFragment,
+            new_fragment_args(
                 Some(children),
-                child_flags.into(),
+                child_flags,
                 // short syntax fragments cannot have a key
                 None,
             ),
@@ -617,10 +636,23 @@ where
         let is_component = matches!(vtype, VType::Component(_));
         let is_fragment = matches!(vtype, VType::Fragment);
         let mut vprops = get_vnode_props(el.opening.attrs, is_component);
+        // Components get their children in props, so child flags do not apply to them
+        let shape = (!is_component
+            && vprops
+                .flag_attrs
+                .iter()
+                .any(|(flag, _)| flag.is_child_flag()))
+        .then(|| children_shape(&el.children, vprops.prop_child));
         let children_result =
             self.get_vnode_children(el.children, vprops.children_known || is_component);
+        // The check runs whatever the uselessFlags option is. After an error the flags are not
+        // checked for being useless, like babel-plugin-inferno stops at the error.
+        let shape_error = shape.is_some_and(|shape| {
+            check_child_flag_shape(&vprops.flag_attrs, vprops.child_flags.as_deref(), &shape)
+        });
 
-        if !vprops.flag_attrs.is_empty() && self.useless_flags != UselessFlags::Off {
+        if !vprops.flag_attrs.is_empty() && self.useless_flags != UselessFlags::Off && !shape_error
+        {
             check_flags(
                 self.useless_flags,
                 &vprops.flag_attrs,
@@ -643,18 +675,15 @@ where
         let mut child_flags = ChildFlags::HasInvalidChildren;
         let mut flags = match &vtype {
             VType::Element { flags, .. } => *flags,
-            VType::Component(_) | VType::Fragment => VNodeFlags::ComponentUnknown as u16,
+            VType::Component(_) | VType::Fragment => VNodeFlags::ComponentUnknown as u32,
         };
         let mut overridden = None;
         // A single fragment child that $HasTextChildren declares as text, which goes in an array
         // like a static one
         let mut single_text_child = false;
 
-        if vprops.has_re_create_flag {
-            flags |= VNodeFlags::ReCreate as u16;
-        }
         if vprops.content_editable {
-            flags |= VNodeFlags::ContentEditable as u16;
+            flags |= VNodeFlags::ContentEditable as u32;
         }
 
         if is_component {
@@ -747,13 +776,18 @@ where
             children = children.map(|children| self.transform_text_nodes(children, found_vnode));
         }
 
-        let child_flags = match vprops.child_flags {
-            // If $ChildFlag is provided it is runtime dependant
-            Some(expr) => Flag::Expr(expr),
+        // A numeric $ChildFlag is a children shape known at compile time. Any other $ChildFlag
+        // expression is only known at runtime, the deprecated createVNode and createFragment
+        // convert it.
+        let (child_flags, runtime_child_flags) = match vprops.child_flags {
+            Some(expr) => match known_child_flags(&expr) {
+                Some(flags) => (flags, None),
+                None => (child_flags, Some(expr)),
+            },
             None if !is_component && requires_normalization && !vprops.children_known => {
-                ChildFlags::UnknownChildren.into()
+                (ChildFlags::UnknownChildren, None)
             }
-            None => child_flags.into(),
+            None => (child_flags, None),
         };
 
         if let Some(overridden) = overridden {
@@ -777,36 +811,56 @@ where
 
         let call = match vtype {
             VType::Component(tag) => {
+                let flags = match flags {
+                    // Flags of a known component type include HasInvalidChildren, ComponentUnknown
+                    // is replaced at runtime
+                    Flag::Expr(_) => flags.pack(VNodeFlags::HasInvalidChildren as u32),
+                    Flag::Known(_) => flags.into_expr(),
+                };
                 let args =
                     create_component_vnode_args(flags, tag, props, vprops.key, vprops.reference);
                 self.vnode_call(
                     span,
-                    Helper::CreateComponentVNode,
+                    Helper::NewComponentVNode,
                     args,
                     vprops.needs_normalization,
                 )
             }
             VType::Element { tag, .. } => {
-                let args = CreateVNodeArgs {
+                let args = VNodeArgs {
                     flags,
                     tag,
                     class_name: vprops.class_name,
                     children,
-                    child_flags,
                     props,
                     key: vprops.key,
                     reference: vprops.reference,
-                }
-                .into_args();
-                self.vnode_call(span, Helper::CreateVNode, args, vprops.needs_normalization)
+                };
+                let (helper, args) = match runtime_child_flags {
+                    Some(child_flags) => (
+                        Helper::CreateVNode,
+                        args.into_create_vnode_args(child_flags),
+                    ),
+                    None => (Helper::NewVNode, args.into_new_vnode_args(child_flags)),
+                };
+                self.vnode_call(span, helper, args, vprops.needs_normalization)
             }
             VType::Fragment => {
                 if single_text_child || (!requires_normalization && has_single_child) {
                     children = children.map(|children| array(vec![children.as_arg()]));
                 }
-                let args = create_fragment_vnode_args(children, child_flags, vprops.key);
+                let (helper, args) = match runtime_child_flags {
+                    Some(child_flags) => (
+                        Helper::CreateFragment,
+                        create_fragment_args(children, child_flags, vprops.key),
+                    ),
+                    None => (
+                        Helper::NewFragment,
+                        new_fragment_args(children, child_flags, vprops.key),
+                    ),
+                };
 
-                return self.call(span, Helper::CreateFragment, args);
+                return self.call(span, helper, args);
             }
         };
 
@@ -909,7 +963,7 @@ where
         }
 
         // Scripts cannot contain import declarations, so the helpers are read from a require()
-        // call instead: var _inferno = require("inferno"), createVNode = _inferno.createVNode;
+        // call instead: var _inferno = require("inferno"), newVNode = _inferno.newVNode;
         let module_id = Ident::new_no_ctxt(
             generate_uid(&self.import_source.to_string_lossy(), &used_names(script)),
             DUMMY_SP,

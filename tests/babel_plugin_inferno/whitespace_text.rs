@@ -13,7 +13,7 @@ mod multi_line_text {
   hello
   world
 </div>",
-            r#"createVNode(1, "div", null, "hello world", 16);"#,
+            r#"newVNode(3, "div", null, "hello world");"#,
         );
     }
 
@@ -25,7 +25,7 @@ mod multi_line_text {
 
   b
 </div>",
-            r#"createVNode(1, "div", null, "a b", 16);"#,
+            r#"newVNode(3, "div", null, "a b");"#,
         );
     }
 
@@ -35,7 +35,7 @@ mod multi_line_text {
             r"<div>  
   a  
   </div>",
-            r#"createVNode(1, "div", null, "a", 16);"#,
+            r#"newVNode(3, "div", null, "a");"#,
         );
     }
 
@@ -44,7 +44,7 @@ mod multi_line_text {
         assert_transform(
             r"<div>a  
   </div>",
-            r#"createVNode(1, "div", null, "a", 16);"#,
+            r#"newVNode(3, "div", null, "a");"#,
         );
     }
 
@@ -54,7 +54,7 @@ mod multi_line_text {
             r"<div>
   a
   b  </div>",
-            r#"createVNode(1, "div", null, "a b  ", 16);"#,
+            r#"newVNode(3, "div", null, "a b  ");"#,
         );
     }
 
@@ -62,24 +62,18 @@ mod multi_line_text {
     fn should_convert_tabs_to_spaces_and_trim_tab_indentation() {
         assert_transform(
             "<div>\n\t\ta\n\t\tb\n</div>",
-            r#"createVNode(1, "div", null, "a b", 16);"#,
+            r#"newVNode(3, "div", null, "a b");"#,
         );
     }
 
     #[test]
     fn should_treat_r_n_as_a_line_break() {
-        assert_transform(
-            "<div>a\r\nb</div>",
-            r#"createVNode(1, "div", null, "a b", 16);"#,
-        );
+        assert_transform("<div>a\r\nb</div>", r#"newVNode(3, "div", null, "a b");"#);
     }
 
     #[test]
     fn should_treat_a_lone_r_as_a_line_break() {
-        assert_transform(
-            "<div>a\rb</div>",
-            r#"createVNode(1, "div", null, "a b", 16);"#,
-        );
+        assert_transform("<div>a\rb</div>", r#"newVNode(3, "div", null, "a b");"#);
     }
 
     #[test]
@@ -88,7 +82,7 @@ mod multi_line_text {
             r"<div>
 
 </div>",
-            r#"createVNode(1, "div");"#,
+            r#"newVNode(17, "div");"#,
         );
     }
 }
@@ -101,7 +95,7 @@ mod single_line_text {
     fn should_keep_leading_and_trailing_spaces_of_single_line_text() {
         assert_transform(
             "<div>  hello  </div>",
-            r#"createVNode(1, "div", null, "  hello  ", 16);"#,
+            r#"newVNode(3, "div", null, "  hello  ");"#,
         );
     }
 
@@ -109,7 +103,7 @@ mod single_line_text {
     fn should_convert_tabs_inside_single_line_text_to_spaces() {
         assert_transform(
             "<div>\ta\tb\t</div>",
-            r#"createVNode(1, "div", null, " a b ", 16);"#,
+            r#"newVNode(3, "div", null, " a b ");"#,
         );
     }
 
@@ -117,7 +111,7 @@ mod single_line_text {
     fn should_keep_a_single_space_between_two_expressions() {
         assert_transform(
             "<div>{a} {b}</div>",
-            r#"createVNode(1, "div", null, [a, createTextVNode(" "), b], 0);"#,
+            r#"newVNode(1, "div", null, [a, newTextVNode(" "), b]);"#,
         );
     }
 
@@ -125,7 +119,7 @@ mod single_line_text {
     fn should_keep_spaces_around_a_single_expression_on_one_line() {
         assert_transform(
             "<div>  {a}  </div>",
-            r#"createVNode(1, "div", null, [createTextVNode("  "), a, createTextVNode("  ")], 0);"#,
+            r#"newVNode(1, "div", null, [newTextVNode("  "), a, newTextVNode("  ")]);"#,
         );
     }
 
@@ -134,7 +128,7 @@ mod single_line_text {
         assert_transform(
             r"<div>{a}
 {b}</div>",
-            r#"createVNode(1, "div", null, [a, b], 0);"#,
+            r#"newVNode(1, "div", null, [a, b]);"#,
         );
     }
 
@@ -145,7 +139,7 @@ mod single_line_text {
   {a}
   {b}
 </div>",
-            r#"createVNode(1, "div", null, [a, b], 0);"#,
+            r#"newVNode(1, "div", null, [a, b]);"#,
         );
     }
 }
@@ -160,7 +154,7 @@ mod text_next_to_expressions {
             r"<div>
   foo {bar}
 </div>",
-            r#"createVNode(1, "div", null, [createTextVNode("foo "), bar], 0);"#,
+            r#"newVNode(1, "div", null, [newTextVNode("foo "), bar]);"#,
         );
     }
 
@@ -172,7 +166,7 @@ mod text_next_to_expressions {
   {bar}
   baz
 </div>",
-            r#"createVNode(1, "div", null, [createTextVNode("foo"), bar, createTextVNode("baz")], 0);"#,
+            r#"newVNode(1, "div", null, [newTextVNode("foo"), bar, newTextVNode("baz")]);"#,
         );
     }
 
@@ -180,7 +174,7 @@ mod text_next_to_expressions {
     fn should_keep_an_explicit_child() {
         assert_transform(
             r#"<div>{a}{" "}{b}</div>"#,
-            r#"createVNode(1, "div", null, [a, " ", b], 0);"#,
+            r#"newVNode(1, "div", null, [a, " ", b]);"#,
         );
     }
 }
@@ -193,7 +187,7 @@ mod whitespace_only_children {
     fn should_pass_single_line_whitespace_as_component_children() {
         assert_transform(
             "<Foo>  </Foo>",
-            r#"createComponentVNode(2, Foo, {
+            r#"newComponentVNode(0, Foo, {
   children: "  "
 });"#,
         );
@@ -205,8 +199,8 @@ mod whitespace_only_children {
             r"<Foo>
   <div/>
 </Foo>",
-            r#"createComponentVNode(2, Foo, {
-  children: createVNode(1, "div")
+            r#"newComponentVNode(0, Foo, {
+  children: newVNode(17, "div")
 });"#,
         );
     }
@@ -216,7 +210,7 @@ mod whitespace_only_children {
         assert_transform(
             r"<Baz>
 </Baz>",
-            "createComponentVNode(2, Baz);",
+            "newComponentVNode(0, Baz);",
         );
     }
 
@@ -226,7 +220,7 @@ mod whitespace_only_children {
             r"<>
   
 </>",
-            "createFragment();",
+            "newFragment(272);",
         );
     }
 
@@ -234,7 +228,7 @@ mod whitespace_only_children {
     fn should_keep_single_line_whitespace_inside_a_long_syntax_fragment() {
         assert_transform(
             "<Fragment>  </Fragment>",
-            r#"createFragment([createTextVNode("  ")], 4);"#,
+            r#"newFragment(260, [newTextVNode("  ")]);"#,
         );
     }
 }
@@ -249,7 +243,7 @@ mod non_breaking_spaces {
             r"<div>
   &nbsp;
 </div>",
-            r#"createVNode(1, "div", null, "\xA0", 16);"#,
+            r#"newVNode(3, "div", null, "\xA0");"#,
         );
     }
 
@@ -257,7 +251,7 @@ mod non_breaking_spaces {
     fn should_keep_literal_non_breaking_spaces() {
         assert_transform(
             "<div>\u{A0} \u{A0}</div>",
-            r#"createVNode(1, "div", null, "\xA0 \xA0", 16);"#,
+            r#"newVNode(3, "div", null, "\xA0 \xA0");"#,
         );
     }
 
@@ -265,7 +259,7 @@ mod non_breaking_spaces {
     fn should_only_trim_spaces_and_tabs_not_literal_non_breaking_spaces() {
         assert_transform(
             "<div>\n  \u{A0}a\u{A0}\n</div>",
-            r#"createVNode(1, "div", null, "\xA0a\xA0", 16);"#,
+            r#"newVNode(3, "div", null, "\xA0a\xA0");"#,
         );
     }
 }

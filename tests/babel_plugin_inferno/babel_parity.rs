@@ -8,14 +8,14 @@ mod transform_react_jsx_fixtures {
 
     #[test]
     fn should_convert_simple_tags() {
-        assert_transform("var x = <div></div>;", r#"var x = createVNode(1, "div");"#);
+        assert_transform("var x = <div></div>;", r#"var x = newVNode(17, "div");"#);
     }
 
     #[test]
     fn should_convert_simple_text() {
         assert_transform(
             "var x = <div>text</div>;",
-            r#"var x = createVNode(1, "div", null, "text", 16);"#,
+            r#"var x = newVNode(3, "div", null, "text");"#,
         );
     }
 
@@ -23,7 +23,7 @@ mod transform_react_jsx_fixtures {
     fn should_allow_js_namespacing() {
         assert_transform(
             "<Namespace.Component />;",
-            "createComponentVNode(2, Namespace.Component);",
+            "newComponentVNode(0, Namespace.Component);",
         );
     }
 
@@ -31,20 +31,20 @@ mod transform_react_jsx_fixtures {
     fn should_allow_deeper_js_namespacing() {
         assert_transform(
             "<Namespace.DeepNamespace.Component />;",
-            "createComponentVNode(2, Namespace.DeepNamespace.Component);",
+            "newComponentVNode(0, Namespace.DeepNamespace.Component);",
         );
     }
 
     #[test]
     fn should_transform_known_hyphenated_tags() {
-        assert_transform("<font-face />;", r#"createVNode(32, "font-face");"#);
+        assert_transform("<font-face />;", r#"newVNode(80, "font-face");"#);
     }
 
     #[test]
     fn this_tag_name() {
         assert_transform(
             "var div = <this.foo>test</this.foo>;",
-            r#"var div = createComponentVNode(2, this.foo, {
+            r#"var div = newComponentVNode(0, this.foo, {
   children: "test"
 });"#,
         );
@@ -54,7 +54,7 @@ mod transform_react_jsx_fixtures {
     fn assignment() {
         assert_transform(
             r#"var div = <Component {...props} foo="bar" />"#,
-            r#"var div = normalizeProps(createComponentVNode(2, Component, {
+            r#"var div = normalizeProps(newComponentVNode(0, Component, {
   ...props,
   "foo": "bar"
 }));"#,
@@ -65,8 +65,8 @@ mod transform_react_jsx_fixtures {
     fn should_allow_elements_as_attributes() {
         assert_transform(
             "<div attr=<div /> />",
-            r#"createVNode(1, "div", null, null, 1, {
-  "attr": createVNode(1, "div")
+            r#"newVNode(17, "div", null, null, {
+  "attr": newVNode(17, "div")
 });"#,
         );
     }
@@ -87,11 +87,11 @@ React.render(<HelloMessage name={
 } />, mountNode);",
             r#"var HelloMessage = React.createClass({
   render: function () {
-    return createVNode(1, "div", null, [createTextVNode("Hello "), this.props.name], 0);
+    return newVNode(1, "div", null, [newTextVNode("Hello "), this.props.name]);
   }
 });
-React.render(createComponentVNode(2, HelloMessage, {
-  "name": createVNode(1, "span", null, "Sebastian", 16)
+React.render(newComponentVNode(0, HelloMessage, {
+  "name": newVNode(3, "span", null, "Sebastian")
 }), mountNode);"#,
         );
     }
@@ -100,7 +100,7 @@ React.render(createComponentVNode(2, HelloMessage, {
     fn should_not_add_quotes_to_identifier_names() {
         assert_transform(
             "var e = <F aaa new const var default foo-bar/>;",
-            r#"var e = createComponentVNode(2, F, {
+            r#"var e = newComponentVNode(0, F, {
   "aaa": true,
   "new": true,
   "const": true,
@@ -115,7 +115,7 @@ React.render(createComponentVNode(2, HelloMessage, {
     fn should_quote_jsx_attributes() {
         assert_transform(
             "<button data-value='a value'>Button</button>;",
-            r#"createVNode(1, "button", null, "Button", 16, {
+            r#"newVNode(3, "button", null, "Button", {
   "data-value": "a value"
 });"#,
         );
@@ -125,7 +125,7 @@ React.render(createComponentVNode(2, HelloMessage, {
     fn should_not_mangle_expressioncontainer_attribute_values() {
         assert_transform(
             r#"<button data-value={"a value\n  with\nnewlines\n   and spaces"}>Button</button>;"#,
-            r#"createVNode(1, "button", null, "Button", 16, {
+            r#"newVNode(3, "button", null, "Button", {
   "data-value": "a value\n  with\nnewlines\n   and spaces"
 });"#,
         );
@@ -137,19 +137,19 @@ React.render(createComponentVNode(2, HelloMessage, {
             r"<p {...{prop, prop}}></p>;
 <p prop {...{prop}}></p>;
 <p {...{prop}} prop></p>;",
-            r#"normalizeProps(createVNode(1, "p", null, null, 1, {
+            r#"normalizeProps(newVNode(17, "p", null, null, {
   ...{
     prop,
     prop
   }
 }));
-normalizeProps(createVNode(1, "p", null, null, 1, {
+normalizeProps(newVNode(17, "p", null, null, {
   "prop": true,
   ...{
     prop
   }
 }));
-normalizeProps(createVNode(1, "p", null, null, 1, {
+normalizeProps(newVNode(17, "p", null, null, {
   ...{
     prop
   },
@@ -173,20 +173,20 @@ normalizeProps(createVNode(1, "p", null, null, 1, {
 <div {...props}>{contents}</div>;
 <img alt="" {...{src, title}} />;
 <blockquote {...{cite}}>{items}</blockquote>;"#,
-            r#"normalizeProps(createVNode(1, "p", null, "text", 16, {
+            r#"normalizeProps(newVNode(3, "p", null, "text", {
   ...props
 }));
-normalizeProps(createVNode(1, "div", null, contents, 0, {
+normalizeProps(newVNode(1, "div", null, contents, {
   ...props
 }));
-normalizeProps(createVNode(1, "img", null, null, 1, {
+normalizeProps(newVNode(17, "img", null, null, {
   "alt": "",
   ...{
     src,
     title
   }
 }));
-normalizeProps(createVNode(1, "blockquote", null, items, 0, {
+normalizeProps(newVNode(1, "blockquote", null, items, {
   ...{
     cite
   }
@@ -199,12 +199,12 @@ normalizeProps(createVNode(1, "blockquote", null, items, 0, {
         assert_transform(
             r#"<p {...{__proto__: null}}>text</p>;
 <div {...{"__proto__": null}}>{contents}</div>;"#,
-            r#"normalizeProps(createVNode(1, "p", null, "text", 16, {
+            r#"normalizeProps(newVNode(3, "p", null, "text", {
   ...{
     __proto__: null
   }
 }));
-normalizeProps(createVNode(1, "div", null, contents, 0, {
+normalizeProps(newVNode(1, "div", null, contents, {
   ...{
     "__proto__": null
   }
@@ -217,7 +217,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
         assert_transform(
             r"<Component { ... x } y
 ={2 } z />",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   ...x,
   "y": 2,
   "z": true
@@ -229,7 +229,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     fn wraps_props_in_react_spread_for_last_spread_attributes() {
         assert_transform(
             "<Component y={2} z { ... x } />",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   "y": 2,
   "z": true,
   ...x
@@ -241,7 +241,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     fn wraps_props_in_react_spread_for_middle_spread_attributes() {
         assert_transform(
             "<Component y={2} { ... x } z />",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   "y": 2,
   ...x,
   "z": true
@@ -253,7 +253,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     fn should_escape_xhtml_jsxtext() {
         assert_transform(
             "<div>wow</div>;\n<div>wôw</div>;\n<div>w & w</div>;\n<div>w &amp; w</div>;\n<div>w &nbsp; w</div>;\n<div>this should not parse as unicode: \u{A0}</div>;\n<div>this should parse as nbsp: \u{A0} </div>;\n<div>this should parse as unicode: {'\u{A0} '}</div>;\n<div>w &lt; w</div>;",
-            "createVNode(1, \"div\", null, \"wow\", 16);\ncreateVNode(1, \"div\", null, \"wôw\", 16);\ncreateVNode(1, \"div\", null, \"w & w\", 16);\ncreateVNode(1, \"div\", null, \"w & w\", 16);\ncreateVNode(1, \"div\", null, \"w \\xA0 w\", 16);\ncreateVNode(1, \"div\", null, \"this should not parse as unicode: \\xA0\", 16);\ncreateVNode(1, \"div\", null, \"this should parse as nbsp: \\xA0 \", 16);\ncreateVNode(1, \"div\", null, [createTextVNode(\"this should parse as unicode: \"), createTextVNode('\u{A0} ')], 0);\ncreateVNode(1, \"div\", null, \"w < w\", 16);",
+            "newVNode(3, \"div\", null, \"wow\");\nnewVNode(3, \"div\", null, \"wôw\");\nnewVNode(3, \"div\", null, \"w & w\");\nnewVNode(3, \"div\", null, \"w & w\");\nnewVNode(3, \"div\", null, \"w \\xA0 w\");\nnewVNode(3, \"div\", null, \"this should not parse as unicode: \\xA0\");\nnewVNode(3, \"div\", null, \"this should parse as nbsp: \\xA0 \");\nnewVNode(1, \"div\", null, [newTextVNode(\"this should parse as unicode: \"), newTextVNode('\u{A0} ')]);\nnewVNode(3, \"div\", null, \"w < w\");",
         );
     }
 
@@ -261,16 +261,13 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     fn should_not_strip_nbsp_even_coupled_with_other_whitespace() {
         assert_transform(
             "<div>&nbsp; </div>;",
-            r#"createVNode(1, "div", null, "\xA0 ", 16);"#,
+            r#"newVNode(3, "div", null, "\xA0 ");"#,
         );
     }
 
     #[test]
     fn should_not_strip_tags_with_a_single_child_of_nbsp() {
-        assert_transform(
-            "<div>&nbsp;</div>;",
-            r#"createVNode(1, "div", null, "\xA0", 16);"#,
-        );
+        assert_transform("<div>&nbsp;</div>;", r#"newVNode(3, "div", null, "\xA0");"#);
     }
 
     #[test]
@@ -283,7 +280,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
 }",
             r#"class MobileHomeActivityTaskPriorityIcon extends React.PureComponent {
   render() {
-    return createComponentVNode(2, Text, {
+    return newComponentVNode(0, Text, {
       children: ["\xA0", this.props.value, "\xA0"]
     });
   }
@@ -298,7 +295,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
   To get started, edit index.ios.js!!!{"\n"}
   Press Cmd+R to reload
 </Text>"#,
-            r#"createComponentVNode(2, Text, {
+            r#"newComponentVNode(0, Text, {
   children: ["To get started, edit index.ios.js!!!", "\n", "Press Cmd+R to reload"]
 });"#,
         );
@@ -320,7 +317,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     {null}
     quack
   </div>"#,
-            r#"var x = createVNode(1, "div", null, [createTextVNode("foo"), createTextVNode("bar"), createTextVNode("baz"), createVNode(1, "div", null, "buz bang", 16), createTextVNode("qux"), null, createTextVNode("quack")], 0);"#,
+            r#"var x = newVNode(1, "div", null, [newTextVNode("foo"), newTextVNode("bar"), newTextVNode("baz"), newVNode(3, "div", null, "buz bang"), newTextVNode("qux"), null, newTextVNode("quack")]);"#,
         );
     }
 
@@ -344,7 +341,7 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
     }
     attr4="baz">
   </div>"#,
-            r#"var x = createVNode(1, "div", null, null, 1, {
+            r#"var x = newVNode(17, "div", null, null, {
   "attr1": "foo" + "bar",
   "attr2": "foo" + "bar" + "baz" + "bug",
   "attr3": "foo" + "bar" + "baz" + "bug"
@@ -363,9 +360,9 @@ normalizeProps(createVNode(1, "div", null, contents, 0, {
   <Component>{foo}<br />{bar}</Component>
   <br />
 </div>;",
-            r#"var x = createVNode(1, "div", null, [createVNode(1, "div", null, createVNode(1, "br"), 2), createComponentVNode(2, Component, {
-  children: [foo, createVNode(1, "br"), bar]
-}), createVNode(1, "br")], 4);"#,
+            r#"var x = newVNode(5, "div", null, [newVNode(9, "div", null, newVNode(17, "br")), newComponentVNode(0, Component, {
+  children: [foo, newVNode(17, "br"), bar]
+}), newVNode(17, "br")]);"#,
         );
     }
 
@@ -387,13 +384,13 @@ var x = <Composite>
 var x = <Composite>
   <Composite2 />
 </Composite>;",
-            r#"var x = createVNode(1, "div", null, createComponentVNode(2, Component), 2);
-var x = createVNode(1, "div", null, props.children, 0);
-var x = createComponentVNode(2, Composite, {
+            r#"var x = newVNode(9, "div", null, newComponentVNode(0, Component));
+var x = newVNode(1, "div", null, props.children);
+var x = newComponentVNode(0, Composite, {
   children: props.children
 });
-var x = createComponentVNode(2, Composite, {
-  children: createComponentVNode(2, Composite2)
+var x = newComponentVNode(0, Composite, {
+  children: newComponentVNode(0, Composite2)
 });"#,
         );
     }
@@ -413,7 +410,7 @@ var x = createComponentVNode(2, Composite, {
     </>
   </>
 </div>",
-            r#"createVNode(1, "div", null, createFragment([createFragment([createVNode(1, "span", null, "Hello", 16), createVNode(1, "span", null, "world", 16)], 4), createFragment([createVNode(1, "span", null, "Goodbye", 16), createVNode(1, "span", null, "world", 16)], 4)], 4), 2);"#,
+            r#"newVNode(9, "div", null, newFragment(260, [newFragment(260, [newVNode(3, "span", null, "Hello"), newVNode(3, "span", null, "world")]), newFragment(260, [newVNode(3, "span", null, "Goodbye"), newVNode(3, "span", null, "world")])]));"#,
         );
     }
 
@@ -422,12 +419,12 @@ var x = createComponentVNode(2, Composite, {
         assert_transform(
             r#"<div {.../*i18n*/{ id: "hello" }} />;
 <Trans /*test1 */a="1"/**test2 */b="2"/**test3 */ />;"#,
-            r#"normalizeProps(createVNode(1, "div", null, null, 1, {
+            r#"normalizeProps(newVNode(17, "div", null, null, {
   ... /*i18n*/{
     id: "hello"
   }
 }));
-createComponentVNode(2, Trans, {
+newComponentVNode(0, Trans, {
   "a": "1",
   "b": "2"
 });"#,
@@ -443,7 +440,7 @@ mod babel_parser_jsx_fixtures {
     fn basic_3() {
         assert_transform(
             r#"<a n:foo="bar"> {value} <b><c /></b></a>"#,
-            r#"createVNode(1, "a", null, [createTextVNode(" "), value, createTextVNode(" "), createVNode(1, "b", null, createVNode(1, "c"), 2)], 0, {
+            r#"newVNode(1, "a", null, [newTextVNode(" "), value, newTextVNode(" "), newVNode(9, "b", null, newVNode(17, "c"))], {
   "n:foo": "bar"
 });"#,
         );
@@ -451,14 +448,14 @@ mod babel_parser_jsx_fixtures {
 
     #[test]
     fn basic_6() {
-        assert_transform("<日本語></日本語>", "createComponentVNode(2, 日本語);");
+        assert_transform("<日本語></日本語>", "newComponentVNode(0, 日本語);");
     }
 
     #[test]
     fn basic_11() {
         assert_transform(
             "<div>@test content</div>",
-            r#"createVNode(1, "div", null, "@test content", 16);"#,
+            r#"newVNode(3, "div", null, "@test content");"#,
         );
     }
 
@@ -466,13 +463,13 @@ mod babel_parser_jsx_fixtures {
     fn basic_12() {
         assert_transform(
             "<div><br />7x invalid-js-identifier</div>",
-            r#"createVNode(1, "div", null, [createVNode(1, "br"), createTextVNode("7x invalid-js-identifier")], 4);"#,
+            r#"newVNode(5, "div", null, [newVNode(17, "br"), newTextVNode("7x invalid-js-identifier")]);"#,
         );
     }
 
     #[test]
     fn basic_16() {
-        assert_transform("(<div />) < x;", r#"createVNode(1, "div") < x;"#);
+        assert_transform("(<div />) < x;", r#"newVNode(17, "div") < x;"#);
     }
 
     #[test]
@@ -481,13 +478,13 @@ mod babel_parser_jsx_fixtures {
             r"let x
 <div />",
             r#"let x;
-createVNode(1, "div");"#,
+newVNode(17, "div");"#,
         );
     }
 
     #[test]
     fn keyword_tag() {
-        assert_transform("<var></var>", r#"createVNode(1, "var");"#);
+        assert_transform("<var></var>", r#"newVNode(17, "var");"#);
     }
 
     #[test]
@@ -495,7 +492,7 @@ createVNode(1, "div");"#,
         assert_transform(
             "function* g() { yield <a></a>; }",
             r#"function* g() {
-  yield createVNode(1, "a");
+  yield newVNode(17, "a");
 }"#,
         );
     }
@@ -504,7 +501,7 @@ createVNode(1, "div");"#,
     fn entity() {
         assert_transform(
             "<A>&#x1f4a9;</A>",
-            "createComponentVNode(2, A, {\n  children: \"💩\"\n});",
+            "newComponentVNode(0, A, {\n  children: \"💩\"\n});",
         );
     }
 
@@ -512,7 +509,7 @@ createVNode(1, "div");"#,
     fn nonentity() {
         assert_transform(
             "<A>&#x1g4q9;</A>",
-            r#"createComponentVNode(2, A, {
+            r#"newComponentVNode(0, A, {
   children: "&#x1g4q9;"
 });"#,
         );
@@ -522,7 +519,7 @@ createVNode(1, "div");"#,
     fn html_entities_code_point() {
         assert_transform(
             "<div>&#1234;&#xABC;&#x10ffff;</div>",
-            "createVNode(1, \"div\", null, \"Ӓ\u{ABC}\u{10FFFF}\", 16);",
+            "newVNode(3, \"div\", null, \"Ӓ\u{ABC}\u{10FFFF}\");",
         );
     }
 
@@ -530,7 +527,7 @@ createVNode(1, "div");"#,
     fn html_entities_invalid() {
         assert_transform(
             "<div>&amp &ampa; &amp ; &xamp; &#0_0;</div>",
-            r#"createVNode(1, "div", null, "&amp &ampa; &amp ; &xamp; &#0_0;", 16);"#,
+            r#"newVNode(3, "div", null, "&amp &ampa; &amp ; &xamp; &#0_0;");"#,
         );
     }
 
@@ -541,7 +538,7 @@ createVNode(1, "div");"#,
 // comment1
 /* comment2 */
 ><div/></>",
-            r#"createFragment([createVNode(1, "div")], 4);"#,
+            r#"newFragment(260, [newVNode(17, "div")]);"#,
         );
     }
 
@@ -549,7 +546,7 @@ createVNode(1, "div");"#,
     fn fragment_6() {
         assert_transform(
             r#"<><div>JSXElement</div>JSXText{"JSXExpressionContainer"}</>"#,
-            r#"createFragment([createVNode(1, "div", null, "JSXElement", 16), createTextVNode("JSXText"), createTextVNode("JSXExpressionContainer")], 0);"#,
+            r#"newFragment(256, [newVNode(3, "div", null, "JSXElement"), newTextVNode("JSXText"), newTextVNode("JSXExpressionContainer")]);"#,
         );
     }
 
@@ -557,25 +554,22 @@ createVNode(1, "div");"#,
     fn regression_1() {
         assert_transform(
             r#"<p>foo <a href="test"> bar</a> baz</p>"#,
-            r#"createVNode(1, "p", null, [createTextVNode("foo "), createVNode(1, "a", null, " bar", 16, {
+            r#"newVNode(5, "p", null, [newTextVNode("foo "), newVNode(3, "a", null, " bar", {
   "href": "test"
-}), createTextVNode(" baz")], 4);"#,
+}), newTextVNode(" baz")]);"#,
         );
     }
 
     #[test]
     fn regression_4() {
-        assert_transform(
-            "<div>/text</div>",
-            r#"createVNode(1, "div", null, "/text", 16);"#,
-        );
+        assert_transform("<div>/text</div>", r#"newVNode(3, "div", null, "/text");"#);
     }
 
     #[test]
     fn regression_issue_2083() {
         assert_transform(
             "true ? (<div />) : <div />",
-            r#"true ? createVNode(1, "div") : createVNode(1, "div");"#,
+            r#"true ? newVNode(17, "div") : newVNode(17, "div");"#,
         );
     }
 
@@ -583,7 +577,7 @@ createVNode(1, "div");"#,
     fn issue_8891() {
         assert_transform(
             r#"<div prop={{ function: "test" }} />"#,
-            r#"createVNode(1, "div", null, null, 1, {
+            r#"newVNode(17, "div", null, null, {
   "prop": {
     function: "test"
   }
@@ -595,7 +589,7 @@ createVNode(1, "div");"#,
     fn issue_11387() {
         assert_transform(
             "<div>{(this?.class, this.class, this?.function, this.function)}</div>",
-            r#"createVNode(1, "div", null, (this?.class, this.class, this?.function, this.function), 0);"#,
+            r#"newVNode(1, "div", null, (this?.class, this.class, this?.function, this.function));"#,
         );
     }
 
@@ -603,7 +597,7 @@ createVNode(1, "div");"#,
     fn tsx_assignment_in_conditional_expression() {
         assert_transform(
             "a == 3 ? (a = <h1>123</h1>) : (a = <h1>abc</h1>)",
-            r#"a == 3 ? a = createVNode(1, "h1", null, "123", 16) : a = createVNode(1, "h1", null, "abc", 16);"#,
+            r#"a == 3 ? a = newVNode(3, "h1", null, "123") : a = newVNode(3, "h1", null, "abc");"#,
         );
     }
 }
@@ -618,7 +612,7 @@ mod transform_react_constant_elements_fixtures {
             "class A extends B { m() { return <super.Foo/>; } }",
             r"class A extends B {
   m() {
-    return createComponentVNode(2, super.Foo);
+    return newComponentVNode(0, super.Foo);
   }
 }",
         );
@@ -629,7 +623,7 @@ mod transform_react_constant_elements_fixtures {
         assert_transform(
             "function f() { return <new.target.Foo/>; }",
             r"function f() {
-  return createComponentVNode(2, new.target.Foo);
+  return newComponentVNode(0, new.target.Foo);
 }",
         );
     }
@@ -639,7 +633,7 @@ mod transform_react_constant_elements_fixtures {
         assert_transform(
             "function f() { return <arguments.Foo/>; }",
             r"function f() {
-  return createComponentVNode(2, arguments.Foo);
+  return newComponentVNode(0, arguments.Foo);
 }",
         );
     }
@@ -648,7 +642,7 @@ mod transform_react_constant_elements_fixtures {
     fn lowercase_member_expression_transform_react_inline_elements() {
         assert_transform(
             "<form.TestComponent />",
-            "createComponentVNode(2, form.TestComponent);",
+            "newComponentVNode(0, form.TestComponent);",
         );
     }
 }
@@ -668,10 +662,10 @@ var bar = function () {
   return () => <this.foo />;
 };",
             r#"var foo = function () {
-  return () => createVNode(1, "this");
+  return () => newVNode(17, "this");
 };
 var bar = function () {
-  return () => createComponentVNode(2, this.foo);
+  return () => newComponentVNode(0, this.foo);
 };"#,
         );
     }

@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-/** @jsx dom */ /*#__PURE__*/ createVNode(1, "div", null, "no fragment is used", 16);
+import { newVNode } from "inferno";
+/** @jsx dom */ /*#__PURE__*/ newVNode(3, "div", null, "no fragment is used");

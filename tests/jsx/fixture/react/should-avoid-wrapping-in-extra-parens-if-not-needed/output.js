@@ -1,9 +1,9 @@
-import { createVNode, createComponentVNode } from "inferno";
-var x = /*#__PURE__*/ createVNode(1, "div", null, /*#__PURE__*/ createComponentVNode(2, Component), 2);
-var x = /*#__PURE__*/ createVNode(1, "div", null, props.children, 0);
-var x = /*#__PURE__*/ createComponentVNode(2, Composite, {
+import { newVNode, newComponentVNode } from "inferno";
+var x = /*#__PURE__*/ newVNode(9, "div", null, /*#__PURE__*/ newComponentVNode(0, Component));
+var x = /*#__PURE__*/ newVNode(1, "div", null, props.children);
+var x = /*#__PURE__*/ newComponentVNode(0, Composite, {
     children: props.children
 });
-var x = /*#__PURE__*/ createComponentVNode(2, Composite, {
-    children: /*#__PURE__*/ createComponentVNode(2, Composite2)
+var x = /*#__PURE__*/ newComponentVNode(0, Composite, {
+    children: /*#__PURE__*/ newComponentVNode(0, Composite2)
 });

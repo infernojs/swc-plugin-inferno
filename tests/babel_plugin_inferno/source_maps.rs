@@ -27,7 +27,7 @@ fn at(line: usize, column: usize) -> Option<Position> {
 #[test]
 fn should_map_an_element_call_to_its_opening_tag() {
     assert_eq!(
-        original_position(&compile(), r#"createVNode(1, "div""#),
+        original_position(&compile(), r#"newVNode(5, "div""#),
         at(4, 2)
     );
 }
@@ -35,19 +35,22 @@ fn should_map_an_element_call_to_its_opening_tag() {
 #[test]
 fn should_map_a_component_call_to_its_opening_tag() {
     assert_eq!(
-        original_position(&compile(), "createComponentVNode(2"),
+        original_position(&compile(), "newComponentVNode(0"),
         at(5, 4)
     );
 }
 
 #[test]
 fn should_map_a_text_vnode_to_its_jsx_text() {
-    assert_eq!(original_position(&compile(), "createTextVNode("), at(5, 19));
+    assert_eq!(original_position(&compile(), "newTextVNode("), at(5, 19));
 }
 
 #[test]
 fn should_map_a_fragment_call_to_its_opening_tag() {
-    assert_eq!(original_position(&compile(), "createFragment("), at(10, 2));
+    assert_eq!(
+        original_position(&compile(), "newFragment(260, "),
+        at(10, 2)
+    );
 }
 
 #[test]
@@ -56,7 +59,7 @@ fn should_map_normalize_props_and_the_call_it_wraps_to_the_opening_tag() {
 
     assert_eq!(original_position(&compiled, "normalizeProps("), at(11, 4));
     assert_eq!(
-        original_position(&compiled, r#"createVNode(1, "b""#),
+        original_position(&compiled, r#"newVNode(17, "b""#),
         at(11, 4)
     );
 }
@@ -81,7 +84,7 @@ fn exact_position(compiled: &Compiled, needle: &str) -> Option<Position> {
 #[test]
 fn should_map_the_call_wrapped_by_normalize_props_itself() {
     assert_eq!(
-        exact_position(&compile(), r#"/*#__PURE__*/ createVNode(1, "b""#),
+        exact_position(&compile(), r#"/*#__PURE__*/ newVNode(17, "b""#),
         at(11, 4)
     );
 }

@@ -1,4 +1,4 @@
-import { createComponentVNode } from "inferno";
-var div = /*#__PURE__*/ createComponentVNode(2, this.foo, {
+import { newComponentVNode } from "inferno";
+var div = /*#__PURE__*/ newComponentVNode(0, this.foo, {
     children: "test"
 });

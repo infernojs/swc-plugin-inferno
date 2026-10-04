@@ -1,5 +1,5 @@
-import { createVNode, createFragment, createTextVNode } from "inferno";
-const a = /*#__PURE__*/ createFragment([
-    /*#__PURE__*/ createTextVNode("test")
-], 4);
-const b = /*#__PURE__*/ createVNode(1, "div", null, "test", 16);
+import { newVNode, newFragment, newTextVNode } from "inferno";
+const a = /*#__PURE__*/ newFragment(260, [
+    /*#__PURE__*/ newTextVNode("test")
+]);
+const b = /*#__PURE__*/ newVNode(3, "div", null, "test");

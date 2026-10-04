@@ -85,9 +85,9 @@ fn should_align_line_numbers_of_different_widths() {
 #[test]
 fn should_mark_one_character_of_a_flag_that_spans_lines() {
     assert_eq!(
-        warnings("<div $ChildFlag={\n  1\n}><a/></div>"),
+        warnings("<div $ChildFlag={\n  2\n}><a/></div>"),
         vec![format!(
-            "swc-plugin-inferno: App.jsx:1:6: $ChildFlag{KNOWN}\n> 1 | <div $ChildFlag={{\n    |      ^\n  2 |   1\n  3 | }}><a/></div>"
+            "swc-plugin-inferno: App.jsx:1:6: $ChildFlag{KNOWN}\n> 1 | <div $ChildFlag={{\n    |      ^\n  2 |   2\n  3 | }}><a/></div>"
         )]
     );
 }

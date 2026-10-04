@@ -1,4 +1,4 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, Bla, {
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, Bla, {
     title: "Ú"
 });

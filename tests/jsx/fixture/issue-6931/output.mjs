@@ -1,7 +1,7 @@
-import { createComponentVNode } from "inferno";
-const f1 = /*#__PURE__*/ createComponentVNode(2, Component, {
+import { newComponentVNode } from "inferno";
+const f1 = /*#__PURE__*/ newComponentVNode(0, Component, {
     on: "    "
 });
-const f2 = /*#__PURE__*/ createComponentVNode(2, Component, {
+const f2 = /*#__PURE__*/ newComponentVNode(0, Component, {
     on: "    "
 });

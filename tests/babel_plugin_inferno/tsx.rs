@@ -16,7 +16,7 @@ mod type_syntax {
                 "{}",
                 "<Foo<string> bar={x as any} baz={y!} />",
             )),
-            r#"createComponentVNode(2, Foo, {
+            r#"newComponentVNode(0, Foo, {
   "bar": x,
   "baz": y
 });"#,
@@ -31,8 +31,8 @@ mod type_syntax {
                 r"<C<number>></C>;
 <C<number>/>;",
             )),
-            r"createComponentVNode(2, C);
-createComponentVNode(2, C);",
+            r"newComponentVNode(0, C);
+newComponentVNode(0, C);",
         );
     }
 
@@ -43,7 +43,7 @@ createComponentVNode(2, C);",
                 "{}",
                 "<div ref={r as any}>{(v as number)}</div>",
             )),
-            r#"createVNode(1, "div", null, v, 0, null, null, r);"#,
+            r#"newVNode(1, "div", null, v, null, null, r);"#,
         );
     }
 
@@ -51,7 +51,7 @@ createComponentVNode(2, C);",
     fn should_strip_as_and_non_null_expressions_in_children() {
         assert_js_eq(
             &strip_inferno_import(&transform_tsx("{}", "<div>{(v as number)}{w!}</div>")),
-            r#"createVNode(1, "div", null, [v, w], 0);"#,
+            r#"newVNode(1, "div", null, [v, w]);"#,
         );
     }
 
@@ -59,7 +59,7 @@ createComponentVNode(2, C);",
     fn should_strip_as_expressions_in_spreads() {
         assert_js_eq(
             &strip_inferno_import(&transform_tsx("{}", "<Foo {...(p as Props)} />")),
-            r"normalizeProps(createComponentVNode(2, Foo, {
+            r"normalizeProps(newComponentVNode(0, Foo, {
   ...p
 }));",
         );
@@ -72,7 +72,7 @@ createComponentVNode(2, C);",
                 "{}",
                 "<div onClick={(e: MouseEvent) => f(e)} />",
             )),
-            r#"createVNode(1, "div", null, null, 1, {
+            r#"newVNode(17, "div", null, null, {
   "onClick": e => f(e)
 });"#,
         );
@@ -82,7 +82,7 @@ createComponentVNode(2, C);",
     fn should_strip_satisfies_in_keys() {
         assert_js_eq(
             &strip_inferno_import(&transform_tsx("{}", "<div key={k satisfies string} />")),
-            r#"createVNode(1, "div", null, null, 1, null, k);"#,
+            r#"newVNode(17, "div", null, null, null, k);"#,
         );
     }
 
@@ -93,7 +93,7 @@ createComponentVNode(2, C);",
                 "{}",
                 "export const f = <T,>(x: T) => <div>{x as any}</div>;",
             )),
-            r#"export const f = x => createVNode(1, "div", null, x, 0);"#,
+            r#"export const f = x => newVNode(1, "div", null, x);"#,
         );
     }
 
@@ -110,7 +110,7 @@ export const a = <div data-e={E.A}/>;",
     E[E["A"] = 0] = "A";
     return E;
 }(E || {});
-export const a = createVNode(1, "div", null, null, 1, {
+export const a = newVNode(17, "div", null, null, {
     "data-e": 0
 });"#,
         );
@@ -125,7 +125,7 @@ export const a = createVNode(1, "div", null, null, 1, {
                 "namespace N { export const el = <div/>; }",
             )),
             r#"(function(N) {
-    N.el = createVNode(1, "div");
+    N.el = newVNode(17, "div");
 })(N || (N = {}));
 var N;"#,
         );
@@ -140,7 +140,7 @@ var N;"#,
 <C/>;",
             )),
             r"class C extends D {}
-createComponentVNode(2, C);",
+newComponentVNode(0, C);",
         );
     }
 }
@@ -161,9 +161,9 @@ mod import_elision {
                 r#"import Foo from "./Foo";
 export const a = <Foo/>;"#,
             ),
-            r#"import { createComponentVNode } from "inferno";
+            r#"import { newComponentVNode } from "inferno";
 import Foo from "./Foo";
-export const a = createComponentVNode(2, Foo);"#,
+export const a = newComponentVNode(0, Foo);"#,
         );
     }
 
@@ -176,9 +176,9 @@ export const a = createComponentVNode(2, Foo);"#,
 import type { P } from "./P";
 export const a = <Foo<P> x={1 as number} y={z!} w={q satisfies P}/>;"#,
             ),
-            r#"import { createComponentVNode } from "inferno";
+            r#"import { newComponentVNode } from "inferno";
 import { Foo } from "./Foo";
-export const a = createComponentVNode(2, Foo, {
+export const a = newComponentVNode(0, Foo, {
   "x": 1,
   "y": z,
   "w": q
@@ -187,20 +187,20 @@ export const a = createComponentVNode(2, Foo, {
     }
 
     #[test]
-    fn should_keep_an_existing_create_vnode_import() {
+    fn should_keep_an_existing_new_vnode_import() {
         assert_js_eq(
             &transform_tsx(
                 "{}",
-                r#"import { createVNode } from "inferno";
+                r#"import { newVNode } from "inferno";
 export const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "inferno";
-export const a = createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+export const a = newVNode(17, "div");"#,
         );
     }
 
     #[test]
-    fn should_keep_an_existing_create_vnode_import_with_only_remove_type_imports() {
+    fn should_keep_an_existing_new_vnode_import_with_only_remove_type_imports() {
         assert_js_eq(
             &compile_ok(
                 Setup {
@@ -208,11 +208,11 @@ export const a = createVNode(1, "div");"#,
                     typescript: r#"{"verbatimModuleSyntax": true}"#,
                     ..Default::default()
                 },
-                r#"import { createVNode } from "inferno";
+                r#"import { newVNode } from "inferno";
 export const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "inferno";
-export const a = createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+export const a = newVNode(17, "div");"#,
         );
     }
 
@@ -226,8 +226,8 @@ export const a = createVNode(1, "div");"#,
                 r#"import * as React from "react";
 export const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "inferno";
-export const a = createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+export const a = newVNode(17, "div");"#,
         );
     }
 
@@ -245,8 +245,71 @@ export const a = createVNode(1, "div");"#,
                 r#"import { h } from "preact";
 export const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "inferno";
-export const a = createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+export const a = newVNode(17, "div");"#,
+        );
+    }
+}
+
+/// child shape through type syntax
+mod child_shape_through_type_syntax {
+    use super::*;
+
+    // Like ts-plugin-inferno, the child flag shape check looks through TypeScript syntax that does
+    // not change the value. @swc/core strips the types before it runs the wasm plugin, so this only
+    // matters when the plugin runs first, as it does in these tests.
+    #[track_caller]
+    fn assert_tsx_error(input: &str, message: &str) {
+        assert_compile_error(
+            Setup {
+                lang: Lang::Tsx,
+                ..Default::default()
+            },
+            input,
+            message,
+        );
+    }
+
+    #[test]
+    fn should_look_through_type_assertions() {
+        assert_tsx_error(
+            "<div $HasTextChildren children={<a/> as any} />",
+            "$HasTextChildren needs one text child, but the child is an element.",
+        );
+        assert_tsx_error(
+            r#"<div $HasVNodeChildren>{"text" as string}</div>"#,
+            "$HasVNodeChildren needs one element or component child, but the child is text.",
+        );
+        assert_tsx_error(
+            r#"<div $HasVNodeChildren>{"text" as const}</div>"#,
+            "$HasVNodeChildren needs one element or component child, but the child is text.",
+        );
+        assert_tsx_error(
+            r#"<div $HasVNodeChildren>{"text" satisfies string}</div>"#,
+            "$HasVNodeChildren needs one element or component child, but the child is text.",
+        );
+        assert_tsx_error(
+            "<div $HasTextChildren>{(<a/>)!}</div>",
+            "$HasTextChildren needs one text child, but the child is an element.",
+        );
+    }
+
+    #[test]
+    fn should_look_through_type_assertions_of_array_items() {
+        assert_tsx_error(
+            r#"<div $HasKeyedChildren>{[<a key="1"/>, <b/> as any]}</div>"#,
+            "$HasKeyedChildren needs an array of elements or components that all have a key, but the array item at index 1 has no key.",
+        );
+    }
+
+    #[test]
+    fn should_not_throw_for_a_typed_dynamic_child() {
+        assert_js_eq(
+            &strip_inferno_import(&transform_tsx(
+                "{}",
+                "<div $HasVNodeChildren>{a as any}</div>",
+            )),
+            r#"newVNode(9, "div", null, a);"#,
         );
     }
 }

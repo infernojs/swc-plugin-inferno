@@ -1,11 +1,11 @@
-import { createComponentVNode, normalizeProps } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, FooBar, {
+import { newComponentVNode, normalizeProps } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, FooBar, {
     children: [
-        /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, BarFoo, {
+        /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newComponentVNode(0, BarFoo, {
             ...magics,
             ...foobars,
             ...props
         })),
-        /*#__PURE__*/ createComponentVNode(2, NoNormalize)
+        /*#__PURE__*/ newComponentVNode(0, NoNormalize)
     ]
 });

@@ -309,7 +309,7 @@ fn camel_case(name: &str) -> String {
 }
 
 fn rect_props(name: &str) -> String {
-    format!("createVNode(32, \"rect\", null, null, 1, {{\n  \"{name}\": \"v\"\n}});")
+    format!("newVNode(80, \"rect\", null, null, {{\n  \"{name}\": \"v\"\n}});")
 }
 
 fn assert_camel_case_mapped() {
@@ -332,14 +332,14 @@ mod attributes_written_as_in_the_dom {
 
     #[test]
     fn should_pass_class_as_the_class_name_argument() {
-        assert_transform(r#"<rect class="v" />"#, r#"createVNode(32, "rect", "v");"#);
+        assert_transform(r#"<rect class="v" />"#, r#"newVNode(80, "rect", "v");"#);
     }
 
     #[test]
     fn should_keep_data_attributes() {
         assert_transform(
             r#"<rect data-foo="v" />"#,
-            r#"createVNode(32, "rect", null, null, 1, {
+            r#"newVNode(80, "rect", null, null, {
   "data-foo": "v"
 });"#,
         );
@@ -364,9 +364,9 @@ mod mixed_case_attributes_from_the_html_spec {
     fn should_keep_length_adjust_in_camel_case_on_svg_text() {
         assert_transform(
             r#"<svg><text lengthAdjust="spacing" /></svg>"#,
-            r#"createVNode(32, "svg", null, createVNode(32, "text", null, null, 1, {
+            r#"newVNode(72, "svg", null, newVNode(80, "text", null, null, {
   "lengthAdjust": "spacing"
-}), 2);"#,
+}));"#,
         );
     }
 
@@ -375,7 +375,7 @@ mod mixed_case_attributes_from_the_html_spec {
     {
         assert_transform(
             r#"<feDisplacementMap xChannelSelector="R" yChannelSelector="G" />"#,
-            r#"createVNode(32, "feDisplacementMap", null, null, 1, {
+            r#"newVNode(80, "feDisplacementMap", null, null, {
   "xChannelSelector": "R",
   "yChannelSelector": "G"
 });"#,
@@ -408,7 +408,7 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     fn should_map_mask_type_to_mask_type_on_mask() {
         assert_transform(
             r#"<mask maskType="alpha" />"#,
-            r#"createVNode(32, "mask", null, null, 1, {
+            r#"newVNode(80, "mask", null, null, {
   "mask-type": "alpha"
 });"#,
         );
@@ -418,7 +418,7 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     fn should_map_text_overflow_to_text_overflow_on_text() {
         assert_transform(
             r#"<text textOverflow="ellipsis" />"#,
-            r#"createVNode(32, "text", null, null, 1, {
+            r#"newVNode(80, "text", null, null, {
   "text-overflow": "ellipsis"
 });"#,
         );
@@ -428,7 +428,7 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     fn should_map_white_space_to_white_space_on_text() {
         assert_transform(
             r#"<text whiteSpace="nowrap" />"#,
-            r#"createVNode(32, "text", null, null, 1, {
+            r#"newVNode(80, "text", null, null, {
   "white-space": "nowrap"
 });"#,
         );
@@ -438,7 +438,7 @@ mod camel_case_names_of_presentation_attributes_on_their_elements {
     fn should_map_font_width_to_font_width_on_text() {
         assert_transform(
             r#"<text fontWidth="condensed" />"#,
-            r#"createVNode(32, "text", null, null, 1, {
+            r#"newVNode(80, "text", null, null, {
   "font-width": "condensed"
 });"#,
         );

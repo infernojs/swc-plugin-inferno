@@ -1,4 +1,4 @@
-import { createVNode, normalizeProps } from "@emotion/react";
+import { newVNode, normalizeProps } from "@emotion/react";
 import { isValidElement, Children } from "inferno";
 import * as styles from "./CheckmarkList.styles";
 const CheckmarkList = ({ children })=>{
@@ -7,7 +7,7 @@ const CheckmarkList = ({ children })=>{
                 return null;
             }
             const { children: liChildren, css: liCss, ...otherProps } = child.props;
-            return /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "li", null, liChildren, 0, {
+            return /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(1, "li", null, liChildren, {
                 ...otherProps,
                 css: [
                     styles.listItem,
@@ -15,7 +15,7 @@ const CheckmarkList = ({ children })=>{
                 ]
             }, `checkmark-list-item-${index}`));
         });
-    return /*#__PURE__*/ createVNode(1, "ul", null, listItems(), 0, {
+    return /*#__PURE__*/ newVNode(1, "ul", null, listItems(), {
         css: styles.list
     });
 };

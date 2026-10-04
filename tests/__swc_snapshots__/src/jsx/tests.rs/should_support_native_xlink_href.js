@@ -1,6 +1,6 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(32, "svg", 'test', /*#__PURE__*/ createVNode(32, "use", null, null, 1, {
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(72, "svg", 'test', /*#__PURE__*/ newVNode(80, "use", null, null, {
     "xlink:href": "asd"
-}), 2, {
+}), {
     focusable: "false"
 });

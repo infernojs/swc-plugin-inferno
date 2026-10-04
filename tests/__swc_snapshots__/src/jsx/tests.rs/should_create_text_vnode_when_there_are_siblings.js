@@ -1,5 +1,5 @@
-import { createVNode, createTextVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "div", null, [
-    /*#__PURE__*/ createTextVNode("Okay"),
-    /*#__PURE__*/ createVNode(1, "span", null, "foo", 16)
-], 4);
+import { newVNode, newTextVNode } from "inferno";
+/*#__PURE__*/ newVNode(5, "div", null, [
+    /*#__PURE__*/ newTextVNode("Okay"),
+    /*#__PURE__*/ newVNode(3, "span", null, "foo")
+]);

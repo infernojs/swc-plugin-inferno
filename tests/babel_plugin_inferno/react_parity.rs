@@ -10,7 +10,7 @@ mod transform_jsxto_react_jsx_test {
     fn should_keep_a_trailing_space_before_an_expression_should_handle_attributed_elements() {
         assert_transform(
             "<div>Hello {this.props.name}</div>",
-            r#"createVNode(1, "div", null, [createTextVNode("Hello "), this.props.name], 0);"#,
+            r#"newVNode(1, "div", null, [newTextVNode("Hello "), this.props.name]);"#,
         );
     }
 
@@ -22,8 +22,8 @@ mod transform_jsxto_react_jsx_test {
     Sebastian
   </span>
 } />",
-            r#"createComponentVNode(2, HelloMessage, {
-  "name": createVNode(1, "span", null, "Sebastian", 16)
+            r#"newComponentVNode(0, HelloMessage, {
+  "name": newVNode(3, "span", null, "Sebastian")
 });"#,
         );
     }
@@ -32,7 +32,7 @@ mod transform_jsxto_react_jsx_test {
     fn should_not_strip_nbsp_followed_by_a_space() {
         assert_transform(
             "<div>&nbsp; </div>",
-            r#"createVNode(1, "div", null, "\xA0 ", 16);"#,
+            r#"newVNode(3, "div", null, "\xA0 ");"#,
         );
     }
 
@@ -40,16 +40,13 @@ mod transform_jsxto_react_jsx_test {
     fn should_keep_nbsp_between_words() {
         assert_transform(
             "<div>w &nbsp; w</div>",
-            r#"createVNode(1, "div", null, "w \xA0 w", 16);"#,
+            r#"newVNode(3, "div", null, "w \xA0 w");"#,
         );
     }
 
     #[test]
     fn should_keep_a_bare_ampersand() {
-        assert_transform(
-            "<div>w & w</div>",
-            r#"createVNode(1, "div", null, "w & w", 16);"#,
-        );
+        assert_transform("<div>w & w</div>", r#"newVNode(3, "div", null, "w & w");"#);
     }
 
     #[test]
@@ -57,24 +54,21 @@ mod transform_jsxto_react_jsx_test {
         assert_transform(
             r"<div>w &amp; w</div>;
 <div>w &lt; w</div>",
-            r#"createVNode(1, "div", null, "w & w", 16);
-createVNode(1, "div", null, "w < w", 16);"#,
+            r#"newVNode(3, "div", null, "w & w");
+newVNode(3, "div", null, "w < w");"#,
         );
     }
 
     #[test]
     fn should_keep_non_ascii_text() {
-        assert_transform(
-            "<div>wôw</div>",
-            "createVNode(1, \"div\", null, \"wôw\", 16);",
-        );
+        assert_transform("<div>wôw</div>", "newVNode(3, \"div\", null, \"wôw\");");
     }
 
     #[test]
     fn should_compile_a_keyed_react_fragment_without_children() {
         assert_transform(
             r#"<React.Fragment key="foo"></React.Fragment>"#,
-            r#"createFragment(null, 1, "foo");"#,
+            r#"newFragment(272, null, "foo");"#,
         );
     }
 
@@ -84,7 +78,7 @@ createVNode(1, "div", null, "w < w", 16);"#,
             r"var foo = null;
 <div {...foo} />",
             r#"var foo = null;
-normalizeProps(createVNode(1, "div", null, null, 1, {
+normalizeProps(newVNode(17, "div", null, null, {
   ...foo
 }));"#,
         );
@@ -94,7 +88,7 @@ normalizeProps(createVNode(1, "div", null, null, 1, {
     fn should_compile_a_spread_followed_by_a_prop() {
         assert_transform(
             r#"<Component {...props} sound="moo" />"#,
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   ...props,
   "sound": "moo"
 }));"#,
@@ -105,7 +99,7 @@ normalizeProps(createVNode(1, "div", null, null, 1, {
     fn should_drop_a_children_prop_that_is_overridden_by_a_spread_and_jsx_children() {
         assert_transform(
             "<Component children={1} {...x}>2</Component>",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   ...x,
   children: "2"
 }));"#,
@@ -116,7 +110,7 @@ normalizeProps(createVNode(1, "div", null, null, 1, {
     fn should_compile_a_mixed_static_element_and_array_child() {
         assert_transform(
             r#"<div><span />{[<span key="0" />, <span key="1" />]}</div>"#,
-            r#"createVNode(1, "div", null, [createVNode(1, "span"), [createVNode(1, "span", null, null, 1, null, "0"), createVNode(1, "span", null, null, 1, null, "1")]], 0);"#,
+            r#"newVNode(1, "div", null, [newVNode(17, "span"), [newVNode(17, "span", null, null, null, "0"), newVNode(17, "span", null, null, null, "1")]]);"#,
         );
     }
 
@@ -124,7 +118,7 @@ normalizeProps(createVNode(1, "div", null, null, 1, {
     fn should_compile_a_single_array_child() {
         assert_transform(
             r#"<div>{[<span key="0" />, <span key="1" />]}</div>"#,
-            r#"createVNode(1, "div", null, [createVNode(1, "span", null, null, 1, null, "0"), createVNode(1, "span", null, null, 1, null, "1")], 0);"#,
+            r#"newVNode(1, "div", null, [newVNode(17, "span", null, null, null, "0"), newVNode(17, "span", null, null, null, "1")]);"#,
         );
     }
 }
@@ -137,7 +131,7 @@ mod jstransform_react_test {
     fn should_keep_parenthesized_attribute_values() {
         assert_transform(
             "<foo a={(b)} c={(d)}>Hello</foo>",
-            r#"createVNode(1, "foo", null, "Hello", 16, {
+            r#"newVNode(3, "foo", null, "Hello", {
   "a": b,
   "c": d
 });"#,
@@ -148,7 +142,7 @@ mod jstransform_react_test {
     fn should_allow_constructor_as_a_component_prop() {
         assert_transform(
             r#"<Component constructor="foo" />"#,
-            r#"createComponentVNode(2, Component, {
+            r#"newComponentVNode(0, Component, {
   "constructor": "foo"
 });"#,
         );
@@ -162,8 +156,8 @@ mod jstransform_react_test {
   /* A multiline comment */)
   } bar
 </div>",
-            r#"createVNode(1, "div", null, [createTextVNode("Foo "), e + f //A line comment
-/* A multiline comment */, createTextVNode(" bar")], 0);"#,
+            r#"newVNode(1, "div", null, [newTextVNode("Foo "), e + f //A line comment
+/* A multiline comment */, newTextVNode(" bar")]);"#,
         );
     }
 
@@ -173,7 +167,7 @@ mod jstransform_react_test {
             r"<div>  sdfsdfsdf
   sdlkfjsdfljs
    </div>",
-            r#"createVNode(1, "div", null, "  sdfsdfsdf sdlkfjsdfljs", 16);"#,
+            r#"newVNode(3, "div", null, "  sdfsdfsdf sdlkfjsdfljs");"#,
         );
     }
 
@@ -181,18 +175,18 @@ mod jstransform_react_test {
     fn should_convert_trailing_tabs_to_spaces() {
         assert_transform(
             "<div>a  \t \t </div>",
-            r#"createVNode(1, "div", null, "a      ", 16);"#,
+            r#"newVNode(3, "div", null, "a      ");"#,
         );
     }
 
     #[test]
     fn should_keep_a_leading_space() {
-        assert_transform("<div> a</div>", r#"createVNode(1, "div", null, " a", 16);"#);
+        assert_transform("<div> a</div>", r#"newVNode(3, "div", null, " a");"#);
     }
 
     #[test]
     fn should_keep_a_trailing_space() {
-        assert_transform("<div>a </div>", r#"createVNode(1, "div", null, "a ", 16);"#);
+        assert_transform("<div>a </div>", r#"newVNode(3, "div", null, "a ");"#);
     }
 }
 
@@ -205,7 +199,7 @@ mod compiler_fixtures {
      {
         assert_transform(
             r#"<div> {", "}</div>"#,
-            r#"createVNode(1, "div", null, [createTextVNode(" "), createTextVNode(", ")], 0);"#,
+            r#"newVNode(1, "div", null, [newTextVNode(" "), newTextVNode(", ")]);"#,
         );
     }
 
@@ -213,8 +207,8 @@ mod compiler_fixtures {
     fn should_compile_nested_member_expression_tags_jsx_member_expression() {
         assert_transform(
             "<Sathya.Codes.Forget><Foo.Bar.Baz /></Sathya.Codes.Forget>",
-            r"createComponentVNode(2, Sathya.Codes.Forget, {
-  children: createComponentVNode(2, Foo.Bar.Baz)
+            r"newComponentVNode(0, Sathya.Codes.Forget, {
+  children: newComponentVNode(0, Foo.Bar.Baz)
 });",
         );
     }
@@ -224,7 +218,7 @@ mod compiler_fixtures {
      {
         assert_transform(
             "<localVar.Stringify>hello world {name}</localVar.Stringify>",
-            r#"createComponentVNode(2, localVar.Stringify, {
+            r#"newComponentVNode(0, localVar.Stringify, {
   children: ["hello world ", name]
 });"#,
         );
@@ -237,7 +231,7 @@ mod compiler_fixtures {
             r"const invalidTag = Throw;
 <invalidTag val={{val: 2}} />;",
             r#"const invalidTag = Throw;
-createVNode(1, "invalidTag", null, null, 1, {
+newVNode(17, "invalidTag", null, null, {
   "val": {
     val: 2
   }
@@ -249,7 +243,7 @@ createVNode(1, "invalidTag", null, null, 1, {
     fn should_compile_a_valueless_attribute_to_true_jsx_attribute_default_to_true() {
         assert_transform(
             "<Stringify truthyAttribute />",
-            r#"createComponentVNode(2, Stringify, {
+            r#"newComponentVNode(0, Stringify, {
   "truthyAttribute": true
 });"#,
         );
@@ -259,7 +253,7 @@ createVNode(1, "invalidTag", null, null, 1, {
     fn should_decode_entities_in_text_jsx_html_entity() {
         assert_transform(
             "<div>&gt;&lt;span &amp;</div>",
-            r#"createVNode(1, "div", null, "><span &", 16);"#,
+            r#"newVNode(3, "div", null, "><span &");"#,
         );
     }
 
@@ -268,7 +262,7 @@ createVNode(1, "invalidTag", null, null, 1, {
         assert_transform(
             r"<div>If the string contains the string &#123;pageNumber&#125; it will be
     replaced</div>",
-            r#"createVNode(1, "div", null, "If the string contains the string {pageNumber} it will be replaced", 16);"#,
+            r#"newVNode(3, "div", null, "If the string contains the string {pageNumber} it will be replaced");"#,
         );
     }
 
@@ -277,7 +271,7 @@ createVNode(1, "invalidTag", null, null, 1, {
     {
         assert_transform(
             r#"<Stringify text='Some "text"' />"#,
-            r#"createComponentVNode(2, Stringify, {
+            r#"newComponentVNode(0, Stringify, {
   "text": "Some \"text\""
 });"#,
         );
@@ -288,7 +282,7 @@ createVNode(1, "invalidTag", null, null, 1, {
      {
         assert_transform(
             r"<Foo value={'\n'} other={'A\tE'} />",
-            r#"createComponentVNode(2, Foo, {
+            r#"newComponentVNode(0, Foo, {
   "value": '\n',
   "other": 'A\tE'
 });"#,
@@ -299,7 +293,7 @@ createVNode(1, "invalidTag", null, null, 1, {
     fn should_keep_lone_surrogates_in_expression_containers_lone_surrogate_string_values() {
         assert_transform(
             r"<Foo codepoints={['\uD83E', '\uDD21']} />",
-            r#"createComponentVNode(2, Foo, {
+            r#"newComponentVNode(0, Foo, {
   "codepoints": ['\uD83E', '\uDD21']
 });"#,
         );
@@ -310,7 +304,7 @@ createVNode(1, "invalidTag", null, null, 1, {
      {
         assert_transform(
             "<Stringify {...buttonProps} key={`button-${i}`} style={s} />",
-            r#"normalizeProps(createComponentVNode(2, Stringify, {
+            r#"normalizeProps(newComponentVNode(0, Stringify, {
   ...buttonProps,
   "style": s
 }, `button-${i}`));"#,
@@ -326,7 +320,7 @@ mod react_dom_and_runtime_tests {
     fn should_keep_explicit_space_children_react_domserver_integration_elements() {
         assert_transform(
             r#"<div>{" "}{" "}{" "}</div>"#,
-            r#"createVNode(1, "div", null, [" ", " ", " "], 0);"#,
+            r#"newVNode(1, "div", null, [" ", " ", " "]);"#,
         );
     }
 
@@ -336,7 +330,7 @@ mod react_dom_and_runtime_tests {
             r#"<option>
   {1} {"foo"}
 </option>"#,
-            r#"createVNode(1, "option", null, [1, createTextVNode(" "), createTextVNode("foo")], 0);"#,
+            r#"newVNode(1, "option", null, [1, newTextVNode(" "), newTextVNode("foo")]);"#,
         );
     }
 
@@ -344,7 +338,7 @@ mod react_dom_and_runtime_tests {
     fn should_split_text_around_an_expression_in_an_option_react_domoption() {
         assert_transform(
             "<option>gir{a}ffe</option>",
-            r#"createVNode(1, "option", null, [createTextVNode("gir"), a, createTextVNode("ffe")], 0);"#,
+            r#"newVNode(1, "option", null, [newTextVNode("gir"), a, newTextVNode("ffe")]);"#,
         );
     }
 
@@ -354,7 +348,7 @@ mod react_dom_and_runtime_tests {
             r"<div>
   Text<span>More Text</span>
 </div>",
-            r#"createVNode(1, "div", null, [createTextVNode("Text"), createVNode(1, "span", null, "More Text", 16)], 4);"#,
+            r#"newVNode(5, "div", null, [newTextVNode("Text"), newVNode(3, "span", null, "More Text")]);"#,
         );
     }
 
@@ -363,7 +357,7 @@ mod react_dom_and_runtime_tests {
      {
         assert_transform(
             "<><><div>text1</div></><span/><><><>{null}<p /></>{false}</></></>",
-            r#"createFragment([createFragment([createVNode(1, "div", null, "text1", 16)], 4), createVNode(1, "span"), createFragment([createFragment([createFragment([null, createVNode(1, "p")], 0), false], 0)], 4)], 4);"#,
+            r#"newFragment(260, [newFragment(260, [newVNode(3, "div", null, "text1")]), newVNode(17, "span"), newFragment(260, [newFragment(256, [newFragment(256, [null, newVNode(17, "p")]), false])])]);"#,
         );
     }
 
@@ -371,7 +365,7 @@ mod react_dom_and_runtime_tests {
     fn should_pass_expression_children_of_a_textarea_react_domtextarea() {
         assert_transform(
             "<textarea>{17}</textarea>",
-            r#"createVNode(128, "textarea", null, 17, 0);"#,
+            r#"newVNode(2048, "textarea", null, 17);"#,
         );
     }
 
@@ -379,7 +373,7 @@ mod react_dom_and_runtime_tests {
     fn should_keep_select_props_react_domselect() {
         assert_transform(
             r#"<select multiple={true} defaultValue={["giraffe"]} />"#,
-            r#"createVNode(256, "select", null, null, 1, {
+            r#"newVNode(4112, "select", null, null, {
   "multiple": true,
   "defaultValue": ["giraffe"]
 });"#,
@@ -390,7 +384,7 @@ mod react_dom_and_runtime_tests {
     fn should_pass_source_and_self_as_ordinary_props_react_element_validator() {
         assert_transform(
             r#"<div __source={{fileName: "a"}} __self={this} />"#,
-            r#"createVNode(1, "div", null, null, 1, {
+            r#"newVNode(17, "div", null, null, {
   "__source": {
     fileName: "a"
   },
@@ -406,9 +400,9 @@ mod react_dom_and_runtime_tests {
   Monkeys:
   <input type="text" /> <button />
 </div>"#,
-            r#"createVNode(1, "div", null, [createTextVNode("Monkeys:"), createVNode(64, "input", null, null, 1, {
+            r#"newVNode(5, "div", null, [newTextVNode("Monkeys:"), newVNode(528, "input", null, null, {
   "type": "text"
-}), createTextVNode(" "), createVNode(1, "button")], 4);"#,
+}), newTextVNode(" "), newVNode(17, "button")]);"#,
         );
     }
 }
@@ -432,7 +426,7 @@ mod current_behaviour_questionable {
   {/* A comment at the end */}
   {/* A second comment at the end */}
 </div>",
-            r#"createVNode(1, "div", null, [createVNode(1, "span", null, null, 0), createVNode(1, "br")], 0);"#,
+            r#"newVNode(1, "div", null, [newVNode(1, "span"), newVNode(17, "br")]);"#,
         );
     }
 }

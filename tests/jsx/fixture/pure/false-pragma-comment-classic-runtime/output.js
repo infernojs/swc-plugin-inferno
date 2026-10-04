@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-/* @jsx h */ createVNode(1, "div");
+import { newVNode } from "inferno";
+/* @jsx h */ newVNode(17, "div");

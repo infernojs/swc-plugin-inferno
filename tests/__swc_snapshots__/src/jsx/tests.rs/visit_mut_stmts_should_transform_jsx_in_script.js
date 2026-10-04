@@ -1,2 +1,2 @@
-const { createVNode } = require("inferno");
-var x = /*#__PURE__*/ createVNode(1, "div", null, "Hello", 16);
+const { newVNode } = require("inferno");
+var x = /*#__PURE__*/ newVNode(3, "div", null, "Hello");

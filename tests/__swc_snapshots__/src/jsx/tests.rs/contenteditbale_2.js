@@ -1,4 +1,4 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(4097, "span", null, null, 1, {
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(131089, "span", null, null, {
     contenteditable: "false"
 });

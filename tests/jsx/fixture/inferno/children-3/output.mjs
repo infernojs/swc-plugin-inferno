@@ -1,4 +1,4 @@
-import { createVNode, createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, Comp, {
-    children: /*#__PURE__*/ createVNode(1, "div")
+import { newVNode, newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, Comp, {
+    children: /*#__PURE__*/ newVNode(17, "div")
 });

@@ -1,11 +1,11 @@
-import { createVNode, createFragment } from "inferno";
-/*#__PURE__*/ createVNode(1, "div", null, /*#__PURE__*/ createFragment([
-    /*#__PURE__*/ createFragment([
-        /*#__PURE__*/ createVNode(1, "span", null, "Hello", 16),
-        /*#__PURE__*/ createVNode(1, "span", null, "world", 16)
-    ], 4),
-    /*#__PURE__*/ createFragment([
-        /*#__PURE__*/ createVNode(1, "span", null, "Goodbye", 16),
-        /*#__PURE__*/ createVNode(1, "span", null, "world", 16)
-    ], 4)
-], 4), 2);
+import { newVNode, newFragment } from "inferno";
+/*#__PURE__*/ newVNode(9, "div", null, /*#__PURE__*/ newFragment(260, [
+    /*#__PURE__*/ newFragment(260, [
+        /*#__PURE__*/ newVNode(3, "span", null, "Hello"),
+        /*#__PURE__*/ newVNode(3, "span", null, "world")
+    ]),
+    /*#__PURE__*/ newFragment(260, [
+        /*#__PURE__*/ newVNode(3, "span", null, "Goodbye"),
+        /*#__PURE__*/ newVNode(3, "span", null, "world")
+    ])
+]));

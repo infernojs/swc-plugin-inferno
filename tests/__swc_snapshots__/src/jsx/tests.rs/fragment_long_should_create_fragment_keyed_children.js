@@ -1,2 +1,2 @@
-import { createFragment } from "inferno";
-/*#__PURE__*/ createFragment(magic, 8, "foo");
+import { newFragment } from "inferno";
+/*#__PURE__*/ newFragment(288, magic, "foo");

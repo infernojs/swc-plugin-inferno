@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-export const Bar = ()=>/*#__PURE__*/ createVNode(1, "span", null, "World", 16);
+import { newVNode } from "inferno";
+export const Bar = ()=>/*#__PURE__*/ newVNode(3, "span", null, "World");

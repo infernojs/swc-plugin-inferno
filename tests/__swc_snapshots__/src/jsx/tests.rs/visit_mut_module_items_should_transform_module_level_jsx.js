@@ -1,3 +1,3 @@
-import { createVNode } from "inferno";
-const element = /*#__PURE__*/ createVNode(1, "div", "test", "Hello", 16);
+import { newVNode } from "inferno";
+const element = /*#__PURE__*/ newVNode(3, "div", "test", "Hello");
 export { element };

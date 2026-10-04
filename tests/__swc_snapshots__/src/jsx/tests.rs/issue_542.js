@@ -1,6 +1,6 @@
-import { createVNode, createTextVNode } from "inferno";
-let page = /*#__PURE__*/ createVNode(1, "p", null, [
-    /*#__PURE__*/ createTextVNode("Click "),
-    /*#__PURE__*/ createVNode(1, "em", null, "New melody", 16),
-    /*#__PURE__*/ createTextVNode(" listen to a randomly generated melody")
-], 4);
+import { newVNode, newTextVNode } from "inferno";
+let page = /*#__PURE__*/ newVNode(5, "p", null, [
+    /*#__PURE__*/ newTextVNode("Click "),
+    /*#__PURE__*/ newVNode(3, "em", null, "New melody"),
+    /*#__PURE__*/ newTextVNode(" listen to a randomly generated melody")
+]);

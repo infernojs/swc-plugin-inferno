@@ -1,2 +1,2 @@
-import { createFragment } from "inferno";
-/** @jsx dom */ /** @jsxFrag DomFrag */ /*#__PURE__*/ createFragment();
+import { newFragment } from "inferno";
+/** @jsx dom */ /** @jsxFrag DomFrag */ /*#__PURE__*/ newFragment(272);

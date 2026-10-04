@@ -4,6 +4,10 @@ function Item({ label }) {
   return <li className="item">{label}</li>;
 }
 
+function Dynamic({ childFlag, children }) {
+  return <p $ChildFlag={childFlag}>{children}</p>;
+}
+
 function App({ items }) {
   return (
     <div className="app" id="root">
@@ -16,6 +20,9 @@ function App({ items }) {
       <>
         <span>fragment child</span>
       </>
+      <Dynamic childFlag={2}>
+        <b>dynamic</b>
+      </Dynamic>
     </div>
   );
 }

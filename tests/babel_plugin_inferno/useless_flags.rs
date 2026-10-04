@@ -25,6 +25,144 @@ fn flag_name(flag: &str) -> &str {
     flag.split('=').next().unwrap()
 }
 
+fn needs(flag: &str) -> &'static str {
+    match flag {
+        "$HasVNodeChildren" => "one element or component child",
+        "$HasTextChildren" => "one text child",
+        "$HasNonKeyedChildren" => "an array of elements or components",
+        "$HasKeyedChildren" => "an array of elements or components that all have a key",
+        "$ChildFlag={1}" => "no children",
+        _ => unreachable!("{flag}"),
+    }
+}
+
+fn label(flag: &str) -> &str {
+    match flag {
+        "$ChildFlag={1}" => "$ChildFlag={1} (HasInvalidChildren)",
+        _ => flag,
+    }
+}
+
+/// Why each child flag cannot have children of each shape; flags that are missing fit the shape
+const SHAPE_ERRORS: &[(&str, &[(&str, &str)])] = &[
+    (
+        "none",
+        &[
+            ("$HasVNodeChildren", "there are no children"),
+            ("$HasTextChildren", "there are no children"),
+            ("$HasNonKeyedChildren", "there are no children"),
+            ("$HasKeyedChildren", "there are no children"),
+        ],
+    ),
+    (
+        "text",
+        &[
+            ("$HasVNodeChildren", "the child is text"),
+            ("$HasNonKeyedChildren", "the child is text"),
+            ("$HasKeyedChildren", "the child is text"),
+            ("$ChildFlag={1}", "the child is text"),
+        ],
+    ),
+    (
+        "vnode",
+        &[
+            ("$HasTextChildren", "the child is an element"),
+            (
+                "$HasNonKeyedChildren",
+                "the only child is an element, not an array",
+            ),
+            (
+                "$HasKeyedChildren",
+                "the only child is an element, not an array",
+            ),
+            ("$ChildFlag={1}", "the child is an element"),
+        ],
+    ),
+    // Two elements without keys, or an element and an expression
+    (
+        "two",
+        &[
+            ("$HasVNodeChildren", "there are 2 children"),
+            ("$HasTextChildren", "there are 2 children"),
+            ("$HasKeyedChildren", "the child at index 0 has no key"),
+            ("$ChildFlag={1}", "there are 2 children"),
+        ],
+    ),
+    (
+        "keyed",
+        &[
+            ("$HasVNodeChildren", "there are 2 children"),
+            ("$HasTextChildren", "there are 2 children"),
+            ("$ChildFlag={1}", "there are 2 children"),
+        ],
+    ),
+    // Text and another child
+    (
+        "textFirst",
+        &[
+            ("$HasVNodeChildren", "there are 2 children"),
+            ("$HasTextChildren", "there are 2 children"),
+            (
+                "$HasKeyedChildren",
+                "the child at index 0 is text, which has no key",
+            ),
+            ("$ChildFlag={1}", "there are 2 children"),
+        ],
+    ),
+    (
+        "null",
+        &[
+            (
+                "$HasVNodeChildren",
+                "the child is null, which renders nothing",
+            ),
+            (
+                "$HasTextChildren",
+                "the child is null, which renders nothing",
+            ),
+            (
+                "$HasNonKeyedChildren",
+                "the child is null, which renders nothing",
+            ),
+            (
+                "$HasKeyedChildren",
+                "the child is null, which renders nothing",
+            ),
+        ],
+    ),
+    (
+        "spread",
+        &[
+            (
+                "$HasVNodeChildren",
+                "the child is a spread, which makes an array",
+            ),
+            (
+                "$HasTextChildren",
+                "the child is a spread, which makes an array",
+            ),
+            (
+                "$ChildFlag={1}",
+                "the child is a spread, which makes an array",
+            ),
+        ],
+    ),
+    ("dynamic", &[]),
+];
+
+/// The error for a child flag on children of a shape, or `None` when the flag fits them
+fn shape_error(flag: &str, shape: &str) -> Option<String> {
+    let (_, reasons) = SHAPE_ERRORS
+        .iter()
+        .find(|(name, _)| *name == shape)
+        .unwrap_or_else(|| panic!("unknown shape {shape}"));
+
+    reasons
+        .iter()
+        .find(|(name, _)| *name == flag)
+        .map(|(_, reason)| format!("{} needs {}, but {reason}.", label(flag), needs(flag)))
+}
+
 fn warnings_with(options: &str, input: &str) -> Vec<Warning> {
     transform_warnings(options, input).1
 }
@@ -88,48 +226,57 @@ mod children_known_at_compile_time {
         );
     }
 
-    const SHAPES: [&str; 24] = [
-        "<div FLAG />",
-        "<div FLAG>\n  </div>",
-        "<div FLAG>text</div>",
-        "<div FLAG><a/></div>",
-        "<div FLAG><Foo/></div>",
-        "<div FLAG><></></div>",
-        "<div FLAG><a/><b/></div>",
-        "<div FLAG><a key=\"1\"/><b key=\"2\"/></div>",
-        "<div FLAG>text<a/></div>",
-        "<input FLAG />",
-        "<div FLAG children=\"t\" />",
-        "<div FLAG children={<a/>} />",
-        "<div FLAG children=<a/> />",
-        "<div FLAG children={<></>} />",
-        "<div FLAG children={null} />",
-        "<div FLAG children={a}><b/></div>",
-        "<Fragment FLAG />",
-        "<Fragment FLAG>text</Fragment>",
-        "<Fragment FLAG><a/></Fragment>",
-        "<Fragment FLAG><a/><b/></Fragment>",
-        "<Fragment FLAG key=\"k\"><a key=\"1\"/><b key=\"2\"/></Fragment>",
-        "<Fragment FLAG children=\"t\" />",
-        "<Fragment FLAG children={null} />",
-        "<Inferno.Fragment FLAG><a/></Inferno.Fragment>",
+    // The shape of the children as the JSX shows it, see SHAPE_ERRORS
+    const SHAPES: [(&str, &str); 24] = [
+        ("<div FLAG />", "none"),
+        ("<div FLAG>\n  </div>", "none"),
+        ("<div FLAG>text</div>", "text"),
+        ("<div FLAG><a/></div>", "vnode"),
+        ("<div FLAG><Foo/></div>", "vnode"),
+        ("<div FLAG><></></div>", "vnode"),
+        ("<div FLAG><a/><b/></div>", "two"),
+        ("<div FLAG><a key=\"1\"/><b key=\"2\"/></div>", "keyed"),
+        ("<div FLAG>text<a/></div>", "textFirst"),
+        ("<input FLAG />", "none"),
+        ("<div FLAG children=\"t\" />", "text"),
+        ("<div FLAG children={<a/>} />", "vnode"),
+        ("<div FLAG children=<a/> />", "vnode"),
+        ("<div FLAG children={<></>} />", "vnode"),
+        ("<div FLAG children={null} />", "null"),
+        ("<div FLAG children={a}><b/></div>", "vnode"),
+        ("<Fragment FLAG />", "none"),
+        ("<Fragment FLAG>text</Fragment>", "text"),
+        ("<Fragment FLAG><a/></Fragment>", "vnode"),
+        ("<Fragment FLAG><a/><b/></Fragment>", "two"),
+        (
+            "<Fragment FLAG key=\"k\"><a key=\"1\"/><b key=\"2\"/></Fragment>",
+            "keyed",
+        ),
+        ("<Fragment FLAG children=\"t\" />", "text"),
+        ("<Fragment FLAG children={null} />", "null"),
+        ("<Inferno.Fragment FLAG><a/></Inferno.Fragment>", "vnode"),
     ];
 
     #[test]
-    fn should_warn_about_every_shape() {
-        let cases = CHILD_FLAGS
-            .into_iter()
-            .flat_map(|flag| SHAPES.map(|shape| (flag, shape.replace("FLAG", flag))));
+    fn should_throw_for_or_warn_about_every_shape() {
+        let cases = CHILD_FLAGS.into_iter().flat_map(|flag| {
+            SHAPES.map(|(input, shape)| (flag, input.replace("FLAG", flag), shape))
+        });
 
-        assert_all(cases, |(flag, input)| {
-            assert_eq!(messages(input), vec![format!("{}{KNOWN}", flag_name(flag))]);
+        assert_all(cases, |(flag, input, shape)| {
+            match shape_error(flag, shape) {
+                Some(error) => assert_transform_error(input, &error),
+                None => assert_eq!(messages(input), vec![format!("{}{KNOWN}", flag_name(flag))]),
+            }
         });
     }
 
     #[test]
     fn should_warn_about_every_child_flag_when_there_are_several() {
         assert_eq!(
-            messages("<div $HasKeyedChildren $HasNonKeyedChildren><a/></div>"),
+            messages(
+                "<div $HasKeyedChildren $HasNonKeyedChildren><a key=\"1\"/><b key=\"2\"/></div>"
+            ),
             vec![
                 format!("$HasKeyedChildren{KNOWN}"),
                 format!("$HasNonKeyedChildren{KNOWN}"),
@@ -146,9 +293,8 @@ mod children_known_at_compile_time {
     }
 
     #[test]
-    fn should_not_warn_about_flags_and_re_create_on_static_children() {
+    fn should_not_warn_about_flags_on_static_children() {
         assert_eq!(warnings("<div $Flags={1}><a/></div>"), vec![]);
-        assert_eq!(warnings("<div $ReCreate><a/></div>"), vec![]);
     }
 }
 
@@ -156,31 +302,36 @@ mod children_known_at_compile_time {
 mod dynamic_children {
     use super::*;
 
-    const SHAPES: [&str; 15] = [
-        "<div FLAG>{a}</div>",
-        "<div FLAG>{...a}</div>",
-        "<div FLAG>text{a}</div>",
-        "<div FLAG><a/>{b}</div>",
-        "<div FLAG>{<a/>}</div>",
-        "<div FLAG>{\"text\"}</div>",
-        "<div FLAG>{/* c */}<a/></div>",
-        "<div FLAG children={a} />",
-        "<div FLAG children={\"t\"} />",
-        "<div FLAG children={a}>\n  </div>",
-        "<div {...p} FLAG>{a}</div>",
-        "<Fragment FLAG>{a}</Fragment>",
-        "<Fragment FLAG children={a} />",
-        "<Fragment FLAG children={<a/>} />",
-        "<Fragment FLAG children=<a/> />",
+    const SHAPES: [(&str, &str); 15] = [
+        ("<div FLAG>{a}</div>", "dynamic"),
+        ("<div FLAG>{...a}</div>", "spread"),
+        ("<div FLAG>text{a}</div>", "textFirst"),
+        ("<div FLAG><a/>{b}</div>", "two"),
+        ("<div FLAG>{<a/>}</div>", "vnode"),
+        ("<div FLAG>{\"text\"}</div>", "text"),
+        ("<div FLAG>{/* c */}<a/></div>", "vnode"),
+        ("<div FLAG children={a} />", "dynamic"),
+        ("<div FLAG children={\"t\"} />", "text"),
+        ("<div FLAG children={a}>\n  </div>", "dynamic"),
+        ("<div {...p} FLAG>{a}</div>", "dynamic"),
+        ("<Fragment FLAG>{a}</Fragment>", "dynamic"),
+        ("<Fragment FLAG children={a} />", "dynamic"),
+        ("<Fragment FLAG children={<a/>} />", "vnode"),
+        ("<Fragment FLAG children=<a/> />", "vnode"),
     ];
 
     #[test]
-    fn should_not_warn_about_any_shape() {
-        let cases = CHILD_FLAGS
-            .into_iter()
-            .flat_map(|flag| SHAPES.map(|shape| shape.replace("FLAG", flag)));
+    fn should_throw_for_or_not_warn_about_every_shape() {
+        let cases = CHILD_FLAGS.into_iter().flat_map(|flag| {
+            SHAPES.map(|(input, shape)| (flag, input.replace("FLAG", flag), shape))
+        });
 
-        assert_all(cases, |input| assert_eq!(warnings(input), vec![]));
+        assert_all(cases, |(flag, input, shape)| {
+            match shape_error(flag, shape) {
+                Some(error) => assert_transform_error(input, &error),
+                None => assert_eq!(warnings(input), vec![]),
+            }
+        });
     }
 
     #[test]
@@ -259,9 +410,8 @@ mod components {
     }
 
     #[test]
-    fn should_not_warn_about_flags_or_re_create_on_a_component() {
+    fn should_not_warn_about_flags_on_a_component() {
         assert_eq!(warnings("<Foo $Flags={4}/>"), vec![]);
-        assert_eq!(warnings("<Foo $ReCreate/>"), vec![]);
     }
 }
 
@@ -361,51 +511,19 @@ mod conflicting_flags {
         assert_eq!(warnings[0].location.as_deref(), Some("input.js:1:24"));
         assert_eq!(warnings[0].snippet, "$HasNonKeyedChildren");
     }
-
-    #[test]
-    fn should_warn_about_re_create_with_flags_on_an_element() {
-        assert_eq!(
-            messages("<div $ReCreate $Flags={9}/>"),
-            expected(&[
-                "$ReCreate is ignored because $Flags replaces the vNode flags. Include ReCreate (2048) in $Flags instead."
-            ])
-        );
-        assert_js_eq(
-            &transform("<div $ReCreate $Flags={9}/>"),
-            &transform("<div $Flags={9}/>"),
-        );
-    }
-
-    #[test]
-    fn should_warn_about_re_create_with_flags_on_a_component() {
-        assert_eq!(
-            messages("<Foo $Flags={2} $ReCreate/>"),
-            expected(&[
-                "$ReCreate is ignored because $Flags replaces the vNode flags. Include ReCreate (2048) in $Flags instead."
-            ])
-        );
-        assert_js_eq(
-            &transform("<Foo $Flags={2} $ReCreate/>"),
-            &transform("<Foo $Flags={2}/>"),
-        );
-    }
 }
 
 /// Fragments
 mod fragments {
     use super::*;
 
-    const CASES: [(&str, &str); 4] = [
+    const CASES: [(&str, &str); 3] = [
         ("<Fragment $Flags={1}>{x}</Fragment>", "$Flags"),
-        ("<Fragment $ReCreate>{x}</Fragment>", "$ReCreate"),
         (
             "<Inferno.Fragment $Flags={1} key=\"k\">{x}</Inferno.Fragment>",
             "$Flags",
         ),
-        (
-            "<React.Fragment $ReCreate>{x}</React.Fragment>",
-            "$ReCreate",
-        ),
+        ("<React.Fragment $Flags={1}>{x}</React.Fragment>", "$Flags"),
     ];
 
     #[test]
@@ -418,18 +536,10 @@ mod fragments {
     #[test]
     fn should_compile_the_same_without_the_flag() {
         assert_all(CASES, |(input, _)| {
-            let without = input.replace(" $Flags={1}", "").replace(" $ReCreate", "");
+            let without = input.replace(" $Flags={1}", "");
 
             assert_js_eq(&transform(input), &transform(&without));
         });
-    }
-
-    #[test]
-    fn should_warn_about_flags_and_re_create_together_on_a_fragment() {
-        assert_eq!(
-            messages("<Fragment $ReCreate $Flags={1}>{x}</Fragment>"),
-            vec![format!("$ReCreate{FRAGMENT}"), format!("$Flags{FRAGMENT}")]
-        );
     }
 
     #[test]
@@ -703,7 +813,7 @@ mod warning_format {
         );
         assert_js_eq(
             &strip_inferno_import(&compiled.code),
-            r#"const el = createVNode(1, "div", null, "text", 16);"#,
+            r#"const el = newVNode(3, "div", null, "text");"#,
         );
     }
 }

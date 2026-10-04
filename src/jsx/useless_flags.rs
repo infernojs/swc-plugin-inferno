@@ -4,7 +4,6 @@
 use super::props::PropChildren;
 use super::vnode_args::is_empty_array;
 use super::{ChildrenResult, VType};
-use crate::inferno_flags::VNodeFlags;
 use serde::{
     Deserialize, Deserializer, Serialize,
     de::{Error, Visitor},
@@ -92,11 +91,10 @@ pub(super) enum FlagAttr {
     HasTextChildren,
     HasVNodeChildren,
     Flags,
-    ReCreate,
 }
 
 impl FlagAttr {
-    fn name(self) -> &'static str {
+    pub(super) fn name(self) -> &'static str {
         match self {
             FlagAttr::ChildFlag => "$ChildFlag",
             FlagAttr::HasKeyedChildren => "$HasKeyedChildren",
@@ -104,12 +102,11 @@ impl FlagAttr {
             FlagAttr::HasTextChildren => "$HasTextChildren",
             FlagAttr::HasVNodeChildren => "$HasVNodeChildren",
             FlagAttr::Flags => "$Flags",
-            FlagAttr::ReCreate => "$ReCreate",
         }
     }
 
-    fn is_child_flag(self) -> bool {
-        !matches!(self, FlagAttr::Flags | FlagAttr::ReCreate)
+    pub(super) fn is_child_flag(self) -> bool {
+        !matches!(self, FlagAttr::Flags)
     }
 }
 
@@ -158,7 +155,6 @@ pub(super) fn check_flags(
 ) {
     let is_component = matches!(vtype, VType::Component(_));
     let is_fragment = matches!(vtype, VType::Fragment);
-    let has_flags_override = flag_attrs.iter().any(|&(flag, _)| flag == FlagAttr::Flags);
     // The child flag that the compiled vNode uses when the children are dynamic
     let winner = flag_attrs
         .iter()
@@ -172,17 +168,10 @@ pub(super) fn check_flags(
     for &(flag, span) in flag_attrs {
         let name = flag.name();
         let message = if !flag.is_child_flag() {
-            if is_fragment {
-                format!("{name} has no effect on Fragments.")
-            } else if flag == FlagAttr::ReCreate && has_flags_override {
-                format!(
-                    "$ReCreate is ignored because $Flags replaces the vNode flags. Include \
-                     ReCreate ({}) in $Flags instead.",
-                    VNodeFlags::ReCreate as u16
-                )
-            } else {
+            if !is_fragment {
                 continue;
             }
+            format!("{name} has no effect on Fragments.")
         } else if is_component {
             format!(
                 "{name} has no effect on components. Their children are passed in props.children."

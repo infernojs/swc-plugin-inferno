@@ -1,0 +1,19 @@
+  x Please provide an explicit ref value. Using "ref" as a shorthand for "ref={true}" is not allowed.
+   ,-[input.js:1:1]
+ 1 | <div ref />;
+   :      ^^^
+ 2 | <Foo ref />;
+   `----
+  x Please provide an explicit ref value. Using "ref" as a shorthand for "ref={true}" is not allowed.
+   ,-[input.js:2:1]
+ 1 | <div ref />;
+ 2 | <Foo ref />;
+   :      ^^^
+ 3 | <Foo ref onComponentDidMount={m} />;
+   `----
+  x Please provide an explicit ref value. Using "ref" as a shorthand for "ref={true}" is not allowed.
+   ,-[input.js:3:1]
+ 2 | <Foo ref />;
+ 3 | <Foo ref onComponentDidMount={m} />;
+   :      ^^^
+   `----

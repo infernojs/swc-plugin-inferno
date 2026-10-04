@@ -1,4 +1,4 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(17, "div", null, null, {
     onDblClick: foobar
 });

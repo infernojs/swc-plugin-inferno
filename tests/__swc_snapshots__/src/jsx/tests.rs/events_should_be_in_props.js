@@ -1,5 +1,5 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "div", variable, "1", 16, {
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(3, "div", variable, "1", {
     id: "test",
     onClick: func
 });

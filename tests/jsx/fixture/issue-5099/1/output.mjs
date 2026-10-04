@@ -1,4 +1,4 @@
-import { createVNode, createFragment } from "inferno";
+import { newVNode, newFragment } from "inferno";
 /** @jsx h */ /** @jsxFrag */ import { h } from "preact";
 import { Marked } from "markdown";
 export const handler = {
@@ -12,11 +12,11 @@ export const handler = {
     }
 };
 export default function Greet(props) {
-    return /*#__PURE__*/ createFragment([
-        /*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+    return /*#__PURE__*/ newFragment(260, [
+        /*#__PURE__*/ newVNode(17, "div", null, null, {
             dangerouslySetInnerHTML: {
                 __html: props.data.markup.content
             }
         })
-    ], 4);
+    ]);
 }

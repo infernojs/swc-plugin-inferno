@@ -58,7 +58,7 @@ fn should_reject_a_namespace_inside_a_member_expression() {
 fn should_compile_an_unparenthesized_sequence_expression() {
     assert_transform(
         "<div a={b, c} />",
-        "createVNode(1, \"div\", null, null, 1, {\n  \"a\": (b, c)\n});",
+        "newVNode(17, \"div\", null, null, {\n  \"a\": (b, c)\n});",
     );
 }
 

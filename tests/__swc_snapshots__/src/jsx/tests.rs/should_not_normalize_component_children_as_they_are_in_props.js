@@ -1,5 +1,5 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, Com, {
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, Com, {
     children: [
         a,
         b,

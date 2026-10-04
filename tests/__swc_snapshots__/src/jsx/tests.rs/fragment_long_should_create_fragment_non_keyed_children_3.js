@@ -1,5 +1,5 @@
-import { createVNode, createFragment } from "inferno";
-/*#__PURE__*/ createFragment([
-    /*#__PURE__*/ createVNode(1, "div", null, "1", 16),
-    /*#__PURE__*/ createVNode(1, "span", null, "foo", 16)
-], 4);
+import { newVNode, newFragment } from "inferno";
+/*#__PURE__*/ newFragment(260, [
+    /*#__PURE__*/ newVNode(3, "div", null, "1"),
+    /*#__PURE__*/ newVNode(3, "span", null, "foo")
+]);

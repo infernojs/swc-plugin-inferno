@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-/* @jsxImportSource react */ const p = ()=>/*#__PURE__*/ createVNode(1, "div", null, "Hello World", 16);
+import { newVNode } from "inferno";
+/* @jsxImportSource react */ const p = ()=>/*#__PURE__*/ newVNode(3, "div", null, "Hello World");

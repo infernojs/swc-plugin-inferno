@@ -28,10 +28,10 @@ mod imports_option {
                 r#"{"importSource": "inferno-compat"}"#,
                 "<div><Foo {...p}/>text<></></div>",
             ),
-            r#"import { createVNode, createFragment, createComponentVNode, normalizeProps, createTextVNode } from "inferno-compat";
-createVNode(1, "div", null, [normalizeProps(createComponentVNode(2, Foo, {
+            r#"import { newVNode, newFragment, newComponentVNode, normalizeProps, newTextVNode } from "inferno-compat";
+newVNode(5, "div", null, [normalizeProps(newComponentVNode(0, Foo, {
   ...p
-})), createTextVNode("text"), createFragment()], 4);"#,
+})), newTextVNode("text"), newFragment(272)]);"#,
         );
     }
 
@@ -39,8 +39,8 @@ createVNode(1, "div", null, [normalizeProps(createComponentVNode(2, Foo, {
     fn should_treat_the_string_true_like_true() {
         assert_js_eq(
             &transform_with("{}", "<div/>"),
-            r#"import { createVNode } from "inferno";
-createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+newVNode(17, "div");"#,
         );
     }
 
@@ -48,8 +48,8 @@ createVNode(1, "div");"#,
     fn should_import_from_inferno_when_imports_is_omitted() {
         assert_js_eq(
             &transform_with("{}", "<div/>"),
-            r#"import { createVNode } from "inferno";
-createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+newVNode(17, "div");"#,
         );
     }
 
@@ -57,10 +57,10 @@ createVNode(1, "div");"#,
     fn should_import_every_used_helper_in_one_declaration() {
         assert_js_eq(
             &transform_with("{}", "<div><Foo {...p}/>text<></></div>"),
-            r#"import { createVNode, createFragment, createComponentVNode, normalizeProps, createTextVNode } from "inferno";
-createVNode(1, "div", null, [normalizeProps(createComponentVNode(2, Foo, {
+            r#"import { newVNode, newFragment, newComponentVNode, normalizeProps, newTextVNode } from "inferno";
+newVNode(5, "div", null, [normalizeProps(newComponentVNode(0, Foo, {
   ...p
-})), createTextVNode("text"), createFragment()], 4);"#,
+})), newTextVNode("text"), newFragment(272)]);"#,
         );
     }
 }
@@ -84,56 +84,56 @@ mod existing_bindings {
     use super::*;
 
     #[test]
-    fn should_use_a_top_level_create_vnode_function_instead_of_importing() {
+    fn should_use_a_top_level_new_vnode_function_instead_of_importing() {
         assert_js_eq(
             &transform_with(
                 "{}",
-                r"function createVNode(){}
+                r"function newVNode(){}
 const a = <div/>;",
             ),
-            r#"function createVNode() {}
-const a = createVNode(1, "div");"#,
+            r#"function newVNode() {}
+const a = newVNode(17, "div");"#,
         );
     }
 
     #[test]
-    fn should_use_create_vnode_imported_from_another_module() {
+    fn should_use_new_vnode_imported_from_another_module() {
         assert_js_eq(
             &transform_with(
                 "{}",
-                r#"import {createVNode} from "other-lib";
+                r#"import {newVNode} from "other-lib";
 const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "other-lib";
-const a = createVNode(1, "div");"#,
+            r#"import { newVNode } from "other-lib";
+const a = newVNode(17, "div");"#,
         );
     }
 
     #[test]
-    fn should_still_import_create_vnode_when_it_is_imported_under_another_name() {
+    fn should_still_import_new_vnode_when_it_is_imported_under_another_name() {
         assert_js_eq(
             &transform_with(
                 "{}",
-                r#"import {createVNode as cv} from "inferno";
+                r#"import {newVNode as cv} from "inferno";
 const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "inferno";
-import { createVNode as cv } from "inferno";
-const a = createVNode(1, "div");"#,
+            r#"import { newVNode } from "inferno";
+import { newVNode as cv } from "inferno";
+const a = newVNode(17, "div");"#,
         );
     }
 
     #[test]
-    fn should_import_create_vnode_next_to_a_namespace_import() {
+    fn should_import_new_vnode_next_to_a_namespace_import() {
         assert_js_eq(
             &transform_with(
                 "{}",
                 r#"import * as Inferno from "inferno";
 const a = <div/>;"#,
             ),
-            r#"import { createVNode } from "inferno";
+            r#"import { newVNode } from "inferno";
 import * as Inferno from "inferno";
-const a = createVNode(1, "div");"#,
+const a = newVNode(17, "div");"#,
         );
     }
 
@@ -142,11 +142,11 @@ const a = createVNode(1, "div");"#,
         assert_js_eq(
             &transform_with(
                 "{}",
-                r#"import {createVNode, createComponentVNode} from "inferno";
+                r#"import {newVNode, newComponentVNode} from "inferno";
 const a = <div><Foo/></div>;"#,
             ),
-            r#"import { createVNode, createComponentVNode } from "inferno";
-const a = createVNode(1, "div", null, createComponentVNode(2, Foo), 2);"#,
+            r#"import { newVNode, newComponentVNode } from "inferno";
+const a = newVNode(9, "div", null, newComponentVNode(0, Foo));"#,
         );
     }
 
@@ -158,10 +158,10 @@ const a = createVNode(1, "div", null, createComponentVNode(2, Foo), 2);"#,
                 r"const _jsx = 1, jsx = 2;
 <div/>;",
             ),
-            r#"import { createVNode } from "inferno";
+            r#"import { newVNode } from "inferno";
 const _jsx = 1,
   jsx = 2;
-createVNode(1, "div");"#,
+newVNode(17, "div");"#,
         );
     }
 }
@@ -198,9 +198,9 @@ mod import_emission {
                 r"const a = <div/>;
 const b = <span/>;",
             ),
-            r#"import { createVNode } from "inferno";
-const a = createVNode(1, "div");
-const b = createVNode(1, "span");"#,
+            r#"import { newVNode } from "inferno";
+const a = newVNode(17, "div");
+const b = newVNode(17, "span");"#,
         );
     }
 
@@ -214,7 +214,7 @@ const b = createVNode(1, "span");"#,
 
         assert_js_eq(
             &code,
-            "var _inferno = require(\"inferno\"),\n  createVNode = _inferno.createVNode;\nconst a = require(\"x\");\nconst b = createVNode(1, \"div\");",
+            "var _inferno = require(\"inferno\"),\n  newVNode = _inferno.newVNode;\nconst a = require(\"x\");\nconst b = newVNode(17, \"div\");",
         );
     }
 
@@ -228,7 +228,7 @@ const b = createVNode(1, "span");"#,
 
         assert_js_eq(
             &code,
-            "import { createVNode } from \"inferno\";\nimport x from \"x\";\nconst b = createVNode(1, \"div\");",
+            "import { newVNode } from \"inferno\";\nimport x from \"x\";\nconst b = newVNode(17, \"div\");",
         );
     }
 
@@ -242,7 +242,7 @@ const b = createVNode(1, "span");"#,
 
         assert_js_eq(
             &code,
-            "var _inferno = require(\"inferno\"),\n  createVNode = _inferno.createVNode,\n  createFragment = _inferno.createFragment,\n  createComponentVNode = _inferno.createComponentVNode,\n  normalizeProps = _inferno.normalizeProps,\n  createTextVNode = _inferno.createTextVNode;\nconst a = createVNode(1, \"div\", null, [normalizeProps(createComponentVNode(2, Foo, {\n  ...p\n})), createTextVNode(\"text\"), createFragment()], 4);",
+            "var _inferno = require(\"inferno\"),\n  newVNode = _inferno.newVNode,\n  newFragment = _inferno.newFragment,\n  newComponentVNode = _inferno.newComponentVNode,\n  normalizeProps = _inferno.normalizeProps,\n  newTextVNode = _inferno.newTextVNode;\nconst a = newVNode(5, \"div\", null, [normalizeProps(newComponentVNode(0, Foo, {\n  ...p\n})), newTextVNode(\"text\"), newFragment(272)]);",
         );
         assert_valid_js(&code);
     }
@@ -257,7 +257,7 @@ const b = createVNode(1, "span");"#,
 
         assert_js_eq(
             &code,
-            "\"use strict\";\n\nvar _inferno = require(\"inferno\"),\n  createVNode = _inferno.createVNode;\nconst a = createVNode(1, \"div\");",
+            "\"use strict\";\n\nvar _inferno = require(\"inferno\"),\n  newVNode = _inferno.newVNode;\nconst a = newVNode(17, \"div\");",
         );
     }
 
@@ -271,7 +271,7 @@ const b = createVNode(1, "span");"#,
 
         assert_js_eq(
             &code,
-            "var _infernoCompat = require(\"inferno-compat\"),\n  createVNode = _infernoCompat.createVNode;\nconst a = createVNode(1, \"div\");",
+            "var _infernoCompat = require(\"inferno-compat\"),\n  newVNode = _infernoCompat.newVNode;\nconst a = newVNode(17, \"div\");",
         );
     }
 
@@ -280,12 +280,12 @@ const b = createVNode(1, "span");"#,
         let code = compile_as(
             SourceType::Script,
             "{}",
-            "function createVNode() {}\nconst a = <div><Foo/></div>;",
+            "function newVNode() {}\nconst a = <div><Foo/></div>;",
         );
 
         assert_js_eq(
             &code,
-            "var _inferno = require(\"inferno\"),\n  createComponentVNode = _inferno.createComponentVNode;\nfunction createVNode() {}\nconst a = createVNode(1, \"div\", null, createComponentVNode(2, Foo), 2);",
+            "var _inferno = require(\"inferno\"),\n  newComponentVNode = _inferno.newComponentVNode;\nfunction newVNode() {}\nconst a = newVNode(9, \"div\", null, newComponentVNode(0, Foo));",
         );
     }
 
@@ -299,7 +299,7 @@ const b = createVNode(1, "span");"#,
 
         assert_js_eq(
             &code,
-            "var _inferno2 = require(\"inferno\"),\n  createVNode = _inferno2.createVNode;\nvar _inferno = 1;\nconst a = createVNode(1, \"div\");",
+            "var _inferno2 = require(\"inferno\"),\n  newVNode = _inferno2.newVNode;\nvar _inferno = 1;\nconst a = newVNode(17, \"div\");",
         );
     }
 }
@@ -317,10 +317,10 @@ mod pragma_comments {
 /** @jsxFrag F */
 <><div/></>",
             ),
-            r#"import { createVNode, createFragment } from "inferno";
+            r#"import { newVNode, newFragment } from "inferno";
 /** @jsx h */
 /** @jsxFrag F */
-createFragment([createVNode(1, "div")], 4);"#,
+newFragment(260, [newVNode(17, "div")]);"#,
         );
     }
 
@@ -333,10 +333,10 @@ createFragment([createVNode(1, "div")], 4);"#,
 /** @jsxImportSource preact */
 <div/>",
             ),
-            r#"import { createVNode } from "inferno";
+            r#"import { newVNode } from "inferno";
 /** @jsxRuntime classic */
 /** @jsxImportSource preact */
-createVNode(1, "div");"#,
+newVNode(17, "div");"#,
         );
     }
 }
@@ -348,16 +348,13 @@ mod current_behaviour_questionable {
     // babel-plugin-inferno calls the local binding, which is not a function. swc renames the local
     // binding instead (hygiene).
     #[test]
-    fn should_rename_a_local_binding_that_shadows_create_vnode() {
+    fn should_rename_a_local_binding_that_shadows_new_vnode() {
         assert_js_eq(
-            &transform_with(
-                "{}",
-                "function f(){ const createVNode = 1; return <div/>; }",
-            ),
-            r#"import { createVNode } from "inferno";
+            &transform_with("{}", "function f(){ const newVNode = 1; return <div/>; }"),
+            r#"import { newVNode } from "inferno";
 function f() {
-    const createVNode1 = 1;
-    return createVNode(1, "div");
+    const newVNode1 = 1;
+    return newVNode(17, "div");
 }"#,
         );
     }

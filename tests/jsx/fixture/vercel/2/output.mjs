@@ -1,6 +1,6 @@
-import { createComponentVNode } from "inferno";
+import { newComponentVNode } from "inferno";
 export default (()=>{
-    return /*#__PURE__*/ createComponentVNode(2, Input, {
+    return /*#__PURE__*/ newComponentVNode(0, Input, {
         pattern: ".*\\S+.*"
     });
 });

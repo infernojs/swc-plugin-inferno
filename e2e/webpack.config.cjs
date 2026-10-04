@@ -16,11 +16,16 @@ module.exports = {
   entry: path.resolve(__dirname, "fixture", "index.jsx"),
   devtool: false,
   optimization: {
-    // Keep the emitted `createVNode(...)` calls readable so the assertions in
+    // Keep the emitted `newVNode(...)` calls readable so the assertions in
     // run.mjs check the plugin output rather than the minifier's output.
     minimize: false,
   },
   module: {
+    parser: {
+      // The compiled fixture imports the vNode factories from inferno; fail the
+      // build when an inferno version does not export them.
+      javascript: { exportsPresence: "error" },
+    },
     rules: [
       {
         test: /\.jsx$/,

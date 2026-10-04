@@ -10,10 +10,43 @@
 > Plugin for SWC to enable JSX/TSX for Inferno
 
 This plugin transforms JSX and TSX code in your projects to [Inferno](https://github.com/infernojs/inferno) compatible virtual DOM.
-It is recommended to use this plugin for compiling JSX for inferno. It is different to other JSX plugins, because it outputs highly optimized inferno specific `createVNode` calls. This plugin also checks children shape during compilation stage to reduce overhead from runtime application.
+It is recommended to use this plugin for compiling JSX for inferno. It is different to other JSX plugins, because it outputs highly optimized inferno specific `newVNode` calls. This plugin also checks children shape during compilation stage to reduce overhead from runtime application.
 
 The plugin generates the same code as [babel-plugin-inferno](https://github.com/infernojs/babel-plugin-inferno), and its
 test suite is ported to this repository (`tests/babel_plugin_inferno`).
+
+## Inferno versions
+
+Version 10 of the plugin compiles JSX for Inferno 10. It calls `newVNode`, `newComponentVNode`, `newFragment` and
+`newTextVNode`, and writes the flags of each vNode, including the shape of its children, as one number. For example
+`<div>Hello</div>` becomes `newVNode(3, "div", null, "Hello")`: `HtmlElement` (1) and `HasTextChildren` (2).
+
+For Inferno 9 and older, use version 3.x of the plugin. Inferno 10 numbers its vNode flags differently, so code
+compiled by version 3.x has to be compiled again for Inferno 10.
+
+From version 10 on, the major version of the plugin matches the major version of Inferno: use plugin 10.x with
+Inferno 10.x, plugin 11.x with Inferno 11.x, and so on. See the
+[Inferno 10 migration guide](https://github.com/infernojs/inferno/blob/master/documentation/v10-migration.md).
+
+The flags the plugin writes are the `VNodeFlags` of `inferno-vnode-flags` 10:
+
+| Flag                  | Value  |
+|-----------------------|--------|
+| `ComponentUnknown`    | 0      |
+| `HtmlElement`         | 1      |
+| `HasTextChildren`     | 2      |
+| `HasNonKeyedChildren` | 4      |
+| `HasVNodeChildren`    | 8      |
+| `HasInvalidChildren`  | 16     |
+| `HasKeyedChildren`    | 32     |
+| `SvgElement`          | 64     |
+| `Fragment`            | 256    |
+| `InputElement`        | 512    |
+| `TextareaElement`     | 2048   |
+| `SelectElement`       | 4096   |
+| `ContentEditable`     | 131072 |
+
+Children that are only known at runtime, such as `{expression}`, get no child bit and are normalized by Inferno.
 
 ## How to install
 
@@ -52,10 +85,10 @@ Unknown plugin options are rejected with an error. The options are:
 | `uselessFlags` | `"warn"`    | What to do about [useless flags](#useless-flags): `"warn"`, `"error"` or `"off"`.           |
 
 With `"pure": true` the plugin adds `/*#__PURE__*/` to the calls it generates from JSX, and also to hand-written calls
-of Inferno factories such as `forwardRef`, `createRef`, `createPortal` and `createVNode` imported from `inferno` or from
-`importSource`. Minifiers remove these calls when their result is unused, so don't call them only for their side
-effects. `normalizeProps` is annotated only when its argument is a freshly created vNode, because it mutates the vNode
-passed to it.
+of Inferno factories such as `forwardRef`, `createRef`, `createPortal`, `newVNode` and the deprecated `createVNode`
+imported from `inferno` or from `importSource`. Minifiers remove these calls when their result is unused, so don't call
+them only for their side effects. `normalizeProps` is annotated only when its argument is a freshly created vNode,
+because it mutates the vNode passed to it.
 
 ### Fast refresh
 
@@ -104,7 +137,7 @@ Inferno.render(<div autoFocus='true' />, container);
 
 ## Fragments
 
-All the following syntaxes are **reserved** for Inferno's createFragment call
+All the following syntaxes are **reserved** for Inferno's newFragment call
 
 ```js
 <>
@@ -133,9 +166,52 @@ This plugin provides few special compile time flags that can be used to optimize
 <div $ChildFlag={expression} /> - This attribute is used for defining children shape runtime. See inferno-vnode-flags (ChildFlags) for possible values
 
 // Functional flags
-<div $ReCreate /> - This flag tells inferno to always remove and add the node. It can be used to replace key={Math.random()}
 <div $Flags={expression} /> - Replaces the vNode flags the plugin computes. See inferno-vnode-flags (VNodeFlags) for possible values
 ```
+
+`$ReCreate` has been removed in Inferno 10, and the plugin reports an error for it. To re-create an element, change its
+key instead, for example `key={version}`: Inferno unmounts the old element and mounts a new one when the key changes.
+
+A numeric `$ChildFlag` is written into the flags like the other child flags. Any other `$ChildFlag` expression is only
+known at runtime, so that element is compiled to the deprecated `createVNode` (or `createFragment`), which converts the
+value.
+
+`$Flags={expression}` replaces the flags of the element; the plugin still adds the child bit of the children, and
+`HasInvalidChildren` (16) for a component.
+
+### Invalid flags
+
+When the JSX shows that the children cannot have the shape a child flag declares, the plugin reports an error that
+points at the flag, and the build fails. Inferno would otherwise render the children wrong or throw in development. For
+example:
+
+```js
+// An array is not a single vNode
+<div $HasVNodeChildren><a/><b/></div>
+<div $HasVNodeChildren>{[a, b]}</div>
+
+// Text is not a vNode, and an element is not text
+<div $HasVNodeChildren>text</div>
+<div $HasTextChildren><a/></div>
+
+// One element is not an array, and keyed children need keys
+<ul $HasNonKeyedChildren><li/></ul>
+<ul $HasKeyedChildren><li key="1"/><li/></ul>
+
+// Not a ChildFlags value
+<div $ChildFlag={3}>{a}</div>
+```
+
+```
+  x $HasVNodeChildren needs one element or component child, but there are 2 children.
+   ,-[/project/src/App.jsx:1:1]
+ 1 | <div $HasVNodeChildren><a/><b/></div>
+   :      ^^^^^^^^^^^^^^^^^
+   `----
+```
+
+Dynamic children such as `{expression}` are not checked, and neither are the children of components. The
+`uselessFlags` option does not change this check.
 
 ### Useless flags
 
@@ -156,11 +232,8 @@ It warns about flags that cannot improve the output:
 // $HasTextChildren, $HasVNodeChildren
 <div $HasKeyedChildren $HasNonKeyedChildren>{items}</div>
 
-// $Flags replaces all the vNode flags, including ReCreate
-<div $ReCreate $Flags={1} />
-
 // Fragments have no vNode flags
-<Fragment $Flags={1} $ReCreate>{items}</Fragment>
+<Fragment $Flags={1}>{items}</Fragment>
 ```
 
 The `uselessFlags` option sets what the plugin does about them:
@@ -219,11 +292,11 @@ example:
 ```js
 import {render} from 'inferno'; // only import 'render'
 
-// The plugin will automatically import 'createVNode'
+// The plugin will automatically import 'newVNode'
 render(<div>1</div>, document.getElementById('root'));
 ```
 
-A helper that the file already declares at the top level, for example with `import { createVNode } from 'inferno'`, is
+A helper that the file already declares at the top level, for example with `import { newVNode } from 'inferno'`, is
 used instead of importing it again. In scripts (files without `import` or `export`) the helpers are read from
 `require('inferno')`.
 
@@ -237,5 +310,5 @@ Set `importSource` to import the helpers from another module, like the `imports`
 
 You can verify `swc-plugin-inferno` is used by looking at the compiled output.
 This plugin does not generate calls to `createElement` or `h`, but instead it uses low level InfernoJS API
-`createVNode`, `createComponentVNode`, `createFragment` etc. If you see your JSX being transpiled into `createElement` calls
+`newVNode`, `newComponentVNode`, `newFragment` etc. If you see your JSX being transpiled into `createElement` calls
 it is a good indication that your build configuration is not correct.

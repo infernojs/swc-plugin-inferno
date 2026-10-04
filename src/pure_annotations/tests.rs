@@ -114,11 +114,11 @@ test!(
     create_element,
     r#"
   import Inferno from 'inferno';
-  Inferno.createVNode(1, "div");
+  Inferno.newVNode(17, "div");
   "#,
     r#"
   import Inferno from 'inferno';
-  /*#__PURE__*/ Inferno.createVNode(1, "div");
+  /*#__PURE__*/ Inferno.newVNode(17, "div");
   "#
 );
 
@@ -129,9 +129,9 @@ test!(
   const x = <div />;
   "#,
     r#"
-import { createVNode } from "inferno";
+import { newVNode } from "inferno";
 import Inferno from 'inferno';
-const x = /*#__PURE__*/ createVNode(1, "div");
+const x = /*#__PURE__*/ newVNode(17, "div");
   "#
 );
 
@@ -142,11 +142,11 @@ test!(
   const x = <><div /></>;
   "#,
     r#"
-    import { createVNode, createFragment } from "inferno";
+    import { newVNode, newFragment } from "inferno";
     import Inferno from 'inferno';
-    const x = /*#__PURE__*/ createFragment([
-        /*#__PURE__*/ createVNode(1, "div")
-    ], 4);
+    const x = /*#__PURE__*/ newFragment(260, [
+        /*#__PURE__*/ newVNode(17, "div")
+    ]);
   "#
 );
 
@@ -154,11 +154,11 @@ test!(
     clone_element,
     r#"
   import Inferno from 'inferno';
-  Inferno.directClone(Inferno.createVNode(1, "div"));
+  Inferno.directClone(Inferno.newVNode(17, "div"));
   "#,
     r#"
   import Inferno from 'inferno';
-  /*#__PURE__*/ Inferno.directClone(/*#__PURE__*/ Inferno.createVNode(1, "div"));
+  /*#__PURE__*/ Inferno.directClone(/*#__PURE__*/ Inferno.newVNode(17, "div"));
   "#
 );
 
@@ -179,12 +179,12 @@ test!(
     r#"
   import * as Inferno from 'inferno';
 
-  const Portal = Inferno.createPortal(Inferno.createVNode(1, "div"), document.getElementById('test'));
+  const Portal = Inferno.createPortal(Inferno.newVNode(17, "div"), document.getElementById('test'));
   "#,
     r#"
   import * as Inferno from 'inferno';
   
-  const Portal = /*#__PURE__*/Inferno.createPortal( /*#__PURE__*/Inferno.createVNode(1, "div"), document.getElementById('test'));
+  const Portal = /*#__PURE__*/Inferno.createPortal( /*#__PURE__*/Inferno.newVNode(17, "div"), document.getElementById('test'));
   "#
 );
 
@@ -204,11 +204,11 @@ test!(
     non_pure_inferno_dom,
     r#"
   import Inferno from 'inferno';
-  Inferno.render(Inferno.createVNode(1, "div"));
+  Inferno.render(Inferno.newVNode(17, "div"));
   "#,
     r#"
   import Inferno from 'inferno';
-  Inferno.render(/*#__PURE__*/Inferno.createVNode(1, "div"));
+  Inferno.render(/*#__PURE__*/Inferno.newVNode(17, "div"));
   "#
 );
 
@@ -281,12 +281,12 @@ test!(
 test!(
     normalize_props_fresh_vnode,
     r#"
-  import {normalizeProps, createVNode} from 'inferno';
-  const x = normalizeProps(createVNode(1, "div"));
+  import {normalizeProps, newVNode} from 'inferno';
+  const x = normalizeProps(newVNode(17, "div"));
   "#,
     r#"
-  import {normalizeProps, createVNode} from 'inferno';
-  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div"));
+  import {normalizeProps, newVNode} from 'inferno';
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(17, "div"));
   "#
 );
 
@@ -311,14 +311,14 @@ fn pure_false_disables_annotations() {
   const x = <><span /></>;
   "#,
         r#"
-  import { createVNode, createFragment, normalizeProps } from "inferno";
+  import { newVNode, newFragment, normalizeProps } from "inferno";
   import { forwardRef } from 'inferno';
-  const Comp = forwardRef((props, ref) => normalizeProps(createVNode(1, "div", null, null, 1, {
+  const Comp = forwardRef((props, ref) => normalizeProps(newVNode(17, "div", null, null, {
     ...props
   })));
-  const x = createFragment([
-    createVNode(1, "span")
-  ], 4);
+  const x = newFragment(260, [
+    newVNode(17, "span")
+  ]);
   "#,
         crate::Options {
             pure: Some(false),
@@ -362,6 +362,44 @@ test!(
 );
 
 test!(
+    factories,
+    r#"
+  import { newVNode, newComponentVNode, newFragment, newTextVNode } from 'inferno';
+  newVNode(17, "div");
+  newComponentVNode(0, Foo);
+  newFragment(272);
+  newTextVNode("text");
+  "#,
+    r#"
+  import { newVNode, newComponentVNode, newFragment, newTextVNode } from 'inferno';
+  /*#__PURE__*/ newVNode(17, "div");
+  /*#__PURE__*/ newComponentVNode(0, Foo);
+  /*#__PURE__*/ newFragment(272);
+  /*#__PURE__*/ newTextVNode("text");
+  "#
+);
+
+// Inferno 10 still exports the deprecated factories, and the JSX transform calls createVNode and
+// createFragment for a $ChildFlag that is known at runtime
+test!(
+    deprecated_factories,
+    r#"
+  import { createVNode, createComponentVNode, createFragment, createTextVNode } from 'inferno';
+  createVNode(1, "div");
+  createComponentVNode(2, Foo);
+  createFragment([], 1);
+  createTextVNode("text");
+  "#,
+    r#"
+  import { createVNode, createComponentVNode, createFragment, createTextVNode } from 'inferno';
+  /*#__PURE__*/ createVNode(1, "div");
+  /*#__PURE__*/ createComponentVNode(2, Foo);
+  /*#__PURE__*/ createFragment([], 1);
+  /*#__PURE__*/ createTextVNode("text");
+  "#
+);
+
+test!(
     aliased_import,
     r#"
   import { createVNode as cv } from 'inferno';
@@ -397,12 +435,12 @@ test!(
   const y = normalizeProps(<Foo />);
   "#,
     r#"
-  import { createVNode, createComponentVNode } from "inferno";
+  import { newVNode, newComponentVNode } from "inferno";
   import { normalizeProps } from 'inferno';
-  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(17, "div", null, null, {
     ...p
   })));
-  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo));
+  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newComponentVNode(0, Foo));
   "#
 );
 
@@ -414,11 +452,11 @@ test!(
   const y = <Foo {...p} />;
   "#,
     r#"
-  import { createVNode, createComponentVNode, normalizeProps } from "inferno";
-  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+  import { newVNode, newComponentVNode, normalizeProps } from "inferno";
+  const x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(17, "div", null, null, {
     ...p
   }));
-  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createComponentVNode(2, Foo, {
+  const y = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newComponentVNode(0, Foo, {
     ...p
   }));
   "#
@@ -517,7 +555,7 @@ fn refresh_return_does_not_take_the_annotation_of_the_body() {
     );
 
     assert!(!code.contains("/*#__PURE__*/ return"), "{code}");
-    assert!(code.contains("return /*#__PURE__*/ createVNode("), "{code}");
+    assert!(code.contains("return /*#__PURE__*/ newVNode("), "{code}");
 }
 
 // A Fragment with a spread gets no normalizeProps call, so no annotation for one is registered.

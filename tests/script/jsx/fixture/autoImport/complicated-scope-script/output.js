@@ -1,4 +1,4 @@
-var _inferno = require("inferno"), createVNode = _inferno.createVNode;
+var _inferno = require("inferno"), newVNode = _inferno.newVNode;
 const Bar = ()=>{
     const Foo = ()=>{
         const Component = ({ thing, ..._react })=>{
@@ -8,9 +8,9 @@ const Bar = ()=>{
                 var c = _react5();
                 var jsx = 1;
                 var _jsx = 2;
-                return /*#__PURE__*/ createVNode(1, "div");
+                return /*#__PURE__*/ newVNode(17, "div");
             }
-            return /*#__PURE__*/ createVNode(1, "span");
+            return /*#__PURE__*/ newVNode(17, "span");
         };
     };
 };

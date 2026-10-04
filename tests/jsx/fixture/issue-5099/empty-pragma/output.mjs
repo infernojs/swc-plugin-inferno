@@ -1,2 +1,2 @@
-import { createFragment } from "inferno";
-/** @jsxRuntime */ /** @jsxImportSource */ /** @jsxFrag */ /** @jsx */ /*#__PURE__*/ createFragment();
+import { newFragment } from "inferno";
+/** @jsxRuntime */ /** @jsxImportSource */ /** @jsxFrag */ /** @jsx */ /*#__PURE__*/ newFragment(272);

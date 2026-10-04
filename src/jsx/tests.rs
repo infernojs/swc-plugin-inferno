@@ -38,12 +38,12 @@ test!(
             ),
         )
     },
-    should_always_stick_the_create_vnode_ref_to_import_when_compiled_to_commonjs,
+    should_always_stick_the_new_vnode_ref_to_import_when_compiled_to_commonjs,
     r#"
 import {
   Component,
-  createTextVNode,
-  createVNode,
+  newTextVNode,
+  newVNode,
   linkEvent,
   render,
 } from 'inferno';
@@ -83,12 +83,12 @@ test!(
             ),
         )
     },
-    should_always_stick_the_create_vnode_ref_to_import_when_compiled_to_esm,
+    should_always_stick_the_new_vnode_ref_to_import_when_compiled_to_esm,
     r#"
 import {
   Component,
-  createTextVNode,
-  createVNode,
+  newTextVNode,
+  newVNode,
   linkEvent,
   render,
 } from 'inferno';
@@ -346,7 +346,7 @@ test!(
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
     should_be_possible_to_define_override_child_flags_runtime,
     r#"
-<img $ChildFlag={1}>foobar</img>
+<img $ChildFlag={1}>{foobar}</img>
 "#
 );
 
@@ -511,19 +511,6 @@ test!(
     should_add_non_keyed_children_flag,
     r#"
     <div $HasNonKeyedChildren>{test}</div>
-    "#
-);
-
-test!(
-    module,
-    Syntax::Es(EsSyntax {
-        jsx: true,
-        ..Default::default()
-    }),
-    |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    should_add_re_create_flag,
-    r#"
-    <div $ReCreate/>
     "#
 );
 
@@ -878,8 +865,8 @@ test!(
 //     <div children="ab">test</div>
 //     "#,
 //     r#"
-//     import { createVNode } from "inferno";
-//     createVNode(1, "div", null, "test", 16);
+//     import { newVNode } from "inferno";
+//     newVNode(3, "div", null, "test");
 //     "#);
 
 // TODO: How to verify errors
@@ -910,9 +897,9 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    should_not_fail_if_create_vnode_is_already_imported,
+    should_not_fail_if_new_vnode_is_already_imported,
     r#"
-  import {createVNode} from "inferno"; var foo = <div/>;
+  import {newVNode} from "inferno"; var foo = <div/>;
 "#
 );
 
@@ -1287,9 +1274,9 @@ test!(
         ..Default::default()
     }),
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
-    should_add_import_to_create_vnode_component_but_not_to_create_vnode_if_create_vnode_is_already_declared,
+    should_add_import_to_new_component_vnode_but_not_to_new_vnode_if_new_vnode_is_already_declared,
     r#"
-      import {createVNode} from "inferno"; var foo = <FooBar/>;
+      import {newVNode} from "inferno"; var foo = <FooBar/>;
     "#
 );
 
@@ -1372,8 +1359,8 @@ test!(
 //     <foo children={null}></foo>
 //     "#,
 //     r#"
-//     import { createVNode } from "inferno";
-//     createVNode(1, "foo");
+//     import { newVNode } from "inferno";
+//     newVNode(17, "foo");
 //     "#);
 
 test!(
@@ -2361,7 +2348,7 @@ test!(
     |t| tr(t, Default::default(), Mark::fresh(Mark::root())),
     visit_mut_stmts_should_transform_jsx_in_script,
     r#"
-const { createVNode } = require("inferno");
+const { newVNode } = require("inferno");
 var x = <div>Hello</div>;
 "#
 );

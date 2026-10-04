@@ -1,5 +1,5 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, Page, {
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, Page, {
     num: "\\\\\\\\",
     children: "ABC"
 });

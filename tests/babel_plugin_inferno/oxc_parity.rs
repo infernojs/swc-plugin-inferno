@@ -10,7 +10,7 @@ mod text_escapes {
     fn should_decode_named_entities() {
         assert_transform(
             "<div>&nbsp;&iexcl;&cent;&pound;&curren;&yen;&brvbar;&sect;&uml;&copy;</div>",
-            "createVNode(1, \"div\", null, \"\\xA0¡¢£¤¥¦§¨©\", 16);",
+            "newVNode(3, \"div\", null, \"\\xA0¡¢£¤¥¦§¨©\");",
         );
     }
 
@@ -18,7 +18,7 @@ mod text_escapes {
     fn should_decode_invisible_named_entities() {
         assert_transform(
             "<div>&shy; &ensp; &emsp; &thinsp; &zwnj; &zwj; &lrm; &rlm;</div>",
-            "createVNode(1, \"div\", null, \"\u{AD} \\u2002 \\u2003 \\u2009 \u{200C} \u{200D} \u{200E} \u{200F}\", 16);",
+            "newVNode(3, \"div\", null, \"\u{AD} \\u2002 \\u2003 \\u2009 \u{200C} \u{200D} \u{200E} \u{200F}\");",
         );
     }
 
@@ -26,7 +26,7 @@ mod text_escapes {
     fn should_decode_quote_ampersand_and_angle_entities_and_keep_unknown_ones() {
         assert_transform(
             "<div>&quot; &amp; &lt; &gt; &donkey;</div>",
-            r#"createVNode(1, "div", null, "\" & < > &donkey;", 16);"#,
+            r#"newVNode(3, "div", null, "\" & < > &donkey;");"#,
         );
     }
 
@@ -34,7 +34,7 @@ mod text_escapes {
     fn should_decode_accented_and_currency_entities() {
         assert_transform(
             "<div>&Egrave; &euro;</div>",
-            "createVNode(1, \"div\", null, \"È €\", 16);",
+            "newVNode(3, \"div\", null, \"È €\");",
         );
     }
 }
@@ -47,7 +47,7 @@ mod text_numeric_escapes {
     fn should_decode_hexadecimal_entities_up_to_u_10_ffff() {
         assert_transform(
             "<div>&#xC; &#x41; &#x123; &#x1234; &#x10000; &#x10FFFF;</div>",
-            "createVNode(1, \"div\", null, \"\\f A ģ ሴ 𐀀 \u{10FFFF}\", 16);",
+            "newVNode(3, \"div\", null, \"\\f A ģ ሴ 𐀀 \u{10FFFF}\");",
         );
     }
 
@@ -55,7 +55,7 @@ mod text_numeric_escapes {
     fn should_decode_decimal_entities_up_to_u_10_ffff() {
         assert_transform(
             "<div>&#12; &#65; &#291; &#4660; &#65536; &#1114111;</div>",
-            "createVNode(1, \"div\", null, \"\\f A ģ ሴ 𐀀 \u{10FFFF}\", 16);",
+            "newVNode(3, \"div\", null, \"\\f A ģ ሴ 𐀀 \u{10FFFF}\");",
         );
     }
 
@@ -63,7 +63,7 @@ mod text_numeric_escapes {
     fn should_keep_invalid_numeric_entities_verbatim() {
         assert_transform(
             "<div>&#xG; &#C;</div>",
-            r#"createVNode(1, "div", null, "&#xG; &#C;", 16);"#,
+            r#"newVNode(3, "div", null, "&#xG; &#C;");"#,
         );
     }
 }
@@ -76,7 +76,7 @@ mod text_unterminated_escapes {
     fn should_keep_a_named_entity_without_semicolon() {
         assert_transform(
             "<div>&Egrave</div>",
-            r#"createVNode(1, "div", null, "&Egrave", 16);"#,
+            r#"newVNode(3, "div", null, "&Egrave");"#,
         );
     }
 
@@ -84,7 +84,7 @@ mod text_unterminated_escapes {
     fn should_keep_a_named_entity_followed_by_text() {
         assert_transform(
             "<div>&euro xxx</div>",
-            r#"createVNode(1, "div", null, "&euro xxx", 16);"#,
+            r#"newVNode(3, "div", null, "&euro xxx");"#,
         );
     }
 
@@ -92,7 +92,7 @@ mod text_unterminated_escapes {
     fn should_keep_a_decimal_entity_without_semicolon() {
         assert_transform(
             "<div>&#123 xxx</div>",
-            r#"createVNode(1, "div", null, "&#123 xxx", 16);"#,
+            r#"newVNode(3, "div", null, "&#123 xxx");"#,
         );
     }
 
@@ -100,7 +100,7 @@ mod text_unterminated_escapes {
     fn should_keep_a_hexadecimal_entity_without_semicolon() {
         assert_transform(
             "<div>&#x123 xxx</div>",
-            r#"createVNode(1, "div", null, "&#x123 xxx", 16);"#,
+            r#"newVNode(3, "div", null, "&#x123 xxx");"#,
         );
     }
 }
@@ -113,7 +113,7 @@ mod text_whitespace {
     fn should_keep_single_line_whitespace() {
         assert_transform(
             "<div> \t angry \t </div>",
-            r#"createVNode(1, "div", null, "   angry   ", 16);"#,
+            r#"newVNode(3, "div", null, "   angry   ");"#,
         );
     }
 
@@ -121,7 +121,7 @@ mod text_whitespace {
     fn should_keep_whitespace_of_the_first_and_last_lines() {
         assert_transform(
             "<div> \t boris\ncod\ndante \t </div>",
-            r#"createVNode(1, "div", null, "   boris cod dante   ", 16);"#,
+            r#"newVNode(3, "div", null, "   boris cod dante   ");"#,
         );
     }
 
@@ -129,7 +129,7 @@ mod text_whitespace {
     fn should_drop_whitespace_only_first_and_last_lines() {
         assert_transform(
             "<div> \t \naging\n \t </div>",
-            r#"createVNode(1, "div", null, "aging", 16);"#,
+            r#"newVNode(3, "div", null, "aging");"#,
         );
     }
 
@@ -137,7 +137,7 @@ mod text_whitespace {
     fn should_keep_whitespace_inside_a_line() {
         assert_transform(
             "<div>\n \t bark \t club \t devil \t \n</div>",
-            r#"createVNode(1, "div", null, "bark   club   devil", 16);"#,
+            r#"newVNode(3, "div", null, "bark   club   devil");"#,
         );
     }
 }
@@ -148,10 +148,7 @@ mod text_newline_entities {
 
     #[test]
     fn should_collapse_an_encoded_newline_between_words() {
-        assert_transform(
-            "<div>a&#10;b</div>",
-            r#"createVNode(1, "div", null, "a b", 16);"#,
-        );
+        assert_transform("<div>a&#10;b</div>", r#"newVNode(3, "div", null, "a b");"#);
     }
 
     #[test]
@@ -161,7 +158,7 @@ mod text_newline_entities {
   a&#10;
   b
 </div>",
-            r#"createVNode(1, "div", null, "a b", 16);"#,
+            r#"newVNode(3, "div", null, "a b");"#,
         );
     }
 
@@ -169,7 +166,7 @@ mod text_newline_entities {
     fn should_convert_encoded_tabs_to_spaces() {
         assert_transform(
             "<div>&#9;x&#9;</div>",
-            r#"createVNode(1, "div", null, " x ", 16);"#,
+            r#"newVNode(3, "div", null, " x ");"#,
         );
     }
 }
@@ -182,7 +179,7 @@ mod text_unicode {
     fn should_keep_an_emoji_with_a_variation_selector_on_its_own_line() {
         assert_transform(
             "<h2>\n🏝\u{FE0F}\n</h2>",
-            "createVNode(1, \"h2\", null, \"🏝\u{FE0F}\", 16);",
+            "newVNode(3, \"h2\", null, \"🏝\u{FE0F}\");",
         );
     }
 }
@@ -195,11 +192,11 @@ mod issues {
     fn issue_6638_should_drop_tab_indentation_of_nested_components() {
         assert_transform(
             "<Suspense fallback={\"Loading...\"}>\n\t<PanelGroup>\n\t\t<Panel>\n\t\t\t<A/>\n\t\t</Panel>\n\t</PanelGroup>\n</Suspense>",
-            r#"createComponentVNode(2, Suspense, {
+            r#"newComponentVNode(0, Suspense, {
   "fallback": "Loading...",
-  children: createComponentVNode(2, PanelGroup, {
-    children: createComponentVNode(2, Panel, {
-      children: createComponentVNode(2, A)
+  children: newComponentVNode(0, PanelGroup, {
+    children: newComponentVNode(0, Panel, {
+      children: newComponentVNode(0, A)
     })
   })
 });"#,
@@ -217,12 +214,12 @@ mod issues {
  */
 export const a = <div/>;",
             ),
-            r#"import { createVNode } from "inferno";
+            r#"import { newVNode } from "inferno";
 /** @jsxImportSource react */
 /**
  * Mentions `@jsxImportSource custom/source` in docs
  */
-export const a = createVNode(1, "div");"#,
+export const a = newVNode(17, "div");"#,
         );
     }
 
@@ -239,10 +236,10 @@ export const a = createVNode(1, "div");"#,
 /** @jsxRuntime classic */
 export const foo = <div/>;",
             ),
-            r#"import { createVNode } from "inferno";
+            r#"import { newVNode } from "inferno";
 /** @jsx h */
 /** @jsxRuntime classic */
-export const foo = createVNode(1, "div");"#,
+export const foo = newVNode(17, "div");"#,
         );
     }
 }
@@ -260,9 +257,9 @@ mod transform_arrow_functions_with_this_member_expression {
   return () => <this.foo.bar.qux />;
 };",
             ),
-            r#"import { createComponentVNode } from "inferno";
+            r#"import { newComponentVNode } from "inferno";
 const f = function () {
-  return () => createComponentVNode(2, this.foo.bar.qux);
+  return () => newComponentVNode(0, this.foo.bar.qux);
 };"#,
         );
     }
@@ -276,7 +273,7 @@ mod current_behaviour_questionable {
     fn static_children_should_mark_a_comment_and_an_element_as_unknown_children() {
         assert_transform(
             "<div>{ /* comment only */ }<span/></div>",
-            r#"createVNode(1, "div", null, createVNode(1, "span"), 0);"#,
+            r#"newVNode(1, "div", null, newVNode(17, "span"));"#,
         );
     }
 }

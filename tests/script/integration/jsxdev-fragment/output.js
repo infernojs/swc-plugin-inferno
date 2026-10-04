@@ -1,5 +1,5 @@
-var _inferno = require("inferno"), createVNode = _inferno.createVNode, createFragment = _inferno.createFragment;
-const App = /*#__PURE__*/ createFragment([
-    /*#__PURE__*/ createVNode(1, "div", null, "hoge", 16),
-    /*#__PURE__*/ createVNode(1, "div", null, "fuga", 16)
-], 4);
+var _inferno = require("inferno"), newVNode = _inferno.newVNode, newFragment = _inferno.newFragment;
+const App = /*#__PURE__*/ newFragment(260, [
+    /*#__PURE__*/ newVNode(3, "div", null, "hoge"),
+    /*#__PURE__*/ newVNode(3, "div", null, "fuga")
+]);

@@ -1,5 +1,5 @@
-import { createComponentVNode } from "inferno";
-var es3 = /*#__PURE__*/ createComponentVNode(2, F, {
+import { newComponentVNode } from "inferno";
+var es3 = /*#__PURE__*/ newComponentVNode(0, F, {
     aaa: true,
     "new": true,
     "const": true,

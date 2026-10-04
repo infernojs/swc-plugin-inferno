@@ -1,7 +1,7 @@
-var _inferno = require("inferno"), createVNode = _inferno.createVNode, createFragment = _inferno.createFragment;
-/**@jsxRuntime automatic */ const App = /*#__PURE__*/ createVNode(1, "div", null, [
-    /*#__PURE__*/ createVNode(1, "div"),
-    /*#__PURE__*/ createFragment([
-        /*#__PURE__*/ createVNode(1, "div", null, "hoge", 16)
-    ], 4)
-], 4);
+var _inferno = require("inferno"), newVNode = _inferno.newVNode, newFragment = _inferno.newFragment;
+/**@jsxRuntime automatic */ const App = /*#__PURE__*/ newVNode(5, "div", null, [
+    /*#__PURE__*/ newVNode(17, "div"),
+    /*#__PURE__*/ newFragment(260, [
+        /*#__PURE__*/ newVNode(3, "div", null, "hoge")
+    ])
+]);

@@ -2,7 +2,7 @@ use crate::inferno_flags::VNodeFlags;
 
 /// The vNode flags of an element with this tag name, from the `lib/vNodeTypes.js` table of
 /// babel-plugin-inferno
-pub fn parse_vnode_flag(tag: &str) -> u16 {
+pub fn parse_vnode_flag(tag: &str) -> u32 {
     (match tag {
         "input" => VNodeFlags::InputElement,
         "textarea" => VNodeFlags::TextareaElement,
@@ -92,5 +92,5 @@ pub fn parse_vnode_flag(tag: &str) -> u16 {
         | "meshrow"
         | "solidcolor" => VNodeFlags::SvgElement,
         _ => VNodeFlags::HtmlElement,
-    }) as u16
+    }) as u32
 }

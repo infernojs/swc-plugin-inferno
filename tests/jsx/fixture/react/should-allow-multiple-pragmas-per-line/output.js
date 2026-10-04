@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-/* @jsxRuntime automatic @jsxImportSource preact */ var div = /*#__PURE__*/ createVNode(1, "div", null, "test", 16);
+import { newVNode } from "inferno";
+/* @jsxRuntime automatic @jsxImportSource preact */ var div = /*#__PURE__*/ newVNode(3, "div", null, "test");

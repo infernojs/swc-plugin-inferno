@@ -1,11 +1,11 @@
-import { createVNode, createTextVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "div", null, "wow", 16);
-/*#__PURE__*/ createVNode(1, "div", null, "wôw", 16);
-/*#__PURE__*/ createVNode(1, "div", null, "w & w", 16);
-/*#__PURE__*/ createVNode(1, "div", null, "w & w", 16);
-/*#__PURE__*/ createVNode(1, "div", null, "w   w", 16);
-/*#__PURE__*/ createVNode(1, "div", null, [
-    /*#__PURE__*/ createTextVNode("this should parse as unicode: "),
-    /*#__PURE__*/ createTextVNode('\u00a0 ')
-], 0);
-/*#__PURE__*/ createVNode(1, "div", null, "w < w", 16);
+import { newVNode, newTextVNode } from "inferno";
+/*#__PURE__*/ newVNode(3, "div", null, "wow");
+/*#__PURE__*/ newVNode(3, "div", null, "wôw");
+/*#__PURE__*/ newVNode(3, "div", null, "w & w");
+/*#__PURE__*/ newVNode(3, "div", null, "w & w");
+/*#__PURE__*/ newVNode(3, "div", null, "w   w");
+/*#__PURE__*/ newVNode(1, "div", null, [
+    /*#__PURE__*/ newTextVNode("this should parse as unicode: "),
+    /*#__PURE__*/ newTextVNode('\u00a0 ')
+]);
+/*#__PURE__*/ newVNode(3, "div", null, "w < w");

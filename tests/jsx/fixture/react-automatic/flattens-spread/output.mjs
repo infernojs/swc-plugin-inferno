@@ -1,18 +1,18 @@
-import { createVNode, normalizeProps } from "inferno";
-/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "p", null, "text", 16, {
+import { newVNode, normalizeProps } from "inferno";
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(3, "p", null, "text", {
     ...props
 }));
-/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, contents, 0, {
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(1, "div", null, contents, {
     ...props
 }));
-/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "img", null, null, 1, {
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(17, "img", null, null, {
     alt: "",
     ...{
         src,
         title
     }
 }));
-/*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "blockquote", null, items, 0, {
+/*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(1, "blockquote", null, items, {
     ...{
         cite
     }

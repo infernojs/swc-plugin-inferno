@@ -1,10 +1,10 @@
-import { createVNode, createTextVNode } from "inferno";
-var x = /*#__PURE__*/ createVNode(1, "div", null, [
-    /*#__PURE__*/ createTextVNode("foo"),
-    /*#__PURE__*/ createTextVNode("bar"),
-    /*#__PURE__*/ createTextVNode("baz"),
-    /*#__PURE__*/ createVNode(1, "div", null, "buz bang", 16),
-    /*#__PURE__*/ createTextVNode("qux"),
+import { newVNode, newTextVNode } from "inferno";
+var x = /*#__PURE__*/ newVNode(1, "div", null, [
+    /*#__PURE__*/ newTextVNode("foo"),
+    /*#__PURE__*/ newTextVNode("bar"),
+    /*#__PURE__*/ newTextVNode("baz"),
+    /*#__PURE__*/ newVNode(3, "div", null, "buz bang"),
+    /*#__PURE__*/ newTextVNode("qux"),
     null,
-    /*#__PURE__*/ createTextVNode("quack")
-], 0);
+    /*#__PURE__*/ newTextVNode("quack")
+]);

@@ -1,5 +1,5 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, TimelineInfiniteScrollerItem, {
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, TimelineInfiniteScrollerItem, {
     ev: ev,
     itemRef: itemRef,
     isExternal: isExternal,

@@ -1,8 +1,8 @@
-import { createVNode } from "inferno";
-var x = /*#__PURE__*/ createVNode(1, "div", null, [
-    /*#__PURE__*/ createVNode(1, "span"),
+import { newVNode } from "inferno";
+var x = /*#__PURE__*/ newVNode(1, "div", null, [
+    /*#__PURE__*/ newVNode(17, "span"),
     [
-        /*#__PURE__*/ createVNode(1, "span", null, null, 1, null, "0"),
-        /*#__PURE__*/ createVNode(1, "span", null, null, 1, null, "1")
+        /*#__PURE__*/ newVNode(17, "span", null, null, null, "0"),
+        /*#__PURE__*/ newVNode(17, "span", null, null, null, "1")
     ]
-], 0);
+]);

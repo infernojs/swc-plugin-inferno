@@ -1,2 +1,2 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(magic, ComponentA);
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(magic | 16, ComponentA);

@@ -10,7 +10,7 @@ mod spread_position {
     fn should_keep_a_spread_before_other_props() {
         assert_transform(
             "<Component {...x} y={2} z />",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   ...x,
   "y": 2,
   "z": true
@@ -22,7 +22,7 @@ mod spread_position {
     fn should_keep_a_spread_after_other_props() {
         assert_transform(
             "<Component y={2} z { ... x } />",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   "y": 2,
   "z": true,
   ...x
@@ -34,7 +34,7 @@ mod spread_position {
     fn should_keep_a_spread_between_other_props() {
         assert_transform(
             "<Component y={2} { ... x } z />",
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   "y": 2,
   ...x,
   "z": true
@@ -46,12 +46,12 @@ mod spread_position {
     fn should_keep_the_same_spread_twice() {
         assert_transform(
             r#"<Component x={1} y="2" {...z} {...z}><Child /></Component>"#,
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   "x": 1,
   "y": "2",
   ...z,
   ...z,
-  children: createComponentVNode(2, Child)
+  children: newComponentVNode(0, Child)
 }));"#,
         );
     }
@@ -60,7 +60,7 @@ mod spread_position {
     fn should_keep_a_sequence_expression_spread() {
         assert_transform(
             r#"<Component x="1" {...(z = { y: 2 }, z)} z={3}>Text</Component>"#,
-            r#"normalizeProps(createComponentVNode(2, Component, {
+            r#"normalizeProps(newComponentVNode(0, Component, {
   "x": "1",
   ...(z = {
     y: 2
@@ -75,7 +75,7 @@ mod spread_position {
     fn should_keep_a_null_spread() {
         assert_transform(
             "<div {...null} />",
-            r#"normalizeProps(createVNode(1, "div", null, null, 1, {
+            r#"normalizeProps(newVNode(17, "div", null, null, {
   ...null
 }));"#,
         );
@@ -85,8 +85,8 @@ mod spread_position {
     fn should_keep_a_spread_of_a_jsx_element() {
         assert_transform(
             "<div {...<span/>} />",
-            r#"normalizeProps(createVNode(1, "div", null, null, 1, {
-  ...createVNode(1, "span")
+            r#"normalizeProps(newVNode(17, "div", null, null, {
+  ...newVNode(17, "span")
 }));"#,
         );
     }
@@ -95,7 +95,7 @@ mod spread_position {
     fn should_keep_an_object_literal_spread_containing_proto() {
         assert_transform(
             r#"<Foo {...{__proto__: a}} b="1" />"#,
-            r#"normalizeProps(createComponentVNode(2, Foo, {
+            r#"normalizeProps(newComponentVNode(0, Foo, {
   ...{
     __proto__: a
   },
@@ -108,7 +108,7 @@ mod spread_position {
     fn should_keep_a_comment_inside_a_spread() {
         assert_transform(
             r#"<div {.../*i18n*/{ id: "hello" }} />"#,
-            r#"normalizeProps(createVNode(1, "div", null, null, 1, {
+            r#"normalizeProps(newVNode(17, "div", null, null, {
   ... /*i18n*/{
     id: "hello"
   }
@@ -125,7 +125,7 @@ mod spread_with_special_props {
     fn should_keep_class_name_key_and_ref_next_to_spreads() {
         assert_transform(
             r#"<div {...a} {...b} className="x" key="k" ref={r}>{c}</div>"#,
-            r#"normalizeProps(createVNode(1, "div", "x", c, 0, {
+            r#"normalizeProps(newVNode(1, "div", "x", c, {
   ...a,
   ...b
 }, "k", r));"#,
@@ -136,7 +136,7 @@ mod spread_with_special_props {
     fn should_keep_key_next_to_a_spread_on_a_component() {
         assert_transform(
             r#"<Foo {...p} key="k"/>"#,
-            r#"normalizeProps(createComponentVNode(2, Foo, {
+            r#"normalizeProps(newComponentVNode(0, Foo, {
   ...p
 }, "k"));"#,
         );
@@ -146,7 +146,7 @@ mod spread_with_special_props {
     fn should_keep_ref_next_to_a_spread_on_a_component() {
         assert_transform(
             "<Foo {...p} ref={r}/>",
-            r"normalizeProps(createComponentVNode(2, Foo, {
+            r"normalizeProps(newComponentVNode(0, Foo, {
   ...p
 }, null, r));",
         );
@@ -156,7 +156,7 @@ mod spread_with_special_props {
     fn should_keep_a_children_prop_next_to_a_spread_on_an_element() {
         assert_transform(
             r#"<div {...p} children="x"/>"#,
-            r#"normalizeProps(createVNode(1, "div", null, "x", 16, {
+            r#"normalizeProps(newVNode(3, "div", null, "x", {
   ...p
 }));"#,
         );
@@ -166,7 +166,7 @@ mod spread_with_special_props {
     fn should_keep_dynamic_children_next_to_a_spread() {
         assert_transform(
             "<div {...p}>{a}{b}</div>",
-            r#"normalizeProps(createVNode(1, "div", null, [a, b], 0, {
+            r#"normalizeProps(newVNode(1, "div", null, [a, b], {
   ...p
 }));"#,
         );
@@ -176,7 +176,7 @@ mod spread_with_special_props {
     fn should_keep_a_component_children_prop_next_to_a_spread() {
         assert_transform(
             "<Foo children={a} {...p} />",
-            r#"normalizeProps(createComponentVNode(2, Foo, {
+            r#"normalizeProps(newComponentVNode(0, Foo, {
   "children": a,
   ...p
 }));"#,
@@ -187,7 +187,7 @@ mod spread_with_special_props {
     fn should_prefer_jsx_children_over_a_children_prop_next_to_a_spread() {
         assert_transform(
             "<Foo {...p} children={a}>b</Foo>",
-            r#"normalizeProps(createComponentVNode(2, Foo, {
+            r#"normalizeProps(newComponentVNode(0, Foo, {
   ...p,
   children: "b"
 }));"#,
@@ -198,7 +198,7 @@ mod spread_with_special_props {
     fn should_keep_an_attribute_after_a_spread() {
         assert_transform(
             r#"<input {...props} type="radio" />"#,
-            r#"normalizeProps(createVNode(64, "input", null, null, 1, {
+            r#"normalizeProps(newVNode(528, "input", null, null, {
   ...props,
   "type": "radio"
 }));"#,
@@ -209,7 +209,7 @@ mod spread_with_special_props {
     fn should_keep_a_spread_of_a_conditional_object() {
         assert_transform(
             r#"<div {...(c ? {class: "x"} : {})} />"#,
-            r#"normalizeProps(createVNode(1, "div", null, null, 1, {
+            r#"normalizeProps(newVNode(17, "div", null, null, {
   ...(c ? {
     class: "x"
   } : {})
@@ -226,8 +226,8 @@ mod other_compilation_targets {
     fn should_compile_spreads_with_object_spread_for_es5() {
         assert_js_eq(
             &transform_with("{}", r#"<div {...p} a="1"/>"#),
-            r#"import { createVNode, normalizeProps } from "inferno";
-normalizeProps(createVNode(1, "div", null, null, 1, {
+            r#"import { newVNode, normalizeProps } from "inferno";
+normalizeProps(newVNode(17, "div", null, null, {
   ...p,
   "a": "1"
 }));"#,
@@ -238,8 +238,8 @@ normalizeProps(createVNode(1, "div", null, null, 1, {
     fn should_reference_inferno_helpers_through_the_module_namespace_for_common_js() {
         assert_js_eq(
             &transform_with("{}", "<div {...p}/>"),
-            r#"import { createVNode, normalizeProps } from "inferno";
-normalizeProps(createVNode(1, "div", null, null, 1, {
+            r#"import { newVNode, normalizeProps } from "inferno";
+normalizeProps(newVNode(17, "div", null, null, {
   ...p
 }));"#,
         );
@@ -254,7 +254,7 @@ mod current_behaviour_questionable {
     fn should_not_flatten_an_object_literal_spread() {
         assert_transform(
             "<Foo {...{a: 1}} />",
-            r"normalizeProps(createComponentVNode(2, Foo, {
+            r"normalizeProps(newComponentVNode(0, Foo, {
   ...{
     a: 1
   }
@@ -270,7 +270,7 @@ mod current_behaviour_questionable {
         );
         assert_transform(
             r#"<Foo key="k" {...p}/>"#,
-            r#"normalizeProps(createComponentVNode(2, Foo, {
+            r#"normalizeProps(newComponentVNode(0, Foo, {
   ...p
 }, "k"));"#,
         );
@@ -280,7 +280,7 @@ mod current_behaviour_questionable {
     fn should_pass_class_name_before_a_spread_as_the_class_name_argument() {
         assert_transform(
             r#"<div className="x" {...p}/>"#,
-            r#"normalizeProps(createVNode(1, "div", "x", null, 1, {
+            r#"normalizeProps(newVNode(17, "div", "x", null, {
   ...p
 }));"#,
         );
@@ -290,7 +290,7 @@ mod current_behaviour_questionable {
     fn should_evaluate_class_name_before_the_other_props() {
         assert_transform(
             "<div onClick={a()} className={b()} key={c()} ref={d()} />",
-            r#"createVNode(1, "div", b(), null, 1, {
+            r#"newVNode(17, "div", b(), null, {
   "onClick": a()
 }, c(), d());"#,
         );

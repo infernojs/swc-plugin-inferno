@@ -179,11 +179,16 @@ where
     }
 }
 
-/// Inferno exports that return a new vNode
+/// Inferno exports that return a new vNode. The create* factories are the deprecated forms of the
+/// new* ones, which Inferno 10 still exports.
 fn creates_vnode(name: &str) -> bool {
     matches!(
         name,
-        "createVNode"
+        "newVNode"
+            | "newComponentVNode"
+            | "newFragment"
+            | "newTextVNode"
+            | "createVNode"
             | "createComponentVNode"
             | "createFragment"
             | "createTextVNode"

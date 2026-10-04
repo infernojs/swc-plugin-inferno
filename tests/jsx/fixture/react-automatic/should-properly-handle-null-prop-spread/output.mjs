@@ -1,5 +1,5 @@
-import { createVNode, normalizeProps } from "inferno";
+import { newVNode, normalizeProps } from "inferno";
 var foo = null;
-var x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ createVNode(1, "div", null, null, 1, {
+var x = /*#__PURE__*/ normalizeProps(/*#__PURE__*/ newVNode(17, "div", null, null, {
     ...foo
 }));

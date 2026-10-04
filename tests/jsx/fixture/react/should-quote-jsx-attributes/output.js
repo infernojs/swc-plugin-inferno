@@ -1,4 +1,4 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "button", null, "Button", 16, {
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(3, "button", null, "Button", {
     "data-value": "a value"
 });

@@ -168,12 +168,16 @@ const ATTRIBUTE_TRANSFORMS: &[(&str, &str)] = &[
     ("htmlFor", "for"),
 ];
 
+/// An element without children, so its flags have the HasInvalidChildren bit (16)
 fn element_props(flags: u32, tag: &str, name: &str) -> String {
-    format!("createVNode({flags}, \"{tag}\", null, null, 1, {{\n  \"{name}\": \"v\"\n}});")
+    format!(
+        "newVNode({}, \"{tag}\", null, null, {{\n  \"{name}\": \"v\"\n}});",
+        flags | 16
+    )
 }
 
 fn component_props(name: &str) -> String {
-    format!("createComponentVNode(2, Foo, {{\n  \"{name}\": \"v\"\n}});")
+    format!("newComponentVNode(0, Foo, {{\n  \"{name}\": \"v\"\n}});")
 }
 
 fn assert_mapped_on_elements(flags: u32, tag: &str, table: &[(&str, &str)]) {
@@ -217,7 +221,7 @@ mod attrs_svg {
 
     #[test]
     fn should_map_on_elements() {
-        assert_mapped_on_elements(32, "rect", SVG_ATTRIBUTES);
+        assert_mapped_on_elements(64, "rect", SVG_ATTRIBUTES);
     }
 
     #[test]

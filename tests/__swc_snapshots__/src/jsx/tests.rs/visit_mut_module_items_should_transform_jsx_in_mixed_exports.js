@@ -1,8 +1,8 @@
-import { createVNode, createComponentVNode } from "inferno";
+import { newVNode, newComponentVNode } from "inferno";
 import { Component } from "inferno";
 export default class App extends Component {
     render() {
-        return /*#__PURE__*/ createComponentVNode(2, Main);
+        return /*#__PURE__*/ newComponentVNode(0, Main);
     }
 }
-export const Title = ()=>/*#__PURE__*/ createVNode(1, "h1", null, "App", 16);
+export const Title = ()=>/*#__PURE__*/ newVNode(3, "h1", null, "App");

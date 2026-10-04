@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(bool ? 1 : 2, "img", null, expression, 0);
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(bool ? 1 : 2, "img", null, expression);

@@ -1,6 +1,6 @@
-import { createVNode, createFragment } from "inferno";
+import { newVNode, newFragment } from "inferno";
 export var App = function() {
-    return /*#__PURE__*/ createFragment([
-        /*#__PURE__*/ createVNode(1, "div", null, "1", 16)
-    ], 4);
+    return /*#__PURE__*/ newFragment(260, [
+        /*#__PURE__*/ newVNode(3, "div", null, "1")
+    ]);
 };

@@ -11,9 +11,9 @@ mod expression_positions {
         assert_transform(
             "function F({x = <b/>}) { return <div>{x}</div>; }",
             r#"function F({
-  x = createVNode(1, "b")
+  x = newVNode(17, "b")
 }) {
-  return createVNode(1, "div", null, x, 0);
+  return newVNode(1, "div", null, x);
 }"#,
         );
     }
@@ -23,7 +23,7 @@ mod expression_positions {
         assert_transform(
             "class C { static el = <i/>; }",
             r#"class C {
-  static el = createVNode(1, "i");
+  static el = newVNode(17, "i");
 }"#,
         );
     }
@@ -33,7 +33,7 @@ mod expression_positions {
         assert_transform(
             "class A { render = () => <this.subComponent />; }",
             r"class A {
-  render = () => createComponentVNode(2, this.subComponent);
+  render = () => newComponentVNode(0, this.subComponent);
 }",
         );
     }
@@ -42,7 +42,7 @@ mod expression_positions {
     fn should_compile_jsx_in_a_default_export() {
         assert_transform(
             "export default () => <div/>;",
-            r#"export default () => createVNode(1, "div");"#,
+            r#"export default () => newVNode(17, "div");"#,
         );
     }
 
@@ -50,7 +50,7 @@ mod expression_positions {
     fn should_compile_jsx_in_a_named_export() {
         assert_transform(
             "export const A = () => <div/>;",
-            r#"export const A = () => createVNode(1, "div");"#,
+            r#"export const A = () => newVNode(17, "div");"#,
         );
     }
 
@@ -58,7 +58,7 @@ mod expression_positions {
     fn should_compile_jsx_inside_higher_order_component_calls() {
         assert_transform(
             "const C = memo(forwardRef((props, ref) => <div ref={ref}/>));",
-            r#"const C = memo(forwardRef((props, ref) => createVNode(1, "div", null, null, 1, null, null, ref)));"#,
+            r#"const C = memo(forwardRef((props, ref) => newVNode(17, "div", null, null, null, null, ref)));"#,
         );
     }
 
@@ -67,8 +67,8 @@ mod expression_positions {
         assert_transform(
             r"<div>{a}</div>;
 <span>{b}</span>",
-            r#"createVNode(1, "div", null, a, 0);
-createVNode(1, "span", null, b, 0);"#,
+            r#"newVNode(1, "div", null, a);
+newVNode(1, "span", null, b);"#,
         );
     }
 
@@ -77,8 +77,8 @@ createVNode(1, "span", null, b, 0);"#,
         assert_transform(
             r"let Foo = <div />;
 <Foo />;",
-            r#"let Foo = createVNode(1, "div");
-createComponentVNode(2, Foo);"#,
+            r#"let Foo = newVNode(17, "div");
+newComponentVNode(0, Foo);"#,
         );
     }
 }
@@ -156,7 +156,7 @@ mod jsx_created_by_other_plugins {
 
         assert_js_eq(
             &strip_inferno_import(&compiled.code),
-            "const el = createVNode(1, \"div\", null, \"text\", 16, {\n  \"title\": \"generated\"\n});",
+            "const el = newVNode(3, \"div\", null, \"text\", {\n  \"title\": \"generated\"\n});",
         );
     }
 }

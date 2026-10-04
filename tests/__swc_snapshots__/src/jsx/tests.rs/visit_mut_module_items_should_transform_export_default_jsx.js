@@ -1,4 +1,4 @@
-import { createVNode } from "inferno";
+import { newVNode } from "inferno";
 export default function Foo() {
-    return /*#__PURE__*/ createVNode(1, "div", null, "Hello", 16);
+    return /*#__PURE__*/ newVNode(3, "div", null, "Hello");
 }

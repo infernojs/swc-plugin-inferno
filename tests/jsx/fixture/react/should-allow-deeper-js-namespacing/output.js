@@ -1,2 +1,2 @@
-import { createComponentVNode } from "inferno";
-/*#__PURE__*/ createComponentVNode(2, Namespace.DeepNamespace.Component);
+import { newComponentVNode } from "inferno";
+/*#__PURE__*/ newComponentVNode(0, Namespace.DeepNamespace.Component);

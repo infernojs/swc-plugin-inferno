@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-var x = /*#__PURE__*/ createVNode(1, "div");
+import { newVNode } from "inferno";
+var x = /*#__PURE__*/ newVNode(17, "div");

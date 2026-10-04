@@ -1,2 +1,2 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "hasOwnProperty", null, "testing", 16);
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(3, "hasOwnProperty", null, "testing");

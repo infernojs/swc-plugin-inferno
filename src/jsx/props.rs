@@ -1,5 +1,6 @@
 //! Props of a JSX element, like `getVNodeProps` of babel-plugin-inferno.
 
+use super::child_shape::{Child, prop_child};
 use super::text::{collapse_attribute_line_breaks, map_text};
 use super::useless_flags::FlagAttr;
 use crate::transformations::attribute_tables::element_attribute;
@@ -111,9 +112,10 @@ pub(super) struct VNodeProps {
     pub(super) has_keyed_children: bool,
     pub(super) has_non_keyed_children: bool,
     pub(super) prop_children: Option<PropChildren>,
+    /// The child that the `children` attribute gives, for the child flag shape check
+    pub(super) prop_child: Option<Child>,
     pub(super) children_known: bool,
     pub(super) child_flags: Option<Box<Expr>>,
-    pub(super) has_re_create_flag: bool,
     pub(super) needs_normalization: bool,
     pub(super) content_editable: bool,
     pub(super) has_text_children: bool,
@@ -275,7 +277,19 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
                     result.children_known = true;
                     result.has_keyed_children = true;
                 }
-                "ref" => result.reference = Some(get_value(attr.value)),
+                "ref" => {
+                    // A valueless ref would be true, which is neither a callback nor a ref object.
+                    // It is left out, so that compiling goes on without it.
+                    if attr.value.is_none() {
+                        emit_error(
+                            span,
+                            "Please provide an explicit ref value. Using \"ref\" as a shorthand \
+                             for \"ref={true}\" is not allowed.",
+                        );
+                    } else {
+                        result.reference = Some(get_value(attr.value));
+                    }
+                }
                 "key" => {
                     if attr.value.is_none() {
                         emit_error(
@@ -286,13 +300,16 @@ pub(super) fn get_vnode_props(attrs: Vec<JSXAttrOrSpread>, is_component: bool) -
                     }
                     result.key = Some(get_value(attr.value));
                 }
-                "$ReCreate" => {
-                    result.flag_attrs.push((FlagAttr::ReCreate, span));
-                    result.has_re_create_flag = true;
-                }
+                // Removed in Inferno 10
+                "$ReCreate" => emit_error(
+                    span,
+                    "$ReCreate has been removed in Inferno 10. To re-create the element, change \
+                     its key instead, for example key={version}.",
+                ),
                 _ => {
                     if name == "children" {
                         result.prop_children = Some(prop_children(attr.value.as_ref()));
+                        result.prop_child = prop_child(attr.value.as_ref());
                     }
                     if name.eq_ignore_ascii_case("contenteditable") {
                         result.content_editable = true;

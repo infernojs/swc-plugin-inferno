@@ -1,2 +1,2 @@
-import { createFragment } from "inferno";
-var x = /*#__PURE__*/ createFragment();
+import { newFragment } from "inferno";
+var x = /*#__PURE__*/ newFragment(272);

@@ -1,5 +1,5 @@
-import { createVNode } from "inferno";
+import { newVNode } from "inferno";
 /** @jsx foo */ function ProductItem() {
-    return /*#__PURE__*/ createVNode(1, "div", null, "Hello World", 16);
+    return /*#__PURE__*/ newVNode(3, "div", null, "Hello World");
 }
 console.log(ProductItem);

@@ -1,0 +1,5 @@
+  x $ReCreate has been removed in Inferno 10. To re-create the element, change its key instead, for example key={version}.
+   ,-[input.js:1:1]
+ 1 | <div $ReCreate/>;
+   :      ^^^^^^^^^
+   `----

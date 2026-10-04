@@ -1,5 +1,5 @@
-import { createVNode } from "inferno";
-/*#__PURE__*/ createVNode(1, "label", null, /*#__PURE__*/ createVNode(64, "input", null, null, 1, {
+import { newVNode } from "inferno";
+/*#__PURE__*/ newVNode(9, "label", null, /*#__PURE__*/ newVNode(528, "input", null, null, {
     id: id,
     name: name,
     value: value,
@@ -12,6 +12,6 @@ import { createVNode } from "inferno";
     pattern: "[0-9]+([,\\.][0-9]+)?",
     inputmode: "numeric",
     min: minimum
-}), 2, {
+}), {
     for: id
 });

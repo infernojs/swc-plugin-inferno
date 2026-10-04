@@ -1,6 +1,6 @@
-import { createComponentVNode } from "inferno";
+import { newComponentVNode } from "inferno";
 function Component(props) {}
-/*#__PURE__*/ createComponentVNode(2, Component, {
+/*#__PURE__*/ newComponentVNode(0, Component, {
     x: [
         1,
         2,

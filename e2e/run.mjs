@@ -87,7 +87,7 @@ if (!existsSync(bundlePath)) fail(`webpack produced no bundle at ${bundlePath}`)
 const bundle = readFileSync(bundlePath, "utf8");
 
 // Assert against the fixture's own section of the bundle. inferno's runtime is
-// concatenated into the same file and defines `createVNode` & friends, so
+// concatenated into the same file and defines `newVNode` & friends, so
 // searching the whole bundle would pass even if nothing had been transformed.
 const marker = "./fixture/index.jsx";
 const markerAt = bundle.indexOf(marker);
@@ -96,16 +96,19 @@ const transformed = bundle.slice(markerAt);
 
 const expectations = [
   // <li className="item">{label}</li> - className hoisted to its own argument,
-  // single expression child.
-  [/createVNode\(1, "li", "item", label,/, "element vnode with hoisted className"],
+  // single expression child, which has no child bit (normalized at runtime).
+  [/newVNode\(1, "li", "item", label\)/, "element vnode with hoisted className"],
   // <Item key={item} label={item} /> - component vnode, key as trailing arg.
-  [/createComponentVNode\(2, Item, \{\s*label: item\s*\}, item\)/, "component vnode with key"],
-  // <ul $HasKeyedChildren> - childFlags 8 (HasKeyedChildren) from the directive.
-  [/createVNode\(1, "ul", null, items\.map\([\s\S]*?\), 8\)/, "$HasKeyedChildren directive"],
-  // <>...</> - fragment.
-  [/createFragment\(\[/, "fragment vnode"],
+  [/newComponentVNode\(0, Item, \{\s*label: item\s*\}, item\)/, "component vnode with key"],
+  // <ul $HasKeyedChildren> - HtmlElement (1) | HasKeyedChildren (32) from the directive.
+  [/newVNode\(33, "ul", null, items\.map\(/, "$HasKeyedChildren directive"],
+  // <>...</> - Fragment (256) | HasNonKeyedChildren (4).
+  [/newFragment\(260, \[/, "fragment vnode"],
+  // <p $ChildFlag={childFlag}> - a $ChildFlag known only at runtime goes through
+  // the deprecated createVNode, which converts it.
+  [/createVNode\(1, "p", null, children, childFlag\)/, "runtime $ChildFlag"],
   // pure annotations survive into the bundle.
-  [/\/\*#__PURE__\*\/ ?createVNode\(1, "div", "app",/, "#__PURE__ annotation"],
+  [/\/\*#__PURE__\*\/ ?newVNode\(5, "div", "app",/, "#__PURE__ annotation"],
 ];
 
 const failures = expectations.filter(([re]) => !re.test(transformed)).map(([, what]) => what);
@@ -145,7 +148,7 @@ if (!/\/\*#__PURE__\*\/ ?forwardRef\(/.test(withDefaults)) {
 }
 // Both the normalizeProps call of a spread element and the vNode it wraps are annotated, so that
 // a minifier can drop an unused element completely.
-if (!/\/\*#__PURE__\*\/ ?normalizeProps\(\/\*#__PURE__\*\/ ?createVNode\(1, "div"/.test(withDefaults)) {
+if (!/\/\*#__PURE__\*\/ ?normalizeProps\(\/\*#__PURE__\*\/ ?newVNode\(17, "div"/.test(withDefaults)) {
   fail(`default options: the vNode inside normalizeProps(...) is not annotated #__PURE__:\n${withDefaults}`);
 }
 // normalizeProps mutates its argument, so a minifier must never drop this call.
@@ -228,6 +231,24 @@ try {
 if (uselessFlagError === null) fail('{ uselessFlags: "error" }: the useless flag was accepted');
 if (!String(uselessFlagError.message ?? uselessFlagError).includes(uselessFlagMessage)) {
   fail(`{ uselessFlags: "error" }: the error does not explain the flag:\n${uselessFlagError.message ?? uselessFlagError}`);
+}
+
+// A child flag that the children cannot have fails the transform, whatever uselessFlags is.
+let shapeError = null;
+try {
+  transformSync("<div $HasVNodeChildren>text</div>;", {
+    filename: "shape.jsx",
+    jsc: {
+      parser: { syntax: "ecmascript", jsx: true },
+      experimental: { plugins: [[wasmPath, { uselessFlags: "off" }]] },
+    },
+  });
+} catch (err) {
+  shapeError = err;
+}
+if (shapeError === null) fail("a child flag that the children cannot have was accepted");
+if (!String(shapeError.message ?? shapeError).includes("$HasVNodeChildren needs one element or component child, but the child is text.")) {
+  fail(`a child flag that the children cannot have did not report a clear error:\n${shapeError.message ?? shapeError}`);
 }
 
 let levelError = null;
