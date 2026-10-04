@@ -33,8 +33,5 @@
     "transformer"
   ],
   "license": "MIT",
-  "peerDependencies": {
-    "inferno": "^10.0.0"
-  },
   "preferUnplugged": true
 }

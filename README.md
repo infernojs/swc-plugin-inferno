@@ -25,7 +25,8 @@ For Inferno 9 and older, use version 3.x of the plugin. Inferno 10 numbers its v
 compiled by version 3.x has to be compiled again for Inferno 10.
 
 From version 10 on, the major version of the plugin matches the major version of Inferno: use plugin 10.x with
-Inferno 10.x, plugin 11.x with Inferno 11.x, and so on. See the
+Inferno 10.x, plugin 11.x with Inferno 11.x, and so on. The plugin does not declare `inferno` as a peer dependency, so
+the package manager does not check this for you. See the
 [Inferno 10 migration guide](https://github.com/infernojs/inferno/blob/master/documentation/v10-migration.md).
 
 The flags the plugin writes are the `VNodeFlags` of `inferno-vnode-flags` 10:
@@ -53,6 +54,8 @@ Children that are only known at runtime, such as `{expression}`, get no child bi
 ```bash
 npm i --save-dev swc-plugin-inferno
 ```
+
+Install the major version that matches your `inferno` version, see [Inferno versions](#inferno-versions).
 
 ## How to use
 
